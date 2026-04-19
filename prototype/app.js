@@ -379,7 +379,7 @@ function buildChartContext(widget, areaState, widgetState = {}) {
   const seriesSelection = chooseSeriesSelection(widget, normalizedState);
   const allSeriesList = [...seriesSelection.values];
   const legendSeriesList = getLegendSelection(widget.seq, "__legend_series__", allSeriesList);
-  const xLabels = applyGlobalDateRangeToLabels(widget, inferXAxisLabels(widget));
+  const xLabels = applyGlobalDateRangeToLabels(widget, inferXAxisLabels(widget, normalizedState), normalizedState);
   return {
     pageId: appState.currentPageId,
     filterState: normalizedState,
@@ -415,6 +415,16 @@ function getWidgetBehavior(widget) {
     (rule.allow || rule.enableSeriesFilters || []).forEach((filterName) => enableSeriesFilters.add(filterName));
   });
 
+  if (supportsFrequencyToggle(widget) && !localFilterMap.has("频率")) {
+    localFilterMap.set("频率", {
+      name: "频率",
+      label: "频率",
+      options: ["月频", "日频"],
+      defaultValues: ["月频"],
+      renderMode: "segmented",
+    });
+  }
+
   return {
     localFilters: Array.from(localFilterMap.values()),
     suppressSeriesFilters: Array.from(suppressSeriesFilters),
@@ -441,8 +451,39 @@ function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq) {
   return `
     <div class="widget-card__filters">
       ${visibleFilters
-        .map((filter) => renderFilterGroup("widget", widgetSeq, filter.label || filter.name, widgetState[filter.name] || [], filter.options))
+        .map((filter) =>
+          filter.renderMode === "segmented"
+            ? renderWidgetSegmentedFilter(widgetSeq, filter.name, filter.label || filter.name, widgetState[filter.name] || filter.defaultValues || [], filter.options || [])
+            : renderFilterGroup("widget", widgetSeq, filter.label || filter.name, widgetState[filter.name] || [], filter.options)
+        )
         .join("")}
+    </div>
+  `;
+}
+
+function renderWidgetSegmentedFilter(widgetSeq, filterName, filterLabel, selectedValues, options) {
+  const activeValue = (selectedValues || []).find((value) => options.includes(value)) || options[0] || "";
+  return `
+    <div class="widget-segmented-filter">
+      <span class="widget-segmented-filter__label">${filterLabel}</span>
+      <div class="widget-segmented-filter__group" role="tablist" aria-label="${filterLabel}">
+        ${options
+          .map(
+            (option) => `
+              <button
+                class="widget-segmented-filter__btn ${option === activeValue ? "is-active" : ""}"
+                type="button"
+                role="tab"
+                aria-selected="${option === activeValue}"
+                data-segmented-filter="true"
+                data-widget-seq="${widgetSeq}"
+                data-filter-name="${filterName}"
+                data-filter-value="${option}"
+              >${option}</button>
+            `
+          )
+          .join("")}
+      </div>
     </div>
   `;
 }
@@ -1638,7 +1679,7 @@ function applyFrameAxisLayout(frame, widget, labels) {
 }
 
 function buildAxisLayout(widget, labels, frame) {
-  if (!usesHybridDailyTimeline(widget)) return null;
+  if (!supportsFrequencyToggle(widget)) return null;
   const historyCount = labels.filter((label) => !String(label).includes("/")).length;
   const dailyCount = labels.length - historyCount;
   if (!historyCount || !dailyCount) return null;
@@ -1797,8 +1838,12 @@ function inferXAxisTitle(xLabels) {
   return "时间/维度";
 }
 
-function inferXAxisLabels(widget) {
-  if (usesHybridDailyTimeline(widget)) return buildHybridXAxisLabels();
+function inferXAxisLabels(widget, filterState = {}) {
+  if (supportsFrequencyToggle(widget)) {
+    return getWidgetFrequency(widget, filterState) === "日频"
+      ? buildRecentDailyXAxisLabels(widget)
+      : inferBaseXAxisLabels(widget);
+  }
   const grain = widget.grain || "";
   if (grain.includes("日")) return ["4/01", "4/03", "4/05", "4/07", "4/09", "4/11", "4/13", "4/15"];
   if (grain.includes("月")) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
@@ -1849,11 +1894,11 @@ function getGlobalTimeBounds() {
   };
 }
 
-function applyGlobalDateRangeToLabels(widget, labels) {
+function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
   const rangeStart = appState.globalStartDate;
   const rangeEnd = appState.globalEndDate;
   if (!rangeStart && !rangeEnd) return labels;
-  const datedEntries = buildTimelineEntries(widget, labels).filter((entry) => entry.date);
+  const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   if (!datedEntries.length) return labels;
   const visible = datedEntries
     .filter((entry) => (!rangeStart || entry.date >= rangeStart) && (!rangeEnd || entry.date <= rangeEnd))
@@ -1861,8 +1906,10 @@ function applyGlobalDateRangeToLabels(widget, labels) {
   return visible.length ? visible : [datedEntries[0].label];
 }
 
-function buildTimelineEntries(widget, labels = inferXAxisLabels(widget)) {
-  if (usesHybridDailyTimeline(widget)) return buildHybridTimelineEntries(labels);
+function buildTimelineEntries(widget, labels = inferXAxisLabels(widget), filterState = {}) {
+  if (supportsFrequencyToggle(widget) && getWidgetFrequency(widget, filterState) === "日频") {
+    return buildDailyTimelineEntries(labels);
+  }
   const grain = String(widget.grain || "");
   if (grain.includes("月")) return buildMonthlyTimelineEntries(labels);
   if (grain.includes("日")) return buildDailyTimelineEntries(labels);
@@ -1907,7 +1954,7 @@ function buildDailyTimelineEntries(labels) {
   });
 }
 
-function usesHybridDailyTimeline(widget) {
+function supportsFrequencyToggle(widget) {
   const title = String(widget?.title || "");
   return [
     "重定价缺口率",
@@ -1916,6 +1963,12 @@ function usesHybridDailyTimeline(widget) {
     "优质流动性资产HQLA",
     "生息资产规模",
   ].some((keyword) => title.includes(keyword));
+}
+
+function getWidgetFrequency(widget, filterState = {}) {
+  if (!supportsFrequencyToggle(widget)) return null;
+  const values = filterState["频率"] || [];
+  return values.includes("日频") ? "日频" : "月频";
 }
 
 function getReferenceTimelinePivot() {
@@ -1950,6 +2003,28 @@ function inferBaseXAxisLabels(widget) {
   if (grain.includes("日")) return ["4/01", "4/03", "4/05", "4/07", "4/09", "4/11", "4/13", "4/15"];
   if (grain.includes("月")) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
   return ["T1", "T2", "T3", "T4", "T5", "T6"];
+}
+
+function buildRecentDailyXAxisLabels(widget) {
+  const endDate = getWidgetObservationDate(widget);
+  const startDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - 32);
+  return Array.from({ length: 33 }, (_, index) => {
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + index);
+    return `${current.getMonth() + 1}/${String(current.getDate()).padStart(2, "0")}`;
+  });
+}
+
+function getWidgetObservationDate(widget) {
+  const pivot = getReferenceTimelinePivot();
+  const monthEnd = new Date(pivot.year, pivot.month, 0);
+  const today = new Date();
+  const todayInPivotMonth = today.getFullYear() === pivot.year && today.getMonth() + 1 === pivot.month;
+  const latestAllowedDate = todayInPivotMonth && today < monthEnd ? today : monthEnd;
+  const selectedEndDate = parseDateValue(appState.globalEndDate);
+  if (selectedEndDate) {
+    return selectedEndDate < latestAllowedDate ? selectedEndDate : latestAllowedDate;
+  }
+  return latestAllowedDate;
 }
 
 function buildHybridXAxisLabels() {
@@ -3022,6 +3097,18 @@ dashboardViewEl.addEventListener("click", (event) => {
     appState.openFilterKey = buildFilterKey(ownerType, ownerId, filterName);
     if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
     else appState.areaFilters[ownerId] = stateBucket;
+    render();
+    return;
+  }
+
+  const segmentedFilter = event.target.closest("[data-segmented-filter]");
+  if (segmentedFilter) {
+    const { widgetSeq, filterName, filterValue } = segmentedFilter.dataset;
+    const widgetState = appState.widgetFilters[widgetSeq] || {};
+    appState.widgetFilters[widgetSeq] = {
+      ...widgetState,
+      [filterName]: [filterValue],
+    };
     render();
     return;
   }
