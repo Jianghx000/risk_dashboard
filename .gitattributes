@@ -1,0 +1,14 @@
+* text=auto
+
+*.js text
+*.css text
+*.html text
+*.md text
+*.py text
+*.ps1 text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.xlsx binary
+*.zip binary

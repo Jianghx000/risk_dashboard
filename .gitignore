@@ -1,0 +1,30 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local git-less debug artifacts
+.playwright-cli/
+output/
+tmp/
+
+# Local recovery snapshots / backups
+_recovery_snapshot_*/
+prototype/_recovery_snapshot_*/
+
+# Ad-hoc exported packages and working backups
+*.zip
+*.xlsx
+
+# Screenshot artifacts in project root
+prototype-screenshot*.png
+
+# Duplicate root-level source snapshots; actual working files live in prototype/
+/app.js
+/app.v20260410.js
+/dashboard-config.js
+/dashboard-config.v20260410.js
+/dashboard-data.js
+/dashboard-data.v20260410.js
+/index.html
+/styles.css
+/styles.v20260416.css

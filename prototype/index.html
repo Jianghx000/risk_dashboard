@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>风险管理驾驶舱</title>
+    <link rel="stylesheet" href="./styles.v20260416.css?v=202604190510" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero__backdrop hero__backdrop--left"></div>
+        <div class="hero__backdrop hero__backdrop--right"></div>
+        <div class="hero__content">
+          <div class="hero__title-card">
+            <h1>风险管理驾驶舱</h1>
+            <div class="hero__controls">
+              <div class="hero__control-group">
+                <label class="hero__control-label" for="globalStartDate">开始时间</label>
+                <input class="hero__control-input" id="globalStartDate" type="date" />
+              </div>
+              <div class="hero__control-group">
+                <label class="hero__control-label" for="globalEndDate">结束时间</label>
+                <input class="hero__control-input" id="globalEndDate" type="date" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel panel--sticky">
+            <div class="panel__heading">
+              <h2>导航切换</h2>
+            </div>
+            <div class="page-tabs" id="pageTabs"></div>
+          </section>
+        </aside>
+
+        <section class="content">
+          <div class="content__toolbar">
+            <div class="block-pills" id="blockPills"></div>
+          </div>
+          <div id="dashboardView" class="dashboard-view"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="filter-modal" id="filterModal" aria-hidden="true"></div>
+
+    <script src="./dashboard-data.v20260410.js?v=202604190510"></script>
+    <script src="./dashboard-config.v20260410.js?v=202604190510"></script>
+    <script src="./mock-data-adapter.v20260410.js?v=202604190510"></script>
+    <script src="./app.v20260410.js?v=202604190510"></script>
+  </body>
+</html>
+
+
