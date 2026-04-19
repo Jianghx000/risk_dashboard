@@ -1,9 +1,12 @@
 # OS / editor
 .DS_Store
 Thumbs.db
+node_modules/
 
 # Local git-less debug artifacts
 .playwright-cli/
+playwright-report/
+test-results/
 output/
 tmp/
 

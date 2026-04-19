@@ -1,0 +1,15 @@
+{
+  "name": "risk-dashboard-prototype",
+  "private": true,
+  "scripts": {
+    "validate:dashboard": "python scripts/validate_dashboard.py",
+    "smoke": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run_smoke_check.ps1",
+    "check": "npm run validate:dashboard && npm run smoke"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

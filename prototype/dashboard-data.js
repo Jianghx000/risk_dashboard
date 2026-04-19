@@ -646,7 +646,7 @@ window.dashboardData = {
       ],
       "blockCount": 4,
       "areaCount": 14,
-      "widgetCount": 29
+      "widgetCount": 28
     },
     {
       "id": "page-2",
@@ -959,7 +959,7 @@ window.dashboardData = {
       ],
       "blockCount": 3,
       "areaCount": 7,
-      "widgetCount": 12
+      "widgetCount": 13
     },
     {
       "id": "page-3",
