@@ -2,7 +2,7 @@ window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
   "workbook": "\u98ce\u9669\u7ba1\u7406\u9a7e\u9a76\u8231\uff08\u65e0\u56fe\u7248\uff09.xlsx",
   "pageCount": 4,
-  "widgetCount": 53,
+  "widgetCount": 54,
   "pages": [
     {
       "id": "page-1",
@@ -646,7 +646,7 @@ window.dashboardData = {
       ],
       "blockCount": 4,
       "areaCount": 14,
-      "widgetCount": 28
+      "widgetCount": 29
     },
     {
       "id": "page-2",
@@ -864,22 +864,38 @@ window.dashboardData = {
                   "seq": 51,
                   "title": "\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u89c4\u6a21",
                   "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u671f\u9650\u957f\u5ea6\uff08\u591a\u9009\uff0c\u4ec51/7/90\u65e5\u56fe\u751f\u6548\uff09\uff1b\u7edf\u8ba1\u53e3\u5f84\uff08\u591a\u9009\uff0c\u4ec530\u65e5\u56fe\u548c\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u56fe\u751f\u6548\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u671f\u9650\u957f\u5ea6\u3001\u7edf\u8ba1\u53e3\u5f84\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\u53ca\u7edf\u8ba1\u53e3\u5f84\uff08\u5f53\u65e5\u6216\u9010\u65e5\u7d2f\u8ba1\uff09\uff0c\u5c55\u793a\u672a\u6765\u6bcf\u4e00\u5929\u7684\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u548c\u7f3a\u53e3\u89c4\u6a21\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u6309\u5f53\u524d\u56fe\u8868\u540d\u79f0\u5bf9\u5e94\u7684\u53ef\u89c6\u5316\u7ec4\u4ef6\u5b9e\u73b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u7edf\u8ba1\u53e3\u5f84\u652f\u6301\u591a\u9009\uff0c\u53ef\u540c\u56fe\u5bf9\u6bd4\u5f53\u65e5\u4e0e\u9010\u65e5\u7d2f\u8ba1\u53e3\u5f84\u3002",
+                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u7edf\u8ba1\u53e3\u5f84\uff08\u591a\u9009\uff0c\u4ec530\u65e5\u56fe\u548c\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u56fe\u751f\u6548\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u7edf\u8ba1\u53e3\u5f84\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\u53ca\u7edf\u8ba1\u53e3\u5f84\uff08\u5f53\u65e5\u6216\u9010\u65e5\u7d2f\u8ba1\uff09\uff0c\u5c55\u793a\u8d44\u91d1\u6d41\u5165\u4e0e\u8d44\u91d1\u6d41\u51fa\u89c4\u6a21\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\u3002",
                   "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u53e3\u5f84\uff1a\u9ed8\u8ba4\u5f53\u524d\u533a\u57df\u4e3b\u53e3\u5f84\uff1b\u671f\u9650\uff1a\u9ed8\u8ba4\u5168\u9009",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u53e3\u5f84\uff1a\u9ed8\u8ba4\u5f53\u524d\u533a\u57df\u4e3b\u53e3\u5f84",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[]",
+                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
+                  "metricDescription": "\u6307\u6807\uff1a\u8d44\u91d1\u6d41\u5165/\u8d44\u91d1\u6d41\u51fa",
+                  "legendDescription": "\u56fe\u4f8b\uff1a\u8d44\u91d1\u6d41\u5165\u3001\u8d44\u91d1\u6d41\u51fa",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
                   "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
                   "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
                   "originPosition": "\u539f\u59cb\u884c51"
+                },
+                {
+                  "seq": 54,
+                  "title": "未来逐日资金流",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：未来30天逐日。原始要求：与本区域其他图保持一致口径，展示未来30天每一天的资金净额及累计净额。开发细化：采用柱线组合图实现，柱表示当日净额，线表示累计净额。",
+                  "grain": "日度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计日期",
+                  "metricDescription": "指标：当日净额/累计净额",
+                  "legendDescription": "图例：当日净额、累计净额",
+                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：双轴柱线组合图",
+                  "originPosition": "新增"
                 }
               ]
             }
           ],
-          "widgetCount": 3
+          "widgetCount": 4
         },
         {
           "id": "block-3",

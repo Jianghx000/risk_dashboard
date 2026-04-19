@@ -320,7 +320,6 @@ function renderWidgetCard(areaGroup, widget, areaState) {
   const displayMode = ensureWidgetDisplayMode(widget);
   const widgetLocalFilters = renderWidgetLocalFilters(widgetBehavior, widgetState, widget.seq);
   const widgetCardClass = shouldSpanFullWidth(widget) ? " widget-card--full" : "";
-  const shouldHideHeaderTitle = isFundingFlowScaleWidget(widget);
   const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.seq}">AI</button>`;
   const modeSwitch = supportsDisplayToggle(widget)
     ? `
@@ -332,8 +331,8 @@ function renderWidgetCard(areaGroup, widget, areaState) {
     : "";
   return `
     <article class="widget-card${widgetCardClass}" data-widget-seq="${widget.seq}">
-      <div class="widget-card__header widget-card__header--clean${shouldHideHeaderTitle ? " widget-card__header--actions-only" : ""}">
-        ${shouldHideHeaderTitle ? "" : `<h4 class="widget-card__title">${formatDisplayTitle(widget.title)}</h4>`}
+      <div class="widget-card__header widget-card__header--clean">
+        <h4 class="widget-card__title">${formatDisplayTitle(widget.title)}</h4>
         <div class="widget-card__actions">
           ${insightButton}
           ${modeSwitch}
@@ -354,7 +353,8 @@ function renderWidgetStage(widget, chartContext, displayMode) {
 
 function renderChart(widget, chartContext) {
   const type = widget.componentType || "";
-  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowCompositeChart(widget, chartContext);
+  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleChart(widget, chartContext);
+  if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowChart(widget, chartContext);
   if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
   if (isLiquidityGapTenorWidget(widget)) return renderLiquidityGapTenorChart(widget, chartContext);
   if (isThirtyDayLiquidityGapWidget(widget)) return renderThirtyDayLiquidityGapChart(widget, chartContext);
@@ -838,7 +838,8 @@ function renderBusinessStructureTable(widget, chartContext) {
 
 function renderDataView(widget, chartContext) {
   const type = widget.componentType || "";
-  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowCompositeDataView(widget, chartContext);
+  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleDataView(widget, chartContext);
+  if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowDataView(widget, chartContext);
   if (isDurationRepricingWidget(widget)) return renderDurationRepricingDataTable(widget, chartContext);
   if (isNiiVolatilityWidget(widget)) return renderNiiVolatilityDataTable(widget, chartContext);
   if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
@@ -2406,6 +2407,10 @@ function isFundingFlowScaleWidget(widget) {
   return String(widget?.title || "").includes("资金流入流出规模");
 }
 
+function isFutureFundingFlowWidget(widget) {
+  return String(widget?.title || "").includes("未来逐日资金流");
+}
+
 function isBusinessChangePage() {
   return String(appState.currentPageId || "") === "page-4";
 }
@@ -2886,104 +2891,158 @@ function buildFundingFlowCompositeState(widget, chartContext) {
   };
 }
 
-function renderFundingFlowCompositeChart(widget, chartContext) {
+function renderFundingFlowLegend(widgetSeq, legendKey, items) {
+  const selectedItems = getLegendSelection(widgetSeq, legendKey, items.map((item) => item.label));
+  return `
+    <div class="chart-legend">
+      ${items
+        .map((item) => {
+          const isSelected = selectedItems.includes(item.label);
+          return `
+            <button
+              class="chart-legend__item chart-legend__item--button ${isSelected ? "is-selected" : "is-muted"}"
+              type="button"
+              data-legend-toggle="true"
+              data-widget-seq="${widgetSeq}"
+              data-legend-key="${legendKey}"
+              data-filter-value="${item.label}"
+            >
+              <i class="chart-legend__swatch" style="background:${item.color}"></i>
+              ${item.label}
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderFundingFlowScaleChart(widget, chartContext) {
   const flowState = buildFundingFlowCompositeState(widget, chartContext);
-  const leftContext = { ...chartContext, xLabels: flowState.history.labels, yLabel: "规模 (亿元)" };
-  const rightContext = { ...chartContext, xLabels: flowState.future.labels, yLabel: "净额 / 累计净额" };
-  const leftFrame = createFrame(flowState.history.labels.length);
-  const rightFrame = createFrame(flowState.future.labels.length);
-  const leftAxis = renderAxes(leftFrame, leftContext.xLabels, leftContext.yLabel);
-  const rightAxis = renderAxes(rightFrame, rightContext.xLabels, rightContext.yLabel);
-  const leftPointsIn = flowState.history.inflow.map((value, index) => ({ x: getFrameXPosition(leftFrame, index, flowState.history.labels.length), y: leftFrame.bottom - (leftFrame.height * value) / 100 }));
-  const leftPointsOut = flowState.history.outflow.map((value, index) => ({ x: getFrameXPosition(leftFrame, index, flowState.history.labels.length), y: leftFrame.bottom - (leftFrame.height * value) / 100 }));
-  const barWidth = Math.max(10, getFrameMinStep(rightFrame, flowState.future.labels.length) * 0.38);
+  const context = { ...chartContext, xLabels: flowState.history.labels, yLabel: "规模 (亿元)" };
+  const frame = createFrame(flowState.history.labels.length);
+  const axis = renderAxes(frame, context.xLabels, context.yLabel);
+  const leftPointsIn = flowState.history.inflow.map((value, index) => ({ x: getFrameXPosition(frame, index, flowState.history.labels.length), y: frame.bottom - (frame.height * value) / 100 }));
+  const leftPointsOut = flowState.history.outflow.map((value, index) => ({ x: getFrameXPosition(frame, index, flowState.history.labels.length), y: frame.bottom - (frame.height * value) / 100 }));
+  const legendItems = [
+    { label: "资金流入", color: "#BC6F51" },
+    { label: "资金流出", color: "#5F8F84" },
+  ];
+  const selectedItems = getLegendSelection(widget.seq, "__legend_funding_history__", legendItems.map((item) => item.label));
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${selectedItems.includes("资金流入")
+          ? `
+            <polyline fill="none" stroke="#BC6F51" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsIn.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${leftPointsIn.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#BC6F51" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+          `
+          : ""}
+        ${selectedItems.includes("资金流出")
+          ? `
+            <polyline fill="none" stroke="#5F8F84" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsOut.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${leftPointsOut.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#5F8F84" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+          `
+          : ""}
+      </svg>
+      ${renderFundingFlowLegend(widget.seq, "__legend_funding_history__", legendItems)}
+    </div>
+  `;
+}
+
+function renderFutureFundingFlowChart(widget, chartContext) {
+  const flowState = buildFundingFlowCompositeState(widget, chartContext);
+  const context = { ...chartContext, xLabels: flowState.future.labels, yLabel: "净额 / 累计净额" };
+  const frame = createFrame(flowState.future.labels.length);
+  const axis = renderAxes(frame, context.xLabels, context.yLabel);
+  const barWidth = Math.max(10, getFrameMinStep(frame, flowState.future.labels.length) * 0.38);
+  const legendItems = [
+    { label: "当日净额", color: "rgba(95, 143, 132, 0.72)" },
+    { label: "累计净额", color: "#2F6FA3" },
+  ];
+  const selectedItems = getLegendSelection(widget.seq, "__legend_funding_future__", legendItems.map((item) => item.label));
   const bars = flowState.future.dailyNet.map((value, index) => {
-    const baseY = rightFrame.bottom - (rightFrame.height * 20) / 100;
+    const baseY = frame.bottom - (frame.height * 20) / 100;
     const height = Math.abs(value) * 2.6;
-    const x = getFrameXPosition(rightFrame, index, flowState.future.labels.length) - barWidth / 2;
+    const x = getFrameXPosition(frame, index, flowState.future.labels.length) - barWidth / 2;
     const y = value >= 0 ? baseY - height : baseY;
     const fill = value >= 0 ? "rgba(95, 143, 132, 0.72)" : "rgba(200, 132, 98, 0.82)";
     return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${fill}"></rect>`;
   }).join("");
   const cumulativePoints = flowState.future.cumulativeNet.map((value, index) => {
     const normalized = clampNumber(45 + value * 0.6, 2, 98);
-    return { x: getFrameXPosition(rightFrame, index, flowState.future.labels.length), y: rightFrame.bottom - (rightFrame.height * normalized) / 100 };
+    return { x: getFrameXPosition(frame, index, flowState.future.labels.length), y: frame.bottom - (frame.height * normalized) / 100 };
   });
   return `
-    <div class="chart-shell chart-shell--split">
-      <section class="chart-panel">
-        <h5 class="chart-panel__title">资金流入流出规模</h5>
-        <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          ${leftAxis}
-          <polyline fill="none" stroke="#BC6F51" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsIn.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-          ${leftPointsIn.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#BC6F51" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
-          <polyline fill="none" stroke="#5F8F84" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsOut.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-          ${leftPointsOut.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#5F8F84" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
-        </svg>
-      </section>
-      <section class="chart-panel">
-        <h5 class="chart-panel__title">未来逐日资金流</h5>
-        <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          ${rightAxis}
-          ${bars}
-          <polyline fill="none" stroke="#2F6FA3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${cumulativePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-          ${cumulativePoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#2F6FA3" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
-        </svg>
-      </section>
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${selectedItems.includes("当日净额") ? bars : ""}
+        ${selectedItems.includes("累计净额")
+          ? `
+            <polyline fill="none" stroke="#2F6FA3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${cumulativePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${cumulativePoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#2F6FA3" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+          `
+          : ""}
+      </svg>
+      ${renderFundingFlowLegend(widget.seq, "__legend_funding_future__", legendItems)}
     </div>
   `;
 }
 
-function renderFundingFlowCompositeDataView(widget, chartContext) {
+function renderFundingFlowScaleDataView(widget, chartContext) {
   const flowState = buildFundingFlowCompositeState(widget, chartContext);
   return `
-    <div class="chart-shell chart-shell--split">
-      <section class="chart-panel">
-        <h5 class="chart-panel__title">资金流入流出规模</h5>
-        <div class="table-shell">
-          <table class="chart-table">
-            <thead>
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(flowState.history.labels)}</th>
+              <th>资金流入</th>
+              <th>资金流出</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${flowState.history.labels.map((label, index) => `
               <tr>
-                <th>${inferXAxisTitle(flowState.history.labels)}</th>
-                <th>资金流入</th>
-                <th>资金流出</th>
+                <td>${label}</td>
+                <td>${flowState.history.inflow[index].toFixed(1)}</td>
+                <td>${flowState.history.outflow[index].toFixed(1)}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${flowState.history.labels.map((label, index) => `
-                <tr>
-                  <td>${label}</td>
-                  <td>${flowState.history.inflow[index].toFixed(1)}</td>
-                  <td>${flowState.history.outflow[index].toFixed(1)}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section class="chart-panel">
-        <h5 class="chart-panel__title">未来逐日资金流</h5>
-        <div class="table-shell">
-          <table class="chart-table">
-            <thead>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderFutureFundingFlowDataView(widget, chartContext) {
+  const flowState = buildFundingFlowCompositeState(widget, chartContext);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table">
+          <thead>
+            <tr>
+              <th>统计日期</th>
+              <th>当日净额</th>
+              <th>累计净额</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${flowState.future.labels.map((label, index) => `
               <tr>
-                <th>统计日期</th>
-                <th>当日净额</th>
-                <th>累计净额</th>
+                <td>${label}</td>
+                <td>${flowState.future.dailyNet[index].toFixed(1)}</td>
+                <td>${flowState.future.cumulativeNet[index].toFixed(1)}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${flowState.future.labels.map((label, index) => `
-                <tr>
-                  <td>${label}</td>
-                  <td>${flowState.future.dailyNet[index].toFixed(1)}</td>
-                  <td>${flowState.future.cumulativeNet[index].toFixed(1)}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }

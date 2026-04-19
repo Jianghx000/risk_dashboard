@@ -1296,20 +1296,6 @@ body { min-height: 100vh; overflow-x: hidden; }
   line-height: 1.8;
 }
 
-.chart-shell--split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.chart-panel__title {
-  margin: 0 0 12px;
-  color: var(--primary-deep);
-  font-size: 18px;
-  font-weight: 800;
-  text-align: center;
-}
-
 .axis-title--minor {
   fill: #a48771;
   font-size: 11px;
@@ -1324,10 +1310,6 @@ body { min-height: 100vh; overflow-x: hidden; }
 }
 
 @media (max-width: 860px) {
-  .chart-shell--split {
-    grid-template-columns: 1fr;
-  }
-
   .simulation-form {
     grid-template-columns: 1fr;
   }
