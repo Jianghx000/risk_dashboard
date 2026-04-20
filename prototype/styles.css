@@ -772,7 +772,8 @@ body { min-height: 100vh; overflow-x: hidden; }
   justify-content: center;
   text-align: center;
   min-width: 0;
-  padding-right: 84px;
+  padding-left: 12px;
+  padding-right: 182px;
 }
 
 .widget-card__filters {
@@ -833,9 +834,7 @@ body { min-height: 100vh; overflow-x: hidden; }
 }
 
 .widget-display-switch {
-  position: absolute;
-  right: 0;
-  top: 0;
+  position: static;
   flex-shrink: 0;
   display: inline-flex;
   gap: 6px;
@@ -1130,9 +1129,12 @@ body { min-height: 100vh; overflow-x: hidden; }
 }
 
 .widget-card__actions {
+  position: absolute;
+  right: 0;
+  top: 0;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .widget-action {
@@ -1141,9 +1143,9 @@ body { min-height: 100vh; overflow-x: hidden; }
   background: rgba(236, 245, 253, 0.96);
   color: #2f6fa3;
   border-radius: 999px;
-  width: 56px;
-  height: 56px;
-  font-size: 18px;
+  width: 48px;
+  height: 48px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
 }

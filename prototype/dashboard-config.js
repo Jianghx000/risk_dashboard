@@ -47,11 +47,18 @@ window.dashboardConfig = {
         "90\u65e5"
       ],
       "\u4e1a\u52a1\u7c7b\u578b": [
-        "\u8d37\u6b3e",
-        "\u503a\u5238",
-        "\u5b58\u6b3e",
-        "\u540c\u4e1a",
-        "\u8868\u5916"
+        "\u81ea\u8425\u8d37\u6b3e",
+        "\u503a\u5238\u6295\u8d44",
+        "\u540c\u4e1a\u8d44\u4ea7",
+        "\u5b58\u653e\u592e\u884c",
+        "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
+        "\u6d3b\u671f\u5b58\u6b3e",
+        "\u5b9a\u671f\u5b58\u6b3e",
+        "\u540c\u4e1a\u8d1f\u503a",
+        "\u53d1\u884c\u503a\u5238",
+        "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+        "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
+        "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
       ],
       "\u8d37\u6b3e\u7c7b\u578b": [
         "\u6574\u4f53\u5bf9\u516c\u8d37\u6b3e",
@@ -97,6 +104,10 @@ window.dashboardConfig = {
       "\u5b58\u6b3e\u7c7b\u578b": [
         "\u5bf9\u516c\u5b9a\u671f\u5b58\u6b3e",
         "\u50a8\u84c4\u5b9a\u671f\u5b58\u6b3e"
+      ],
+      "\u4e1a\u52a1\u7c7b\u578b": [
+        "\u81ea\u8425\u8d37\u6b3e",
+        "\u503a\u5238\u6295\u8d44"
       ]
     }
   },
@@ -122,6 +133,110 @@ window.dashboardConfig = {
       }
     ]
   },
+  "managementLimits": [
+    {
+      "indicator": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
+      "matchTitles": [
+        "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 28,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 25,
+        "\u5883\u5185\u6c47\u603b": 30,
+        "\u7ebd\u7ea6\u5206\u884c": 32,
+        "\u65b0\u52a0\u5761\u5206\u884c": 29,
+        "\u5362\u68ee\u5821\u5206\u884c": 27,
+        "\u4f26\u6566\u5206\u884c": 31,
+        "\u6089\u5c3c\u5206\u884c": 26,
+        "\u9999\u6e2f\u5206\u884c": 30
+      }
+    },
+    {
+      "indicator": "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387",
+      "matchTitles": [
+        "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 24,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 22,
+        "\u5883\u5185\u6c47\u603b": 26,
+        "\u7ebd\u7ea6\u5206\u884c": 28,
+        "\u65b0\u52a0\u5761\u5206\u884c": 25,
+        "\u5362\u68ee\u5821\u5206\u884c": 23,
+        "\u4f26\u6566\u5206\u884c": 27,
+        "\u6089\u5c3c\u5206\u884c": 24,
+        "\u9999\u6e2f\u5206\u884c": 25
+      }
+    },
+    {
+      "indicator": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
+      "matchTitles": [
+        "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 38,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 34,
+        "\u5883\u5185\u6c47\u603b": 40,
+        "\u7ebd\u7ea6\u5206\u884c": 42,
+        "\u65b0\u52a0\u5761\u5206\u884c": 37,
+        "\u5362\u68ee\u5821\u5206\u884c": 35,
+        "\u4f26\u6566\u5206\u884c": 39,
+        "\u6089\u5c3c\u5206\u884c": 36,
+        "\u9999\u6e2f\u5206\u884c": 38
+      }
+    },
+    {
+      "indicator": "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
+      "matchTitles": [
+        "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 62,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 58,
+        "\u5883\u5185\u6c47\u603b": 64,
+        "\u7ebd\u7ea6\u5206\u884c": 67,
+        "\u65b0\u52a0\u5761\u5206\u884c": 61,
+        "\u5362\u68ee\u5821\u5206\u884c": 59,
+        "\u4f26\u6566\u5206\u884c": 65,
+        "\u6089\u5c3c\u5206\u884c": 60,
+        "\u9999\u6e2f\u5206\u884c": 63
+      }
+    },
+    {
+      "indicator": "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR",
+      "matchTitles": [
+        "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 66,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 62,
+        "\u5883\u5185\u6c47\u603b": 68,
+        "\u7ebd\u7ea6\u5206\u884c": 70,
+        "\u65b0\u52a0\u5761\u5206\u884c": 65,
+        "\u5362\u68ee\u5821\u5206\u884c": 63,
+        "\u4f26\u6566\u5206\u884c": 69,
+        "\u6089\u5c3c\u5206\u884c": 64,
+        "\u9999\u6e2f\u5206\u884c": 67
+      }
+    },
+    {
+      "indicator": "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21",
+      "matchTitles": [
+        "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21"
+      ],
+      "values": {
+        "\u6cd5\u4eba\u6c47\u603b": 55,
+        "\u5883\u5916\u5206\u884c\u6c47\u603b": 50,
+        "\u5883\u5185\u6c47\u603b": 57,
+        "\u7ebd\u7ea6\u5206\u884c": 60,
+        "\u65b0\u52a0\u5761\u5206\u884c": 54,
+        "\u5362\u68ee\u5821\u5206\u884c": 52,
+        "\u4f26\u6566\u5206\u884c": 58,
+        "\u6089\u5c3c\u5206\u884c": 53,
+        "\u9999\u6e2f\u5206\u884c": 56
+      }
+    }
+  ],
   "widgetFilters": {
     "4": [
       {
@@ -156,19 +271,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],
@@ -187,19 +296,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],
@@ -218,19 +321,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],
@@ -323,13 +420,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],
@@ -348,13 +445,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],
@@ -389,13 +486,13 @@ window.dashboardConfig = {
           "\u5b9a\u671f\u5b58\u6b3e",
           "\u540c\u4e1a\u8d1f\u503a",
           "\u53d1\u884c\u503a\u5238",
+          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
+          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
           "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
         ],
         "defaultValues": [
           "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a"
+          "\u503a\u5238\u6295\u8d44"
         ]
       }
     ],

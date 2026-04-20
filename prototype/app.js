@@ -7,7 +7,8 @@ const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters 
 const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
 const WIDGET_FILTER_CONFIG = config.widgetFilters || {};
 const SERIES_RULES = config.seriesRules || config.widgetRules || [];
-const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "表外衍生品应付"];
+const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
+const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债", "表外衍生品应收", "表外衍生品应付"];
 const SIMULATION_COLOR = "#2F6FA3";
 const SIMULATION_FILL = "rgba(47, 111, 163, 0.16)";
 const RATE_TYPE_OPTIONS = ["固定利率", "浮动利率"];
@@ -28,6 +29,8 @@ const BUSINESS_SIDE_MAP = {
   定期存款: "liability",
   同业负债: "liability",
   发行债券: "liability",
+  内部交易负债: "liability",
+  表外衍生品应收: "asset",
   表外衍生品应付: "liability",
 };
 const SERIES_PALETTE = ["#BC6F51", "#5F8F84", "#D09147", "#9F8CAE", "#C87963", "#7EA998", "#6F3929", "#D8C0AA"];
@@ -552,12 +555,14 @@ function renderLineChart(widget, chartContext) {
       `;
     })
     .join("");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
   const simulationOverlay = renderSimulationOverlay(frame, widget, chartContext, seriesDefinitions);
 
   return `
     <div class="chart-shell">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         ${seriesMarkup}
         ${simulationOverlay}
       </svg>
@@ -595,12 +600,14 @@ function renderComboChart(widget, chartContext) {
       `;
     })
     .join("");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
   const simulationOverlay = renderSimulationOverlay(frame, widget, chartContext, seriesDefinitions);
 
   return `
     <div class="chart-shell">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         ${bars}
         ${lines}
         ${simulationOverlay}
@@ -909,6 +916,7 @@ function renderInlineControlledLineChart(widget, chartContext, filterName, optio
       `;
     })
     .join("");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
 
   return `
     <div class="chart-shell">
@@ -917,6 +925,7 @@ function renderInlineControlledLineChart(widget, chartContext, filterName, optio
       </div>
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         ${seriesMarkup}
       </svg>
       ${renderSeriesLegend(widget, chartContext)}
@@ -1221,11 +1230,13 @@ function renderNiiVolatilityComboChart(widget, chartContext) {
     })
     .join("")
     : "";
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
 
   return `
     <div class="chart-shell">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         ${bars}
         ${lines}
       </svg>
@@ -1852,26 +1863,42 @@ function inferXAxisLabels(widget, filterState = {}) {
 }
 
 function ensureGlobalDateRange() {
-  const bounds = getGlobalTimeBounds();
-  if (!appState.globalStartDate) appState.globalStartDate = bounds.min;
-  if (!appState.globalEndDate) appState.globalEndDate = bounds.max;
-  if (appState.globalStartDate < bounds.min) appState.globalStartDate = bounds.min;
-  if (appState.globalEndDate > bounds.max) appState.globalEndDate = bounds.max;
+  const defaultEndDate = getDefaultGlobalEndDate();
+  const defaultStartDate = getDefaultGlobalStartDate();
+  if (!appState.globalStartDate) appState.globalStartDate = defaultStartDate;
+  if (!appState.globalEndDate) appState.globalEndDate = defaultEndDate;
+  if (appState.globalEndDate > defaultEndDate) appState.globalEndDate = defaultEndDate;
   if (appState.globalStartDate > appState.globalEndDate) {
-    appState.globalStartDate = bounds.min;
-    appState.globalEndDate = bounds.max;
+    appState.globalStartDate = defaultStartDate;
+    appState.globalEndDate = defaultEndDate;
   }
 }
 
 function renderGlobalDateRangeControl() {
   if (!globalStartInputEl || !globalEndInputEl) return;
-  const bounds = getGlobalTimeBounds();
-  globalStartInputEl.min = bounds.min;
-  globalStartInputEl.max = appState.globalEndDate || bounds.max;
-  globalStartInputEl.value = appState.globalStartDate || bounds.min;
-  globalEndInputEl.min = appState.globalStartDate || bounds.min;
-  globalEndInputEl.max = bounds.max;
-  globalEndInputEl.value = appState.globalEndDate || bounds.max;
+  const defaultEndDate = getDefaultGlobalEndDate();
+  globalStartInputEl.removeAttribute("min");
+  globalStartInputEl.max = appState.globalEndDate || defaultEndDate;
+  globalStartInputEl.value = appState.globalStartDate || getDefaultGlobalStartDate();
+  globalEndInputEl.min = appState.globalStartDate || "";
+  globalEndInputEl.max = defaultEndDate;
+  globalEndInputEl.value = appState.globalEndDate || defaultEndDate;
+}
+
+function getDefaultGlobalEndDate() {
+  const yesterday = new Date();
+  yesterday.setHours(0, 0, 0, 0);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return formatDateValue(yesterday);
+}
+
+function getDefaultGlobalStartDate() {
+  const monthEnd13MonthsAgo = new Date();
+  monthEnd13MonthsAgo.setHours(0, 0, 0, 0);
+  monthEnd13MonthsAgo.setDate(1);
+  monthEnd13MonthsAgo.setMonth(monthEnd13MonthsAgo.getMonth() - 12);
+  monthEnd13MonthsAgo.setDate(0);
+  return formatDateValue(monthEnd13MonthsAgo);
 }
 
 function getGlobalTimeBounds() {
@@ -1964,6 +1991,46 @@ function supportsFrequencyToggle(widget) {
     "优质流动性资产HQLA",
     "生息资产规模",
   ].some((keyword) => title.includes(keyword));
+}
+
+function getManagementLimitConfig(widget) {
+  const title = String(widget?.title || "");
+  return MANAGEMENT_LIMIT_CONFIG.find((item) => Array.isArray(item.matchTitles) && item.matchTitles.some((keyword) => title.includes(keyword))) || null;
+}
+
+function getSelectedOrganizations(chartContext) {
+  const selected = (chartContext?.filterState?.机构 || DEFAULT_FILTER_VALUES.机构 || []).filter(Boolean);
+  return selected.length ? selected : (FILTER_OPTIONS.机构 || []).slice(0, 1);
+}
+
+function shortenOrgLabel(name) {
+  return String(name || "").replace("汇总", "").replace("分行", "");
+}
+
+function renderManagementLimitOverlay(widget, chartContext, frame) {
+  const limitConfig = getManagementLimitConfig(widget);
+  if (!limitConfig?.values) return "";
+  const orgs = getSelectedOrganizations(chartContext);
+  const colors = ["#2F6FA3", "#8A5A44", "#5F8F84", "#8F6AC8", "#D09147"];
+  const lines = orgs
+    .map((org, index) => {
+      const value = Number(limitConfig.values[org]);
+      if (!Number.isFinite(value)) return null;
+      const y = Number((frame.bottom - (frame.height * value) / 100).toFixed(1));
+      const label = `${shortenOrgLabel(org)}限额 ${value.toFixed(0)}`;
+      const labelY = Math.max(frame.top + 14, Math.min(frame.bottom - 8, y - 8 - (index % 2) * 12));
+      return { y, color: colors[index % colors.length], label, labelY };
+    })
+    .filter(Boolean);
+  if (!lines.length) return "";
+  return lines
+    .map(
+      (line) => `
+        <line x1="${frame.left}" y1="${line.y}" x2="${frame.right}" y2="${line.y}" stroke="${hexToRgba(line.color, 0.8)}" stroke-width="2" stroke-dasharray="8 6"></line>
+        <text x="${frame.left + 8}" y="${line.labelY}" class="axis-title axis-title--minor" fill="${line.color}">${line.label}</text>
+      `
+    )
+    .join("");
 }
 
 function getWidgetFrequency(widget, filterState = {}) {
@@ -3079,18 +3146,19 @@ blockPillsEl.addEventListener("click", (event) => {
 
 if (globalStartInputEl) {
   globalStartInputEl.addEventListener("change", (event) => {
-    const bounds = getGlobalTimeBounds();
-    appState.globalStartDate = event.target.value || bounds.min;
-    if (appState.globalStartDate > (appState.globalEndDate || bounds.max)) appState.globalEndDate = appState.globalStartDate;
+    const defaultEndDate = getDefaultGlobalEndDate();
+    appState.globalStartDate = event.target.value || getDefaultGlobalStartDate();
+    if (appState.globalStartDate > (appState.globalEndDate || defaultEndDate)) appState.globalEndDate = appState.globalStartDate;
     render();
   });
 }
 
 if (globalEndInputEl) {
   globalEndInputEl.addEventListener("change", (event) => {
-    const bounds = getGlobalTimeBounds();
-    appState.globalEndDate = event.target.value || bounds.max;
-    if (appState.globalEndDate < (appState.globalStartDate || bounds.min)) appState.globalStartDate = appState.globalEndDate;
+    const defaultEndDate = getDefaultGlobalEndDate();
+    appState.globalEndDate = event.target.value || defaultEndDate;
+    if (appState.globalEndDate > defaultEndDate) appState.globalEndDate = defaultEndDate;
+    if (appState.globalEndDate < (appState.globalStartDate || getDefaultGlobalStartDate())) appState.globalStartDate = appState.globalEndDate;
     render();
   });
 }
