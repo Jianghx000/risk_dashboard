@@ -133,6 +133,53 @@ window.dashboardConfig = {
       }
     ]
   },
+  "pageBehavior": {
+    "\u5229\u7387\u98ce\u9669": {
+      "simulationMode": "interest"
+    },
+    "\u6d41\u52a8\u6027\u98ce\u9669": {
+      "simulationMode": "liquidity"
+    },
+    "\u6c47\u7387\u98ce\u9669": {
+      "simulationMode": "fx"
+    }
+  },
+  "blockDisplay": {
+    "\u5229\u7387\u98ce\u9669": {
+      "\u671f\u6743\u6027\u98ce\u9669\uff08\u5883\u5185\u5206\u884c\uff09": {
+        "pairAreas": true
+      }
+    }
+  },
+  "areaDisplay": {
+    "\u5229\u7387\u98ce\u9669": {
+      "\u6838\u5fc3\u98ce\u9669\u6307\u6807": {
+        "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387": {
+          "mergeViewGroups": true
+        }
+      },
+      "\u7f3a\u53e3\u98ce\u9669": {
+        "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387": {
+          "pinnedViewScopeIncludes": [
+            "\u65f6\u70b9\u53e3\u5f84 / \u65f6\u70b9",
+            "/ \u65f6\u70b9"
+          ]
+        }
+      }
+    },
+    "\u6d41\u52a8\u6027\u98ce\u9669": {
+      "\u6838\u5fc3\u98ce\u9669\u6307\u6807": {
+        "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR": {
+          "mergeViewGroups": true
+        }
+      },
+      "\u8d44\u91d1\u5907\u4ed8": {
+        "\u8d85\u989d\u5907\u4ed8\u91d1": {
+          "mergeViewGroups": true
+        }
+      }
+    }
+  },
   "managementLimits": [
     {
       "indicator": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
@@ -237,6 +284,293 @@ window.dashboardConfig = {
       }
     }
   ],
+  "widgetBehavior": {
+    "1": {
+      "simulationBehavior": {
+        "sensitivity": 0.14
+      }
+    },
+    "3": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      },
+      "seriesFilters": {
+        "suppress": [
+          "\u5e01\u79cd"
+        ]
+      }
+    },
+    "4": {
+      "simulationBehavior": {
+        "sensitivity": 0.14
+      },
+      "seriesFilters": {
+        "allow": [
+          "\u5229\u7387\u60c5\u666f",
+          "\u60c5\u666f"
+        ]
+      }
+    },
+    "5": {
+      "tableKind": "eveCurrency"
+    },
+    "6": {
+      "tableKind": "eveScenario"
+    },
+    "7": {
+      "chartKind": "niiVolatility",
+      "simulationBehavior": {
+        "sensitivity": 0.15
+      },
+      "seriesFilters": {
+        "allow": [
+          "\u5229\u7387\u60c5\u666f",
+          "\u60c5\u666f"
+        ]
+      }
+    },
+    "8": {
+      "tableKind": "niiCurrencyMatrix"
+    },
+    "9": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "10": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "11": {
+      "chartKind": "repricingScaleGap",
+      "fullWidth": true,
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "13": {
+      "chartKind": "donut",
+      "defaultTableDimension": "\u5e01\u79cd"
+    },
+    "14": {
+      "chartKind": "maturityDistribution"
+    },
+    "15": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "16": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "17": {
+      "chartKind": "repricingScaleGap",
+      "fullWidth": true,
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "19": {
+      "chartKind": "donut",
+      "defaultTableDimension": "\u5e01\u79cd"
+    },
+    "21": {
+      "chartKind": "durationRepricing",
+      "yAxisLabel": "\u4e45\u671f",
+      "simulationBehavior": {
+        "sensitivity": 0.18
+      }
+    },
+    "23": {
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "24": {
+      "yAxisLabel": "\u4e45\u671f",
+      "simulationBehavior": {
+        "sensitivity": 0.18
+      },
+      "seriesFilters": {
+        "suppress": [
+          "\u673a\u6784",
+          "\u5e01\u79cd"
+        ]
+      }
+    },
+    "25": {
+      "tableKind": "durationGapMatrix"
+    },
+    "27": {
+      "chartKind": "durationRepricing",
+      "yAxisLabel": "\u4e45\u671f",
+      "simulationBehavior": {
+        "sensitivity": 0.18
+      }
+    },
+    "29": {
+      "simulationBehavior": {
+        "sensitivity": 0.16
+      }
+    },
+    "30": {
+      "yAxisLabel": "\u4e45\u671f",
+      "simulationBehavior": {
+        "sensitivity": 0.18
+      },
+      "seriesFilters": {
+        "suppress": [
+          "\u673a\u6784",
+          "\u5e01\u79cd"
+        ]
+      }
+    },
+    "34": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "35": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "37": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "38": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "42": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "directionMode": "coverage",
+        "sensitivity": 0.11
+      }
+    },
+    "43": {
+      "frequencyToggle": true,
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "44": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "45": {
+      "chartKind": "donut",
+      "defaultTableDimension": "\u5e01\u79cd"
+    },
+    "46": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "47": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "48": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "49": {
+      "chartKind": "liquidityGapTenor",
+      "simulationBehavior": {
+        "directionMode": "gap",
+        "sensitivity": 0.16
+      },
+      "inlineFilters": [
+        "\u671f\u9650\u957f\u5ea6"
+      ]
+    },
+    "50": {
+      "chartKind": "thirtyDayLiquidityGap",
+      "simulationBehavior": {
+        "directionMode": "gap",
+        "sensitivity": 0.16
+      },
+      "inlineFilters": [
+        "\u53e3\u5f84"
+      ]
+    },
+    "51": {
+      "chartKind": "fundingFlowScale",
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "52": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "53": {
+      "chartKind": "donut",
+      "defaultTableDimension": "\u5e01\u79cd"
+    },
+    "54": {
+      "chartKind": "futureFundingFlow",
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "68": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "69": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "71": {
+      "simulationBehavior": {
+        "sensitivity": 0.11
+      }
+    },
+    "79": {
+      "tableKind": "businessStructure"
+    },
+    "89": {
+      "tableKind": "businessStructure",
+      "inlineFilters": [
+        "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"
+      ]
+    },
+    "96": {
+      "tableKind": "businessStructure",
+      "inlineFilters": [
+        "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"
+      ]
+    }
+  },
   "widgetFilters": {
     "4": [
       {
@@ -513,59 +847,5 @@ window.dashboardConfig = {
       }
     ]
   },
-  "seriesRules": [
-    {
-      "match": {
-        "widgetSeq": 4
-      },
-      "allow": [
-        "\u5229\u7387\u60c5\u666f",
-        "\u60c5\u666f"
-      ]
-    },
-    {
-      "match": {
-        "titleIncludes": "\u672c\u5916\u5e01\u5408\u8ba1"
-      },
-      "suppress": [
-        "\u5e01\u79cd"
-      ]
-    },
-    {
-      "match": {
-        "titleIncludes": "\u60c5\u666f"
-      },
-      "allow": [
-        "\u5229\u7387\u60c5\u666f",
-        "\u60c5\u666f"
-      ]
-    },
-    {
-      "match": {
-        "legendIncludes": "\u56fe\u4f8b\uff1a\u60c5\u666f"
-      },
-      "allow": [
-        "\u5229\u7387\u60c5\u666f",
-        "\u60c5\u666f"
-      ]
-    },
-    {
-      "match": {
-        "widgetSeq": 24
-      },
-      "suppress": [
-        "\u673a\u6784",
-        "\u5e01\u79cd"
-      ]
-    },
-    {
-      "match": {
-        "widgetSeq": 30
-      },
-      "suppress": [
-        "\u673a\u6784",
-        "\u5e01\u79cd"
-      ]
-    }
-  ]
+  "seriesRules": []
 };

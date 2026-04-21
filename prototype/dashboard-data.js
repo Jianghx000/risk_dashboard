@@ -1,173 +1,173 @@
 window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
-  "workbook": "\u98ce\u9669\u7ba1\u7406\u9a7e\u9a76\u8231\uff08\u65e0\u56fe\u7248\uff09.xlsx",
+  "workbook": "风险管理驾驶舱（无图版）.xlsx",
   "pageCount": 4,
   "widgetCount": 54,
   "pages": [
     {
       "id": "page-1",
-      "name": "\u5229\u7387\u98ce\u9669",
+      "name": "利率风险",
       "blocks": [
         {
           "id": "block-1",
-          "name": "\u6838\u5fc3\u98ce\u9669\u6307\u6807",
+          "name": "核心风险指标",
           "areas": [
             {
               "id": "area-1",
-              "name": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "最大经济价值变动比例",
+              "viewScope": "时间序列（月频）",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 1,
-                  "title": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b\uff08\u25b3EVE \uff09\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u4e24\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u548c\u5e01\u79cd\u7684\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b\u7684\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "最大经济价值变动比例（△EVE ）走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种，展示所选择的机构和币种的最大经济价值变动比例的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aEVE\u53d8\u52a8\u989d/EVE\u53d8\u52a8\u6bd4\u4f8b",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：EVE变动额/EVE变动比例",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c1"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行1"
                 },
                 {
                   "seq": 3,
-                  "title": "\u672c\u5916\u5e01\u5408\u8ba1\u4e00\u7ea7\u8d44\u672c\u51c0\u989d",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u4e24\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u7684\u4e00\u7ea7\u8d44\u672c\u51c0\u989d\uff08\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b\u25b3EVE \u5206\u6bcd\uff09\u7684\u8d70\u52bf\uff08\u4e0d\u533a\u5206\u5e01\u79cd\uff09\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u672c\u56fe\u6807\u9898\u5df2\u660e\u786e\u4e3a\u672c\u5916\u5e01\u5408\u8ba1\u53e3\u5f84\uff0c\u82e5\u9875\u9762\u4ecd\u4fdd\u7559\u5e01\u79cd\u516c\u5171\u7b5b\u9009\u5668\uff0c\u5219\u672c\u56fe\u4e0d\u6309\u5e01\u79cd\u62c6\u5206\u53d6\u6570\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u7b5b\u9009\u5668\u4fdd\u7559\uff0c\u9ed8\u8ba4\u5168\u9009\uff0c\u4e0d\u5f71\u54cd\u672c\u56fe\u53d6\u6570",
+                  "title": "本外币合计一级资本净额",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：与上述所选择的机构一致，展示所选择的机构的一级资本净额（最大经济价值变动比例△EVE 分母）的走势（不区分币种）。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。开发补充：本图标题已明确为本外币合计口径，若页面仍保留币种公共筛选器，则本图不按币种拆分取数。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：筛选器保留，默认全选，不影响本图取数",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aEVE\u53d8\u52a8\u989d/EVE\u53d8\u52a8\u6bd4\u4f8b",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：EVE变动额/EVE变动比例",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668\uff1b\u5e01\u79cd\u7b5b\u9009\u5668\u4fdd\u7559\u4f46\u4e0d\u5f71\u54cd\u53d6\u6570\uff0c\u53ea\u4f5c\u4e3a\u533a\u57df\u5185\u7edf\u4e00\u4ea4\u4e92",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u6807\u9898\u9700\u663e\u5f0f\u4f53\u73b0\u201c\u672c\u5916\u5e01\u5408\u8ba1\u201d",
-                  "originPosition": "\u539f\u59cb\u884c3"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；币种筛选器保留但不影响取数，只作为区域内统一交互",
+                  "devNote": "组件：折线图；标题需显式体现“本外币合计”",
+                  "originPosition": "原始行3"
                 },
                 {
                   "seq": 4,
-                  "title": "\u5229\u7387\u53d8\u52a8\u60c5\u666f\u4e0b\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u4e24\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u7b5b\u9009\u7684\u673a\u6784\u548c\u5e01\u79cd\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u548c\u5e01\u79cd\u57286\u79cd\u4e0d\u540c\u76d1\u7ba1\u60c5\u666f\uff08\u5e73\u884c\u4e0a\u79fb\u3001\u4e0b\u79fb\u3001\u53d8\u9661\u5ced\u3001\u53d8\u5e73\u7f13\u3001\u77ed\u7aef\u4e0a\u5347\u3001\u77ed\u7aef\u4e0b\u964d\uff09\u4e0b\u7684\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u7684\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "利率变动情景下经济价值变动",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：与上述所筛选的机构和币种一致，展示所选择的机构和币种在6种不同监管情景（平行上移、下移、变陡峭、变平缓、短端上升、短端下降）下的经济价值变动的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aEVE\u53d8\u52a8\u989d/EVE\u53d8\u52a8\u6bd4\u4f8b",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5229\u7387\u60c5\u666f",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：EVE变动额/EVE变动比例",
+                  "legendDescription": "图例：利率情景",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c4",
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行4",
                   "layout": "full"
                 }
               ]
             },
             {
               "id": "area-5",
-              "name": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
-              "viewScope": "\u65f6\u70b9",
+              "name": "最大经济价值变动比例",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 5,
-                  "title": "\u5404\u5e01\u79cd\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u4e24\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\uff0c\u4ee5\u8868\u683c\u5f62\u5f0f\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\uff08\u5217\uff09\u7684\u4e00\u7ea7\u8d44\u672c\u51c0\u989d\uff0c\u4ee5\u53ca\u4e0d\u540c\u5e01\u79cd\uff08\u884c\uff09\u7684\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u548c\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u884c\u5217\u7ef4\u5ea6\u6309\u8bf4\u660e\u4e2d\u7684\u884c/\u5217\u53e3\u5f84\u7ec4\u7ec7\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "各币种最大经济价值变动",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时点。原始要求：通过筛选机构，以表格形式展示所选择的机构（列）的一级资本净额，以及不同币种（行）的最大经济价值变动和最大经济价值变动比例。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u884c\u7ef4\u5ea6\uff1a\u5e01\u79cd",
-                  "metricDescription": "\u6307\u6807\uff1aEVE\u53d8\u52a8\u989d/EVE\u53d8\u52a8\u6bd4\u4f8b",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u6309\u8868\u5934\u5b9a\u4e49",
+                  "axisDescription": "行维度：币种",
+                  "metricDescription": "指标：EVE变动额/EVE变动比例",
+                  "legendDescription": "列维度：按表头定义",
                   "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668\uff1b\u652f\u6301\u8868\u5934\u56fa\u5b9a\u3001\u6eda\u52a8\u4e0e\u5bfc\u51fa",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c\uff1b\u5efa\u8bae\u652f\u6301\u5b57\u6bb5\u6392\u5e8f\u3001\u51bb\u7ed3\u9996\u5217",
-                  "originPosition": "\u539f\u59cb\u884c5"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
+                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
+                  "originPosition": "原始行5"
                 },
                 {
                   "seq": 6,
-                  "title": "6\u79cd\u60c5\u666f\u4e0b\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u8868",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u4e24\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u4e00\u81f4\uff0c\u4ee5\u8868\u683c\u7684\u5f62\u5f0f\u5c55\u793a\u6240\u9009\u62e9\u673a\u6784\u7684\u4e0d\u540c\u5e01\u79cd\uff08\u5217\uff09\u57286\u79cd\u4e0d\u540c\u76d1\u7ba1\u60c5\u666f\uff08\u884c\uff09\u4e0b\u7684\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u884c\u5217\u7ef4\u5ea6\u6309\u8bf4\u660e\u4e2d\u7684\u884c/\u5217\u53e3\u5f84\u7ec4\u7ec7\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "6种情景下经济价值变动表",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时点。原始要求：与上述所选择的机构一致，以表格的形式展示所选择机构的不同币种（列）在6种不同监管情景（行）下的经济价值变动。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u884c\u7ef4\u5ea6\uff1a\u76d1\u7ba1/\u5229\u7387\u60c5\u666f",
-                  "metricDescription": "\u6307\u6807\uff1aEVE\u53d8\u52a8\u989d/EVE\u53d8\u52a8\u6bd4\u4f8b",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u6309\u8868\u5934\u5b9a\u4e49",
+                  "axisDescription": "行维度：监管/利率情景",
+                  "metricDescription": "指标：EVE变动额/EVE变动比例",
+                  "legendDescription": "列维度：按表头定义",
                   "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c\uff1b\u5efa\u8bae\u652f\u6301\u5b57\u6bb5\u6392\u5e8f\u3001\u51bb\u7ed3\u9996\u5217",
-                  "originPosition": "\u539f\u59cb\u884c6"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
+                  "originPosition": "原始行6"
                 }
               ]
             },
             {
               "id": "area-7",
-              "name": "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "净利息收入波动率",
+              "viewScope": "时间序列（月频）",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09",
-                "\u5229\u7387\u60c5\u666f\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）",
+                "利率情景（多选）"
               ],
               "widgets": [
                 {
                   "seq": 7,
-                  "title": "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387\u8d70\u52bf",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u5229\u7387\u60c5\u666f\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u6240\u6709\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u5229\u7387\u60c5\u666f\u4e09\u4e2a\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5148\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\uff0c\u7136\u540e\u518d\u9009\u62e9\u4e0d\u540c\u7684\u5229\u7387\u60c5\u666f\uff08\u6240\u6709\u5229\u7387\u5e73\u884c\u4e0a\u79fb200bp\u3001\u6d3b\u671f\u5229\u7387\u4e0d\u53d8\u4f46\u5176\u4ed6\u5229\u7387\u5e73\u884c\u4e0a\u79fb200bp\uff09\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u548c\u5e01\u79cd\u5728\u4e0d\u540c\u5229\u7387\u60c5\u666f\u4e0b\u7684\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u60c5\u666f\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "净利息收入波动及波动率走势",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；利率情景（多选）。联动规则：同一第三层区域下的所有图表/表格共用机构、币种、利率情景三个筛选器。展示口径：时间序列（月频）。原始要求：先筛选机构和币种，然后再选择不同的利率情景（所有利率平行上移200bp、活期利率不变但其他利率平行上移200bp），展示所选择的机构和币种在不同利率情景下的净利息收入波动及波动率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；情景：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], scenario_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aNII\u6ce2\u52a8\u989d/NII\u6ce2\u52a8\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u60c5\u666f",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：NII波动额/NII波动率",
+                  "legendDescription": "图例：情景",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668\uff1b\u60c5\u666f\u591a\u9009\u65f6\u6309\u56fa\u5b9a\u987a\u5e8f\u5c55\u793a",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c7"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；情景多选时按固定顺序展示",
+                  "devNote": "组件：双轴柱线组合图",
+                  "originPosition": "原始行7"
                 }
               ]
             },
             {
               "id": "area-8",
-              "name": "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387",
-              "viewScope": "\u65f6\u70b9",
+              "name": "净利息收入波动率",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09",
-                "\u5229\u7387\u60c5\u666f\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）",
+                "利率情景（多选）"
               ],
               "widgets": [
                 {
                   "seq": 8,
-                  "title": "\u5404\u5e01\u79cd\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387\u8868",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u8868\u683c\u4ec5\u8054\u52a8\u673a\u6784\u7b5b\u9009\u5668\uff1b\u9875\u9762\u4fdd\u7559\u7684\u5e01\u79cd\uff08\u591a\u9009\uff09\u4e0e\u5229\u7387\u60c5\u666f\uff08\u591a\u9009\uff09\u7b5b\u9009\u5668\u4e0d\u5f71\u54cd\u672c\u8868\u53d6\u6570\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\uff0c\u4ee5\u8868\u683c\u7684\u65b9\u5f0f\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u4e0b\uff0c\u6240\u6709\u5e01\u79cd\uff08\u884c\uff09\u5728\u6240\u6709\u5229\u7387\u60c5\u666f\uff08\u5217\uff09\u4e0b\u7684\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u56fa\u5b9a\u5c55\u5f00\u5168\u90e8\u5e01\u79cd\u4e0e\u5168\u90e8\u5229\u7387\u60c5\u666f\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u7b5b\u9009\u5668\u4fdd\u7559\u4f46\u4e0d\u5f71\u54cd\u672c\u8868\u53d6\u6570\uff1b\u60c5\u666f\uff1a\u7b5b\u9009\u5668\u4fdd\u7559\u4f46\u4e0d\u5f71\u54cd\u672c\u8868\u53d6\u6570",
+                  "title": "各币种净利息收入波动及波动率表",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）。联动规则：当前表格仅联动机构筛选器；页面保留的币种（多选）与利率情景（多选）筛选器不影响本表取数。展示口径：时点。原始要求：通过筛选机构，以表格的方式展示所选择的机构下，所有币种（行）在所有利率情景（列）下的净利息收入波动及波动率。开发细化：采用表格组件实现，固定展开全部币种与全部利率情景，支持排序、冻结表头和导出。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：筛选器保留但不影响本表取数；情景：筛选器保留但不影响本表取数",
                   "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1aNII\u6ce2\u52a8\u989d/NII\u6ce2\u52a8\u7387",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u5229\u7387\u60c5\u666f",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：NII波动额/NII波动率",
+                  "legendDescription": "列维度：利率情景",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u5f53\u524d\u8868\u683c\u4ec5\u8054\u52a8\u673a\u6784\u7b5b\u9009\u5668\uff1b\u5e01\u79cd\u4e0e\u5229\u7387\u60c5\u666f\u7b5b\u9009\u5668\u4fdd\u7559\u4f46\u4e0d\u5f71\u54cd\u53d6\u6570",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c",
-                  "originPosition": "\u539f\u59cb\u884c8"
+                  "linkageRule": "当前表格仅联动机构筛选器；币种与利率情景筛选器保留但不影响取数",
+                  "devNote": "组件：表格",
+                  "originPosition": "原始行8"
                 }
               ]
             }
@@ -176,327 +176,327 @@ window.dashboardData = {
         },
         {
           "id": "block-2",
-          "name": "\u7f3a\u53e3\u98ce\u9669",
+          "name": "缺口风险",
           "areas": [
             {
               "id": "area-9",
-              "name": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-              "viewScope": "\u65f6\u70b9\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u5386\u53f2\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09",
+              "name": "重定价缺口率",
+              "viewScope": "时点口径 / 月频 / 日频",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 9,
-                  "title": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u5386\u53f2\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u3001\u5e01\u79cd\uff08\u4e8c\u8005\u5747\u652f\u6301\u591a\u9009\uff09\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u5728\u6240\u9009\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u65f6\u70b9\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价缺口率",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：通过筛选机构、币种（二者均支持多选），展示所选择的机构在所选币种口径下的时点重定价缺口率走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c9"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行9"
                 },
                 {
                   "seq": 10,
-                  "title": "\u751f\u606f\u8d44\u4ea7\u89c4\u6a21",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u5386\u53f2\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u3001\u5e01\u79cd\u4fdd\u6301\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u673a\u6784\u6240\u9009\u62e9\u5e01\u79cd\u7684\u65f6\u70b9\u751f\u606f\u8d44\u4ea7\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "生息资产规模",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种保持一致，展示所选择机构所选择币种的时点生息资产规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c10"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行10"
                 },
                 {
                   "seq": 11,
-                  "title": "\u91cd\u5b9a\u4ef7\u89c4\u6a21\u4e0e\u7f3a\u53e3\u8d70\u52bf",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u5386\u53f2\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u3001\u5e01\u79cd\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u673a\u6784\u6240\u9009\u62e9\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u672a\u6765\u4e00\u5e74\u91cd\u5b9a\u4ef7\u8d44\u4ea7/\u8d1f\u503a\u89c4\u6a21\u4e0e\u7f3a\u53e3\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价规模与缺口走势",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种一致，展示所选择机构所选择币种口径下的未来一年重定价资产/负债规模与缺口走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c11"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行11"
                 }
               ]
             },
             {
               "id": "area-12",
-              "name": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-              "viewScope": "\u65f6\u70b9\u53e3\u5f84 / \u65f6\u70b9",
+              "name": "重定价缺口率",
+              "viewScope": "时点口径 / 时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 13,
-                  "title": "\u5404\u5e01\u79cd\u89c4\u6a21\u53ca\u5360\u6bd4",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u53e3\u5f84 / \u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u5355\u4e2a\u673a\u6784\u4e0b\uff0c\u4e0d\u540c\u5e01\u79cd\u7684\u8d44\u4ea7\u89c4\u6a21\u5360\u6bd4\u997c\u72b6\u56fe\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u7ed3\u6784\u5206\u5e03\u56fe\u5b9e\u73b0\uff0c\u540c\u6b65\u5c55\u793a\u7edd\u5bf9\u89c4\u6a21\u548c\u5360\u6bd4\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "各币种规模及占比",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 时点。原始要求：与上述所选择的机构一致，展示所选择的单个机构下，不同币种的资产规模占比饼状图。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c13"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行13"
                 },
                 {
                   "seq": 14,
-                  "title": "\u5404\u5e01\u79cd\u5206\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u671f\u9650\u5206\u5e03",
-                  "componentType": "\u671f\u9650\u5206\u5e03\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u53e3\u5f84 / \u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5728\u4e0a\u8ff0\u9009\u62e9\u673a\u6784\u7684\u57fa\u7840\u4e0a\uff0c\u8fdb\u4e00\u6b65\u9009\u62e9\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u5355\u4e2a\u5e01\u79cd\u4e0b\uff0c\u4e0d\u540c\u4e1a\u52a1\uff08\u8d37\u6b3e\u3001\u503a\u5238\u3001\u5b58\u6b3e\u7b49\uff09\u5728\u672a\u6765\u4e0d\u540c\u65f6\u95f4\u7a97\u53e3\u7684\u5230\u671f\u89c4\u6a21\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u6309\u5f53\u524d\u56fe\u8868\u540d\u79f0\u5bf9\u5e94\u7684\u53ef\u89c6\u5316\u7ec4\u4ef6\u5b9e\u73b0\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "各币种分业务重定价期限分布",
+                  "componentType": "期限分布图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 时点。原始要求：在上述选择机构的基础上，进一步选择币种，展示所选择的单个币种下，不同业务（贷款、债券、存款等）在未来不同时间窗口的到期规模。开发细化：按当前图表名称对应的可视化组件实现。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c14"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行14"
                 }
               ]
             },
             {
               "id": "area-15",
-              "name": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-              "viewScope": "\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09",
+              "name": "重定价缺口率",
+              "viewScope": "月日均口径 / 月频 / 日频",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 15,
-                  "title": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u3001\u5e01\u79cd\uff08\u4e8c\u8005\u5747\u652f\u6301\u591a\u9009\uff09\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u5728\u6240\u9009\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u6708\u65e5\u5747\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价缺口率",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月日均口径 / 月频 / 日频。原始要求：通过筛选机构、币种（二者均支持多选），展示所选择的机构在所选币种口径下的月日均重定价缺口率走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c15"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行15"
                 },
                 {
                   "seq": 16,
-                  "title": "\u751f\u606f\u8d44\u4ea7\u89c4\u6a21",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u3001\u5e01\u79cd\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u5728\u6240\u9009\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u6708\u65e5\u5747\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "生息资产规模",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月日均口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种一致，展示所选择的机构在所选币种口径下的月日均重定价缺口率走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c16"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行16"
                 },
                 {
                   "seq": 17,
-                  "title": "\u91cd\u5b9a\u4ef7\u89c4\u6a21\u4e0e\u7f3a\u53e3\u8d70\u52bf",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u3001\u5e01\u79cd\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u5728\u6240\u9009\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u6708\u65e5\u5747\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价规模与缺口走势",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月日均口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种一致，展示所选择的机构在所选币种口径下的月日均重定价缺口率走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c17"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行17"
                 }
               ]
             },
             {
               "id": "area-18",
-              "name": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
-              "viewScope": "\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u70b9",
+              "name": "重定价缺口率",
+              "viewScope": "月日均口径 / 时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 19,
-                  "title": "\u5404\u5e01\u79cd\u89c4\u6a21\u53ca\u5360\u6bd4",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u6708\u65e5\u5747\u53e3\u5f84 / \u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u6240\u9009\u62e9\u7684\u673a\u6784\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u5355\u4e2a\u673a\u6784\u4e0b\uff0c\u4e0d\u540c\u5e01\u79cd\u7684\u6708\u65e5\u5747\u8d44\u4ea7\u89c4\u6a21\u5360\u6bd4\u997c\u72b6\u56fe\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u7ed3\u6784\u5206\u5e03\u56fe\u5b9e\u73b0\uff0c\u540c\u6b65\u5c55\u793a\u7edd\u5bf9\u89c4\u6a21\u548c\u5360\u6bd4\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "各币种规模及占比",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月日均口径 / 时点。原始要求：与上述所选择的机构一致，展示所选择的单个机构下，不同币种的月日均资产规模占比饼状图。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c19"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行19"
                 }
               ]
             },
             {
               "id": "area-20",
-              "name": "\u91cd\u5b9a\u4ef7\u4e45\u671f",
-              "viewScope": "\u5b58\u91cf\u4e1a\u52a1 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "重定价久期",
+              "viewScope": "存量业务 / 时间序列（月频）",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 21,
-                  "title": "\u8d44\u4ea7/\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u5b58\u91cf\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0e\u5e01\u79cd\u53e3\u5f84\u4e0b\u8d44\u4ea7\u548c\u8d1f\u503a\u7684\u91cd\u5b9a\u4ef7\u4e45\u671f\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "资产/负债重定价久期",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：存量业务。原始要求：展示所选机构与币种口径下资产和负债的重定价久期。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f/\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：资产重定价久期/负债重定价久期",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c21"
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行21"
                 },
                 {
                   "seq": 23,
-                  "title": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u5b58\u91cf\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0e\u5e01\u79cd\u53e3\u5f84\u4e0b\u7684\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价缺口",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：存量业务。原始要求：展示所选机构与币种口径下的重定价缺口。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u91cd\u5b9a\u4ef7\u7f3a\u53e3",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：重定价缺口",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c23"
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行23"
                 },
                 {
                   "seq": 24,
-                  "title": "\u5206\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u4e1a\u52a1\u7c7b\u578b\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\uff0c\u4e1a\u52a1\u7c7b\u578b\u901a\u8fc7\u56fe\u4f8b\u591a\u9009\u63a7\u5236\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u5b58\u91cf\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u4e0d\u540c\u4e1a\u52a1\u5206\u7c7b\u7684\u91cd\u5b9a\u4ef7\u4e45\u671f\u8d70\u52bf\u56fe\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u6309\u4e1a\u52a1\u7c7b\u578b\u62c6\u7ebf\uff0c\u5207\u6362\u673a\u6784\u3001\u5e01\u79cd\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u4e1a\u52a1\u7c7b\u578b\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分业务重定价久期",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；业务类型（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例多选控制。展示口径：存量业务。原始要求：展示不同业务分类的重定价久期走势图。开发细化：按业务类型拆线，切换机构、币种后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；业务类型：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], business_types[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u5206\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u4e1a\u52a1\u7c7b\u578b",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：分业务重定价久期",
+                  "legendDescription": "图例：业务类型",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\uff0c\u4e1a\u52a1\u7c7b\u578b\u901a\u8fc7\u56fe\u4f8b\u7b5b\u9009",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u6309\u4e1a\u52a1\u7c7b\u578b\u62c6\u7ebf\u5c55\u793a",
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
+                  "devNote": "组件：折线图；按业务类型拆线展示",
                   "layout": "full"
                 },
                 {
                   "seq": 25,
-                  "title": "\u5206\u5e01\u79cd\u4e45\u671f\u7f3a\u53e3\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u5b58\u91cf\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4ee5\u8868\u683c\u5f62\u5f0f\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0b\u5404\u5e01\u79cd\u7684\u4e45\u671f\u7f3a\u53e3\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分币种久期缺口一览表",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：存量业务。原始要求：以表格形式展示所选机构下各币种的久期缺口。开发细化：采用表格组件实现，支持排序、冻结表头和导出。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u884c\u7ef4\u5ea6\uff1a\u5e01\u79cd",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u6309\u8868\u5934\u5b9a\u4e49",
+                  "axisDescription": "行维度：币种",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "列维度：按表头定义",
                   "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\uff1b\u652f\u6301\u8868\u5934\u56fa\u5b9a\u3001\u6eda\u52a8\u4e0e\u5bfc\u51fa",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c\uff1b\u5efa\u8bae\u652f\u6301\u5b57\u6bb5\u6392\u5e8f\u3001\u51bb\u7ed3\u9996\u5217",
-                  "originPosition": "\u539f\u59cb\u884c25",
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器；支持表头固定、滚动与导出",
+                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
+                  "originPosition": "原始行25",
                   "layout": "full"
                 }
               ]
             },
             {
               "id": "area-26",
-              "name": "\u91cd\u5b9a\u4ef7\u4e45\u671f",
-              "viewScope": "\u65b0\u53d1\u751f\u4e1a\u52a1 / \u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "重定价久期",
+              "viewScope": "新发生业务 / 时间序列（月频）",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 27,
-                  "title": "\u8d44\u4ea7/\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65b0\u53d1\u751f\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0e\u5e01\u79cd\u53e3\u5f84\u4e0b\u65b0\u53d1\u751f\u4e1a\u52a1\u7684\u8d44\u4ea7\u548c\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "资产/负债重定价久期",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：新发生业务。原始要求：展示所选机构与币种口径下新发生业务的资产和负债重定价久期。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f/\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：资产重定价久期/负债重定价久期",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c27"
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行27"
                 },
                 {
                   "seq": 29,
-                  "title": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65b0\u53d1\u751f\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0e\u5e01\u79cd\u53e3\u5f84\u4e0b\u65b0\u53d1\u751f\u4e1a\u52a1\u7684\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "重定价缺口",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：新发生业务。原始要求：展示所选机构与币种口径下新发生业务的重定价缺口。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u91cd\u5b9a\u4ef7\u7f3a\u53e3",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：重定价缺口",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c29"
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行29"
                 },
                 {
                   "seq": 30,
-                  "title": "\u5206\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u4e1a\u52a1\u7c7b\u578b\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\uff0c\u4e1a\u52a1\u7c7b\u578b\u901a\u8fc7\u56fe\u4f8b\u591a\u9009\u63a7\u5236\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65b0\u53d1\u751f\u4e1a\u52a1\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u4e0d\u540c\u4e1a\u52a1\u5206\u7c7b\u7684\u65b0\u53d1\u751f\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u4e45\u671f\u8d70\u52bf\u56fe\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u6309\u4e1a\u52a1\u7c7b\u578b\u62c6\u7ebf\uff0c\u5207\u6362\u673a\u6784\u3001\u5e01\u79cd\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u4e1a\u52a1\u7c7b\u578b\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分业务重定价久期",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；业务类型（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例多选控制。展示口径：新发生业务。原始要求：展示不同业务分类的新发生业务重定价久期走势图。开发细化：按业务类型拆线，切换机构、币种后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；业务类型：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], business_types[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u5206\u4e1a\u52a1\u91cd\u5b9a\u4ef7\u4e45\u671f",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u4e1a\u52a1\u7c7b\u578b",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：分业务重定价久期",
+                  "legendDescription": "图例：业务类型",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u5b50\u9875\u9762\u4e0b\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\uff0c\u4e1a\u52a1\u7c7b\u578b\u901a\u8fc7\u56fe\u4f8b\u7b5b\u9009",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u6309\u4e1a\u52a1\u7c7b\u578b\u62c6\u7ebf\u5c55\u793a",
+                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
+                  "devNote": "组件：折线图；按业务类型拆线展示",
                   "layout": "full"
                 }
               ]
@@ -507,75 +507,75 @@ window.dashboardData = {
         },
         {
           "id": "block-3",
-          "name": "\u57fa\u51c6\u98ce\u9669",
+          "name": "基准风险",
           "areas": [
             {
               "id": "area-34",
-              "name": "\u6700\u5927\u5229\u7387\u57fa\u51c6\u5173\u8054\u89c4\u6a21\u53ca\u5360\u6bd4",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "最大利率基准关联规模及占比",
+              "viewScope": "时间序列（月频）",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 34,
-                  "title": "\u6700\u5927\u5229\u7387\u57fa\u51c6\u5173\u8054\u89c4\u6a21\u53ca\u5360\u6bd4",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u548c\u5e01\u79cd\u7684\u5728\u8d44\u4ea7\u7aef\u3001\u8d1f\u503a\u7aef\u548c\u8d44\u4ea7\u8d1f\u503a\u7f3a\u53e3\u7ef4\u5ea6\u7684\u6700\u5927\u57fa\u51c6\u5229\u7387\u5173\u8054\u89c4\u6a21\u53ca\u5360\u6bd4\u7684\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "最大利率基准关联规模及占比",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种，展示所选择的机构和币种的在资产端、负债端和资产负债缺口维度的最大基准利率关联规模及占比的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c34"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行34"
                 },
                 {
                   "seq": 35,
-                  "title": "\u5206\u5229\u7387\u57fa\u51c6\u5173\u8054\u89c4\u6a21\u53ca\u5360\u6bd4",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\u548c\u8d44\u4ea7/\u8d1f\u503a/\u7f3a\u53e3\uff0c\u5c55\u793a\u6240\u9009\u62e9\u7684\u673a\u6784\u548c\u5e01\u79cd\u7684\u5728\u8d44\u4ea7\u7aef\u3001\u8d1f\u503a\u7aef\u6216\u8d44\u4ea7\u8d1f\u503a\u7f3a\u53e3\u7ef4\u5ea6\u4e0b\uff0c\u4e0d\u540c\u57fa\u51c6\u5229\u7387\u5173\u8054\u7684\u89c4\u6a21\u53ca\u5360\u6bd4\u7684\u8d70\u52bf\u3002\uff08\u8d1f\u503a\u7aef\u4ee5\u8d1f\u6570\u5c55\u793a\uff09\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分利率基准关联规模及占比",
+                  "componentType": "双轴柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种和资产/负债/缺口，展示所选择的机构和币种的在资产端、负债端或资产负债缺口维度下，不同基准利率关联的规模及占比的走势。（负债端以负数展示）。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c35"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行35"
                 }
               ]
             },
             {
               "id": "area-36",
-              "name": "\u6700\u5927\u5229\u7387\u57fa\u51c6\u5173\u8054\u89c4\u6a21\u53ca\u5360\u6bd4",
-              "viewScope": "\u65f6\u70b9",
+              "name": "最大利率基准关联规模及占比",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 36,
-                  "title": "\u5206\u5e01\u79cd\u5206\u57fa\u51c6\u5229\u7387\u89c4\u6a21\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u8d44\u4ea7\u8d1f\u503a\u7ef4\u5ea6\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u3001\u5e01\u79cd\uff0c\u5c55\u793a\u8d44\u4ea7\u7aef\u3001\u8d1f\u503a\u7aef\u548c\u8d44\u4ea7\u8d1f\u503a\u7f3a\u53e3\u6302\u94a9\u4e0d\u540c\u5229\u7387\u57fa\u51c6\u89c4\u6a21\u3002\uff08\u8d1f\u503a\u7aef\u4ee5\u8d1f\u6570\u5c55\u793a\uff09\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u884c\u5217\u7ef4\u5ea6\u6309\u8bf4\u660e\u4e2d\u7684\u884c/\u5217\u53e3\u5f84\u7ec4\u7ec7\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分币种分基准利率规模一览表",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时点。原始要求：通过筛选机构、币种，展示资产端、负债端和资产负债缺口挂钩不同利率基准规模。（负债端以负数展示）。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
-                  "axisDescription": "\u884c\u7ef4\u5ea6\uff1a\u5e01\u79cd",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u6309\u8868\u5934\u5b9a\u4e49",
+                  "axisDescription": "行维度：币种",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "列维度：按表头定义",
                   "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668\uff1b\u652f\u6301\u8868\u5934\u56fa\u5b9a\u3001\u6eda\u52a8\u4e0e\u5bfc\u51fa",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c\uff1b\u5efa\u8bae\u652f\u6301\u5b57\u6bb5\u6392\u5e8f\u3001\u51bb\u7ed3\u9996\u5217",
-                  "originPosition": "\u539f\u59cb\u884c36",
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
+                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
+                  "originPosition": "原始行36",
                   "layout": "full"
                 }
               ]
@@ -586,57 +586,57 @@ window.dashboardData = {
         },
         {
           "id": "block-4",
-          "name": "\u671f\u6743\u6027\u98ce\u9669\uff08\u5883\u5185\u5206\u884c\uff09",
+          "name": "期权性风险（境内分行）",
           "areas": [
             {
               "id": "area-37",
-              "name": "\u63d0\u524d\u8fd8\u6b3e\u7387",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "提前还款率",
+              "viewScope": "时间序列（月频）",
               "sharedFilters": [
-                "\u8d37\u6b3e\u7c7b\u578b\uff08\u591a\u9009\uff09"
+                "贷款类型（多选）"
               ],
               "widgets": [
                 {
                   "seq": 37,
-                  "title": "\u63d0\u524d\u8fd8\u6b3e\u7387",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u8d37\u6b3e\u7c7b\u578b\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u56fe\u8868\u4ec5\u8054\u52a8\u8d37\u6b3e\u7c7b\u578b\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u5883\u5185\u5206\u884c\u6574\u4f53\u53e3\u5f84\u4e0b\uff0c\u4e0d\u540c\u8d37\u6b3e\u7c7b\u578b\u7684\u63d0\u524d\u8fd8\u6b3e\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u8d37\u6b3e\u7c7b\u578b\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "提前还款率",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：贷款类型（多选）。联动规则：当前图表仅联动贷款类型筛选器。展示口径：时间序列（月频）。原始要求：展示境内分行整体口径下，不同贷款类型的提前还款率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "贷款类型：默认全选",
                   "frontendParams": "dashboard_id, area_code, loan_type_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u8d37\u6b3e\u7c7b\u578b",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：贷款类型",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u56fe\u8868\u4ec5\u8054\u52a8\u8d37\u6b3e\u7c7b\u578b\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c37"
+                  "linkageRule": "当前图表仅联动贷款类型筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行37"
                 }
               ]
             },
             {
               "id": "area-38",
-              "name": "\u63d0\u524d\u652f\u53d6\u7387",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09",
+              "name": "提前支取率",
+              "viewScope": "时间序列（月频）",
               "sharedFilters": [
-                "\u5b58\u6b3e\u7c7b\u578b\uff08\u591a\u9009\uff09"
+                "存款类型（多选）"
               ],
               "widgets": [
                 {
                   "seq": 38,
-                  "title": "\u63d0\u524d\u652f\u53d6\u7387",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u5b58\u6b3e\u7c7b\u578b\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u56fe\u8868\u4ec5\u8054\u52a8\u5b58\u6b3e\u7c7b\u578b\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5c55\u793a\u5883\u5185\u5206\u884c\u6574\u4f53\u53e3\u5f84\u4e0b\uff0c\u4e0d\u540c\u5b58\u6b3e\u7c7b\u578b\u7684\u63d0\u524d\u652f\u53d6\u7387\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u6708\u4efd\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u5b58\u6b3e\u7c7b\u578b\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "提前支取率",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：存款类型（多选）。联动规则：当前图表仅联动存款类型筛选器。展示口径：时间序列（月频）。原始要求：展示境内分行整体口径下，不同存款类型的提前支取率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "存款类型：默认全选",
                   "frontendParams": "dashboard_id, area_code, deposit_type_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5b58\u6b3e\u7c7b\u578b",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：存款类型",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u5f53\u524d\u56fe\u8868\u4ec5\u8054\u52a8\u5b58\u6b3e\u7c7b\u578b\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c38"
+                  "linkageRule": "当前图表仅联动存款类型筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行38"
                 }
               ]
             }
@@ -650,154 +650,154 @@ window.dashboardData = {
     },
     {
       "id": "page-2",
-      "name": "\u6d41\u52a8\u6027\u98ce\u9669",
+      "name": "流动性风险",
       "blocks": [
         {
           "id": "block-1",
-          "name": "\u6838\u5fc3\u98ce\u9669\u6307\u6807",
+          "name": "核心风险指标",
           "areas": [
             {
               "id": "area-42",
-              "name": "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09 / \u5206\u5e01\u79cd",
+              "name": "流动性覆盖率LCR",
+              "viewScope": "月频 / 日频 / 分币种",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 42,
-                  "title": "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09 / \u5206\u5e01\u79cd\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5728\u4e0a\u8ff0\u9009\u62e9\u673a\u6784\u7684\u57fa\u7840\u4e0a\uff0c\u8fdb\u4e00\u6b65\u9009\u62e9\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u4e0d\u540c\u5e01\u79cd\u7684LCR\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "流动性覆盖率LCR走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：在上述选择机构的基础上，进一步选择币种，展示所选机构不同币种的LCR走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aLCR",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：LCR",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c42"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行42"
                 },
                 {
                   "seq": 44,
-                  "title": "\u672a\u676530\u5929\u73b0\u91d1\u51c0\u6d41\u51fa\u91cf\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09 / \u5206\u5e01\u79cd\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u7b5b\u9009\u7684\u673a\u6784\u548c\u5e01\u79cd\u4fdd\u6301\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u4e0b\u7684\u672a\u676530\u5929\u73b0\u91d1\u51c0\u6d41\u51fa\u91cf\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "未来30天现金净流出量走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的未来30天现金净流出量走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c44"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行44"
                 }
               ]
             },
             {
               "id": "area-45",
-              "name": "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
-              "viewScope": "\u65f6\u70b9",
+              "name": "流动性覆盖率LCR",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 43,
-                  "title": "\u4f18\u8d28\u6d41\u52a8\u6027\u8d44\u4ea7HQLA\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09 / \u5206\u5e01\u79cd\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u7b5b\u9009\u7684\u673a\u6784\u4fdd\u6301\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u672c\u5916\u5e01\u5408\u8ba1\u53e3\u5f84\u7684\u4f18\u8d28\u6d41\u52a8\u6027\u8d44\u4ea7HQLA\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "优质流动性资产HQLA走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：与上述筛选的机构保持一致，展示所选机构本外币合计口径的优质流动性资产HQLA走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1aHQLA",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：HQLA",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c43"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行43"
                 },
                 {
                   "seq": 45,
-                  "title": "HQLA\u89c4\u6a21\u5206\u5e03\u7ed3\u6784",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u53ca\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u53ca\u5e01\u79cd\u7684HQLA\u7684\u5206\u5e03\u7ed3\u6784\uff0c\u4e00\u7ea7\u8d44\u4ea7\u3001\u4e8c\u7ea7\u8d44\u4ea7\u7b49\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u7ed3\u6784\u5206\u5e03\u56fe\u5b9e\u73b0\uff0c\u540c\u6b65\u5c55\u793a\u7edd\u5bf9\u89c4\u6a21\u548c\u5360\u6bd4\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "HQLA规模分布结构",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点。原始要求：通过筛选机构及币种，展示所选机构及币种的HQLA的分布结构，一级资产、二级资产等。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1aHQLA",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：HQLA",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c45"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行45"
                 }
               ]
             },
             {
               "id": "area-46",
-              "name": "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u7387NSFR",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09",
+              "name": "净稳定资金比率NSFR",
+              "viewScope": "月频 / 日频",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 46,
-                  "title": "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\uff08\u5883\u5185\u6216\u6cd5\u4eba\uff09\u548c\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u4e0b\u7684\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "净稳定资金比例NSFR走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：通过筛选机构（境内或法人）和币种，展示所选机构和币种下的净稳定资金比例NSFR走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c46"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行46"
                 },
                 {
                   "seq": 47,
-                  "title": "\u53ef\u7528\u7a33\u5b9a\u8d44\u91d1\u89c4\u6a21\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u7b5b\u9009\u7684\u673a\u6784\u548c\u5e01\u79cd\u4fdd\u6301\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u4e0b\u7684\u53ef\u7528\u7a33\u5b9a\u8d44\u91d1\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "可用稳定资金规模走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的可用稳定资金规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c47"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行47"
                 },
                 {
                   "seq": 48,
-                  "title": "\u4e1a\u52a1\u6240\u9700\u7a33\u5b9a\u8d44\u91d1\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u7b5b\u9009\u7684\u673a\u6784\u548c\u5e01\u79cd\u4fdd\u6301\u4e00\u81f4\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u4e0b\u7684\u4e1a\u52a1\u6240\u9700\u7a33\u5b9a\u8d44\u91d1\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "业务所需稳定资金走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的业务所需稳定资金走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c48"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行48"
                 }
               ]
             }
@@ -806,75 +806,75 @@ window.dashboardData = {
         },
         {
           "id": "block-2",
-          "name": "\u73b0\u91d1\u6d41\u9519\u914d",
+          "name": "现金流错配",
           "areas": [
             {
               "id": "area-49",
-              "name": "\u6d41\u52a8\u6027\u7f3a\u53e3",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09",
+              "name": "流动性缺口",
+              "viewScope": "月频 / 日频",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 49,
-                  "title": "\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21\u8d70\u52bf\uff081/7/90\u65e5\uff09",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u671f\u9650\u957f\u5ea6\uff08\u591a\u9009\uff0c\u4ec51/7/90\u65e5\u56fe\u751f\u6548\uff09\uff1b\u7edf\u8ba1\u53e3\u5f84\uff08\u591a\u9009\uff0c\u4ec530\u65e5\u56fe\u548c\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u56fe\u751f\u6548\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u671f\u9650\u957f\u5ea6\u3001\u7edf\u8ba1\u53e3\u5f84\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\uff0c\u518d\u9009\u62e9\u65f6\u95f4\u957f\u5ea6\uff081/7/90\u65e5\uff09\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u7ef4\u5ea6\u4e0b\uff0c\u4e0d\u540c\u65f6\u95f4\u957f\u5ea6\uff081/7/90\u65e5\uff09\u7684\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u671f\u9650\u957f\u5ea6\u652f\u6301\u591a\u9009\uff0c\u56fe\u4e0a\u53ef\u540c\u65f6\u5bf9\u6bd41\u65e5\u30017\u65e5\u300190\u65e5\u66f2\u7ebf\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u53e3\u5f84\uff1a\u9ed8\u8ba4\u5f53\u524d\u533a\u57df\u4e3b\u53e3\u5f84\uff1b\u671f\u9650\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "流动性缺口规模走势（1/7/90日）",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1/7/90日图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：筛选机构和币种，再选择时间长度（1/7/90日），展示所选机构和币种维度下，不同时间长度（1/7/90日）的流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：期限长度支持多选，图上可同时对比1日、7日、90日曲线。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c49"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行49"
                 },
                 {
                   "seq": 50,
-                  "title": "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u671f\u9650\u957f\u5ea6\uff08\u591a\u9009\uff0c\u4ec51/7/90\u65e5\u56fe\u751f\u6548\uff09\uff1b\u7edf\u8ba1\u53e3\u5f84\uff08\u591a\u9009\uff0c\u4ec530\u65e5\u56fe\u548c\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u56fe\u751f\u6548\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u671f\u9650\u957f\u5ea6\u3001\u7edf\u8ba1\u53e3\u5f84\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\uff08\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891\uff09\u3002\u539f\u59cb\u8981\u6c42\uff1a\u4e0e\u4e0a\u8ff0\u7b5b\u9009\u7684\u673a\u6784\u548c\u5e01\u79cd\u4fdd\u6301\u4e00\u81f4\uff0c\u8fdb\u4e00\u6b65\u9009\u62e9\u53e3\u5f84\uff08\u65f6\u70b9\u6216\u6708\u65e5\u5747\uff09\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u548c\u5e01\u79cd\u7ef4\u5ea6\u4e0b\u4e0d\u540c\u53e3\u5f84\uff08\u65f6\u70b9\u6216\u6708\u65e5\u5747\uff09\u768430\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u7edf\u8ba1\u53e3\u5f84\u652f\u6301\u591a\u9009\uff0c\u53ef\u540c\u56fe\u5bf9\u6bd4\u65f6\u70b9\u4e0e\u6708\u65e5\u5747\u7ed3\u679c\u3002",
-                  "grain": "\u6708\u5ea6",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u53e3\u5f84\uff1a\u9ed8\u8ba4\u5f53\u524d\u533a\u57df\u4e3b\u53e3\u5f84\uff1b\u671f\u9650\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "30日流动性缺口规模",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1/7/90日图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，进一步选择口径（时点或月日均），展示所选机构和币种维度下不同口径（时点或月日均）的30日流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：统计口径支持多选，可同图对比时点与月日均结果。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u7f3a\u53e3\u89c4\u6a21/\u7f3a\u53e3\u7387",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：缺口规模/缺口率",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe",
-                  "originPosition": "\u539f\u59cb\u884c50"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图",
+                  "originPosition": "原始行50"
                 }
               ]
             },
             {
               "id": "area-51",
-              "name": "\u6d41\u52a8\u6027\u7f3a\u53e3",
-              "viewScope": "\u65f6\u70b9",
+              "name": "流动性缺口",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 51,
-                  "title": "\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u89c4\u6a21",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\uff1b\u7edf\u8ba1\u53e3\u5f84\uff08\u591a\u9009\uff0c\u4ec530\u65e5\u56fe\u548c\u8d44\u91d1\u6d41\u5165\u6d41\u51fa\u56fe\u751f\u6548\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u3001\u7edf\u8ba1\u53e3\u5f84\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\u548c\u5e01\u79cd\u53ca\u7edf\u8ba1\u53e3\u5f84\uff08\u5f53\u65e5\u6216\u9010\u65e5\u7d2f\u8ba1\uff09\uff0c\u5c55\u793a\u8d44\u91d1\u6d41\u5165\u4e0e\u8d44\u91d1\u6d41\u51fa\u89c4\u6a21\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u53e3\u5f84\uff1a\u9ed8\u8ba4\u5f53\u524d\u533a\u57df\u4e3b\u53e3\u5f84",
+                  "title": "资金流入流出规模",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、统计口径筛选器。展示口径：时点。原始要求：通过筛选机构和币种及统计口径（当日或逐日累计），展示资金流入与资金流出规模。开发细化：采用趋势图实现。",
+                  "grain": "时点快照",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u7edf\u8ba1\u6708",
-                  "metricDescription": "\u6307\u6807\uff1a\u8d44\u91d1\u6d41\u5165/\u8d44\u91d1\u6d41\u51fa",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u8d44\u91d1\u6d41\u5165\u3001\u8d44\u91d1\u6d41\u51fa",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：资金流入/资金流出",
+                  "legendDescription": "图例：资金流入、资金流出",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c51"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行51"
                 },
                 {
                   "seq": 54,
@@ -899,57 +899,57 @@ window.dashboardData = {
         },
         {
           "id": "block-3",
-          "name": "\u8d44\u91d1\u5907\u4ed8",
+          "name": "资金备付",
           "areas": [
             {
               "id": "area-52",
-              "name": "\u8d85\u989d\u5907\u4ed8\u91d1",
-              "viewScope": "\u65f6\u95f4\u5e8f\u5217",
+              "name": "超额备付金",
+              "viewScope": "时间序列",
               "sharedFilters": [
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 52,
-                  "title": "\u8d85\u989d\u5907\u4ed8\u91d1\u7387\u53ca\u89c4\u6a21\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u95f4\u5e8f\u5217\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u5e01\u79cd\uff0c\u5c55\u793a\u6cd5\u4eba\u7ef4\u5ea6\u4e0b\u4e0d\u540c\u5e01\u79cd\u7684\u8d85\u989d\u5907\u4ed8\u91d1\u7387\u53ca\u5907\u4ed8\u91d1\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002",
-                  "grain": "\u6309\u56fe\u8868\u53e3\u5f84\u786e\u5b9a",
-                  "defaultFilters": "\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "超额备付金率及规模走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：币种（多选）。联动规则：同一第三层区域下的图表共用币种筛选器。展示口径：时间序列。原始要求：通过筛选币种，展示法人维度下不同币种的超额备付金率及备付金规模走势。开发细化：采用趋势图实现，横轴为时间，切换筛选项后整图联动刷新。",
+                  "grain": "按图表口径确定",
+                  "defaultFilters": "币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c52"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行52"
                 }
               ]
             },
             {
               "id": "area-53",
-              "name": "\u8d85\u989d\u5907\u4ed8\u91d1",
-              "viewScope": "\u65f6\u70b9",
+              "name": "超额备付金",
+              "viewScope": "时点",
               "sharedFilters": [
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 53,
-                  "title": "\u5907\u4ed8\u91d1\u89c4\u6a21\u5206\u5e03\u7ed3\u6784",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u7684\u56fe\u8868\u5171\u7528\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u65f6\u70b9\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u5e01\u79cd\uff0c\u5c55\u793a\u6cd5\u4eba\u7ef4\u5ea6\u4e0b\u4e0d\u540c\u5e01\u79cd\u7684\u8d85\u989d\u5907\u4ed8\u91d1\u7387\u53ca\u5907\u4ed8\u91d1\u89c4\u6a21\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u7ed3\u6784\u5206\u5e03\u56fe\u5b9e\u73b0\uff0c\u540c\u6b65\u5c55\u793a\u7edd\u5bf9\u89c4\u6a21\u548c\u5360\u6bd4\u3002",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
-                  "defaultFilters": "\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "备付金规模分布结构",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：币种（多选）。联动规则：同一第三层区域下的图表共用币种筛选器。展示口径：时点。原始要求：通过筛选币种，展示法人维度下不同币种的超额备付金率及备付金规模走势。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
+                  "grain": "时点快照",
+                  "defaultFilters": "币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u89c4\u6a21",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：规模",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c53"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行53"
                 }
               ]
             }
@@ -963,79 +963,79 @@ window.dashboardData = {
     },
     {
       "id": "page-3",
-      "name": "\u6c47\u7387\u98ce\u9669",
+      "name": "汇率风险",
       "blocks": [
         {
           "id": "block-1",
-          "name": "\u5916\u6c47\u655e\u53e3",
+          "name": "外汇敞口",
           "areas": [
             {
               "id": "area-68",
-              "name": "\u65f6\u95f4\u5e8f\u5217",
+              "name": "时间序列",
               "viewScope": null,
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 68,
-                  "title": "\u5916\u5e01\u603b\u655e\u53e3\uff08\u77ed\u8fb9\u6cd5\uff09\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e8c\u5c42\u677f\u5757\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u56fa\u5b9a\u53e3\u5f84\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\uff0c\u5c55\u793a\u4e0d\u540c\u673a\u6784\u7684\u5916\u5e01\u603b\u655e\u53e3\uff08\u77ed\u8fb9\u6cd5\uff09\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\u6216\u7edf\u8ba1\u671f\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u672c\u677f\u5757\u56fe\u8868/\u8868\u683c\u5efa\u8bae\u4f7f\u7528\u540c\u4e00\u5957\u673a\u6784\u3001\u5e01\u79cd\u516c\u5171\u7b5b\u9009\u680f\u3002",
-                  "grain": "\u6309\u56fe\u8868\u53e3\u5f84\u786e\u5b9a",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "外币总敞口（短边法）走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：通过筛选机构，展示不同机构的外币总敞口（短边法）走势。开发细化：采用趋势图实现，横轴为时间或统计期，切换筛选项后整图联动刷新。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
+                  "grain": "按图表口径确定",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c68"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行68"
                 },
                 {
                   "seq": 69,
-                  "title": "\u5206\u5e01\u79cd\u5916\u5e01\u655e\u53e3",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e8c\u5c42\u677f\u5757\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u56fa\u5b9a\u53e3\u5f84\u3002\u539f\u59cb\u8981\u6c42\uff1a\u5728\u4e0a\u8ff0\u7b5b\u9009\u673a\u6784\u7684\u57fa\u7840\u4e0a\uff0c\u8fdb\u4e00\u6b65\u9009\u62e9\u5e01\u79cd\uff0c\u5c55\u793a\u6240\u9009\u673a\u6784\u53ca\u5e01\u79cd\u7684\u5916\u5e01\u655e\u53e3\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u6309\u5f53\u524d\u56fe\u8868\u540d\u79f0\u5bf9\u5e94\u7684\u53ef\u89c6\u5316\u7ec4\u4ef6\u5b9e\u73b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u672c\u677f\u5757\u56fe\u8868/\u8868\u683c\u5efa\u8bae\u4f7f\u7528\u540c\u4e00\u5957\u673a\u6784\u3001\u5e01\u79cd\u516c\u5171\u7b5b\u9009\u680f\u3002",
-                  "grain": "\u6309\u56fe\u8868\u53e3\u5f84\u786e\u5b9a",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "分币种外币敞口",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：在上述筛选机构的基础上，进一步选择币种，展示所选机构及币种的外币敞口走势。开发细化：按当前图表名称对应的可视化组件实现。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
+                  "grain": "按图表口径确定",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u5e01\u79cd",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c69"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行69"
                 }
               ]
             },
             {
               "id": "area-70",
-              "name": "\u65f6\u70b9",
+              "name": "时点",
               "viewScope": null,
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 70,
-                  "title": "\u5916\u5e01\u655e\u53e3\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\uff1b\u5e01\u79cd\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u540c\u4e00\u7b2c\u4e8c\u5c42\u677f\u5757\u4e0b\u7684\u56fe\u8868/\u8868\u683c\u5171\u7528\u673a\u6784\u3001\u5e01\u79cd\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u56fa\u5b9a\u53e3\u5f84\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u9009\u62e9\u673a\u6784\uff0c\u5c55\u793a\u8be5\u673a\u6784\u5728\u4e0d\u540c\u5e01\u79cd\u4e0a\u7684\u5916\u6c47\u655e\u53e3\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8868\u683c\u7ec4\u4ef6\u5b9e\u73b0\uff0c\u884c\u5217\u7ef4\u5ea6\u6309\u8bf4\u660e\u4e2d\u7684\u884c/\u5217\u53e3\u5f84\u7ec4\u7ec7\uff0c\u652f\u6301\u6392\u5e8f\u3001\u51bb\u7ed3\u8868\u5934\u548c\u5bfc\u51fa\u3002\u5f00\u53d1\u8865\u5145\uff1a\u672c\u677f\u5757\u56fe\u8868/\u8868\u683c\u5efa\u8bae\u4f7f\u7528\u540c\u4e00\u5957\u673a\u6784\u3001\u5e01\u79cd\u516c\u5171\u7b5b\u9009\u680f\u3002",
-                  "grain": "\u6309\u56fe\u8868\u53e3\u5f84\u786e\u5b9a",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009\uff1b\u5e01\u79cd\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "外币敞口一览表",
+                  "componentType": "表格",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：通过选择机构，展示该机构在不同币种上的外汇敞口。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
+                  "grain": "按图表口径确定",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "\u884c\u7ef4\u5ea6\uff1a\u4e1a\u52a1/\u5e01\u79cd/\u673a\u6784\uff08\u6309\u56fe\u8868\u542b\u4e49\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u6309\u56fe\u8868\u6807\u9898\u5b9a\u4e49",
-                  "legendDescription": "\u5217\u7ef4\u5ea6\uff1a\u6309\u8868\u5934\u5b9a\u4e49",
+                  "axisDescription": "行维度：业务/币种/机构（按图表含义确定）",
+                  "metricDescription": "指标：按图表标题定义",
+                  "legendDescription": "列维度：按表头定义",
                   "responseFields": "row_key, row_label, col_key, col_label, metric_value",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668\uff1b\u652f\u6301\u8868\u5934\u56fa\u5b9a\u3001\u6eda\u52a8\u4e0e\u5bfc\u51fa",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u8868\u683c\uff1b\u5efa\u8bae\u652f\u6301\u5b57\u6bb5\u6392\u5e8f\u3001\u51bb\u7ed3\u9996\u5217",
-                  "originPosition": "\u539f\u59cb\u884c70"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
+                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
+                  "originPosition": "原始行70"
                 }
               ]
             }
@@ -1044,31 +1044,31 @@ window.dashboardData = {
         },
         {
           "id": "block-2",
-          "name": "\u6c47\u5151\u635f\u76ca",
+          "name": "汇兑损益",
           "areas": [
             {
               "id": "area-71",
-              "name": "\u65f6\u95f4\u5e8f\u5217",
+              "name": "时间序列",
               "viewScope": null,
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09"
+                "机构（多选）"
               ],
               "widgets": [
                 {
                   "seq": 71,
-                  "title": "\u6c47\u5151\u635f\u76ca\u8d70\u52bf",
-                  "componentType": "\u6298\u7ebf\u56fe",
-                  "displayDescription": "\u7b5b\u9009\u9879\uff1a\u673a\u6784\uff08\u591a\u9009\uff09\u3002\u8054\u52a8\u89c4\u5219\uff1a\u5f53\u524d\u56fe\u8868\u5355\u72ec\u4f7f\u7528\u673a\u6784\u7b5b\u9009\u5668\u3002\u5c55\u793a\u53e3\u5f84\uff1a\u56fa\u5b9a\u53e3\u5f84\u3002\u539f\u59cb\u8981\u6c42\uff1a\u901a\u8fc7\u7b5b\u9009\u673a\u6784\uff0c\u5c55\u793a\u4e0d\u540c\u673a\u6784\u7684\u6c47\u5151\u603b\u635f\u76ca\uff08\u6298\u7ebf\uff09\u3001\u5916\u5e01\u6298\u7b97\u635f\u76ca\u3001\u5916\u6c47\u4ea4\u6613\u6536\u5165\u3001\u884d\u751f\u54c1\u4f30\u503c\uff08\u4e09\u4e2a\u5806\u79ef\u67f1\u72b6\u56fe\uff09\u8d70\u52bf\u3002\u5f00\u53d1\u7ec6\u5316\uff1a\u91c7\u7528\u8d8b\u52bf\u56fe\u5b9e\u73b0\uff0c\u6a2a\u8f74\u4e3a\u65f6\u95f4\u6216\u7edf\u8ba1\u671f\uff0c\u5207\u6362\u7b5b\u9009\u9879\u540e\u6574\u56fe\u8054\u52a8\u5237\u65b0\u3002\u5f00\u53d1\u8865\u5145\uff1a\u5efa\u8bae\u56fa\u5b9a\u4e3a1\u6761\u6298\u7ebf+3\u7ec4\u5806\u79ef\u67f1\u7684\u7ec4\u5408\u56fe\u3002",
-                  "grain": "\u6309\u56fe\u8868\u53e3\u5f84\u786e\u5b9a",
-                  "defaultFilters": "\u673a\u6784\uff1a\u9ed8\u8ba4\u5168\u9009",
+                  "title": "汇兑损益走势",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构（多选）。联动规则：当前图表单独使用机构筛选器。展示口径：固定口径。原始要求：通过筛选机构，展示不同机构的汇兑总损益（折线）、外币折算损益、外汇交易收入、衍生品估值（三个堆积柱状图）走势。开发细化：采用趋势图实现，横轴为时间或统计期，切换筛选项后整图联动刷新。开发补充：建议固定为1条折线+3组堆积柱的组合图。",
+                  "grain": "按图表口径确定",
+                  "defaultFilters": "机构：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "\u6a2a\u8f74\uff1a\u65f6\u95f4/\u7ef4\u5ea6\u9879\uff08\u6309\u53e3\u5f84\u786e\u5b9a\uff09",
-                  "metricDescription": "\u6307\u6807\uff1a\u4f30\u503c/\u635f\u76ca",
-                  "legendDescription": "\u56fe\u4f8b\uff1a\u673a\u6784",
+                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "metricDescription": "指标：估值/损益",
+                  "legendDescription": "图例：机构",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "\u540c\u4e00\u7b2c\u4e09\u5c42\u533a\u57df\u4e0b\u6240\u6709\u56db\u5c42\u56fe\u8868/\u8868\u683c\u5171\u7528\u672c\u533a\u57df\u7b5b\u9009\u5668",
-                  "devNote": "\u7ec4\u4ef6\uff1a\u6298\u7ebf\u56fe\uff1b\u5efa\u8bae\u652f\u6301tooltip\u540c\u6b65\u67e5\u770b",
-                  "originPosition": "\u539f\u59cb\u884c71"
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；建议支持tooltip同步查看",
+                  "originPosition": "原始行71"
                 }
               ]
             }
@@ -1082,27 +1082,27 @@ window.dashboardData = {
     },
     {
       "id": "page-4",
-      "name": "\u4e1a\u52a1\u53d8\u52a8\u5206\u6790",
+      "name": "业务变动分析",
       "blocks": [
         {
           "id": "block-1",
-          "name": "\u5b58\u91cf\u4e1a\u52a1",
+          "name": "存量业务",
           "areas": [
             {
               "id": "area-stock",
-              "name": "\u5b58\u91cf\u4e1a\u52a1",
-              "viewScope": "\u5408\u5e76\u533a\u57df",
+              "name": "存量业务",
+              "viewScope": "合并区域",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 72,
-                  "title": "\u8d44\u4ea7\u8d1f\u503a\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "资产负债规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1115,10 +1115,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 73,
-                  "title": "\u5206\u4e1a\u52a1\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "分业务规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1131,10 +1131,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 79,
-                  "title": "\u8d44\u4ea7\u8d1f\u503a\u7ed3\u6784\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
+                  "title": "资产负债结构一览表",
+                  "componentType": "表格",
                   "displayDescription": "",
-                  "grain": "\u65f6\u70b9\u5feb\u7167",
+                  "grain": "时点快照",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1152,23 +1152,23 @@ window.dashboardData = {
         },
         {
           "id": "block-2",
-          "name": "\u65b0\u53d1\u751f\u4e1a\u52a1",
+          "name": "新发生业务",
           "areas": [
             {
               "id": "area-new",
-              "name": "\u65b0\u53d1\u751f\u4e1a\u52a1",
-              "viewScope": "\u5408\u5e76\u533a\u57df",
+              "name": "新发生业务",
+              "viewScope": "合并区域",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 83,
-                  "title": "\u65b0\u53d1\u751f\u8d44\u4ea7\u8d1f\u503a\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "新发生资产负债规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1181,10 +1181,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 84,
-                  "title": "\u5206\u4e1a\u52a1\u65b0\u53d1\u751f\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "分业务新发生规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1197,10 +1197,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 89,
-                  "title": "\u65b0\u53d1\u751f\u4e1a\u52a1\u8d44\u4ea7\u8d1f\u503a\u7ed3\u6784\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
+                  "title": "新发生业务资产负债结构一览表",
+                  "componentType": "表格",
                   "displayDescription": "",
-                  "grain": "\u65f6\u95f4\u533a\u95f4",
+                  "grain": "时间区间",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1218,23 +1218,23 @@ window.dashboardData = {
         },
         {
           "id": "block-3",
-          "name": "\u5230\u671f\u4e1a\u52a1\uff08\u542b\u9759\u6001\u672a\u6765\u5230\u671f\uff09",
+          "name": "到期业务（含静态未来到期）",
           "areas": [
             {
               "id": "area-maturity",
-              "name": "\u5230\u671f\u4e1a\u52a1\uff08\u542b\u9759\u6001\u672a\u6765\u5230\u671f\uff09",
-              "viewScope": "\u5408\u5e76\u533a\u57df",
+              "name": "到期业务（含静态未来到期）",
+              "viewScope": "合并区域",
               "sharedFilters": [
-                "\u673a\u6784\uff08\u591a\u9009\uff09",
-                "\u5e01\u79cd\uff08\u591a\u9009\uff09"
+                "机构（多选）",
+                "币种（多选）"
               ],
               "widgets": [
                 {
                   "seq": 90,
-                  "title": "\u5230\u671f\u8d44\u4ea7\u8d1f\u503a\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "到期资产负债规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1247,10 +1247,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 91,
-                  "title": "\u5206\u4e1a\u52a1\u5230\u671f\u89c4\u6a21\u53ca\u589e\u901f",
-                  "componentType": "\u53cc\u8f74\u67f1\u7ebf\u7ec4\u5408\u56fe",
+                  "title": "分业务到期规模及增速",
+                  "componentType": "双轴柱线组合图",
                   "displayDescription": "",
-                  "grain": "\u6708\u5ea6",
+                  "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",
@@ -1263,10 +1263,10 @@ window.dashboardData = {
                 },
                 {
                   "seq": 96,
-                  "title": "\u5230\u671f\u4e1a\u52a1\u8d44\u4ea7\u8d1f\u503a\u7ed3\u6784\u4e00\u89c8\u8868",
-                  "componentType": "\u8868\u683c",
+                  "title": "到期业务资产负债结构一览表",
+                  "componentType": "表格",
                   "displayDescription": "",
-                  "grain": "\u65f6\u95f4\u533a\u95f4",
+                  "grain": "时间区间",
                   "defaultFilters": "",
                   "frontendParams": "",
                   "axisDescription": "",

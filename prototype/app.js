@@ -5,8 +5,11 @@ const FILTER_OPTIONS = config.filters?.options || config.filterOptions || {};
 const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
 const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
+const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
+const BLOCK_DISPLAY_CONFIG = config.blockDisplay || {};
+const AREA_DISPLAY_CONFIG = config.areaDisplay || {};
+const WIDGET_BEHAVIOR_CONFIG = config.widgetBehavior || {};
 const WIDGET_FILTER_CONFIG = config.widgetFilters || {};
-const SERIES_RULES = config.seriesRules || config.widgetRules || [];
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
 const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债", "表外衍生品应收", "表外衍生品应付"];
 const SIMULATION_COLOR = "#2F6FA3";
@@ -85,8 +88,7 @@ function ensureOverlayRoot(id) {
 }
 
 function isSimulationPage(page = getCurrentPage()) {
-  const pageName = String(page?.name || "");
-  return pageName.includes("利率") || pageName.includes("流动性") || pageName.includes("汇率");
+  return Boolean(getPageBehavior(page).simulationMode);
 }
 
 function renderPageTabs() {
@@ -186,7 +188,7 @@ function renderAreaCard(areaGroup, block) {
       </div>
     `
     : "";
-  const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage);
+  const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
 
   return `
     <article class="area-card">
@@ -358,14 +360,14 @@ function renderChart(widget, chartContext) {
   const type = widget.componentType || "";
   if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleChart(widget, chartContext);
   if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowChart(widget, chartContext);
-  if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
   if (isLiquidityGapTenorWidget(widget)) return renderLiquidityGapTenorChart(widget, chartContext);
   if (isThirtyDayLiquidityGapWidget(widget)) return renderThirtyDayLiquidityGapChart(widget, chartContext);
   if (isRepricingScaleGapWidget(widget)) return renderRepricingScaleGapChart(widget, chartContext);
+  if (isDurationRepricingWidget(widget)) return renderDurationRepricingChart(widget, chartContext);
   if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionChart(widget, chartContext);
   if (type.includes("表格")) return renderTable(widget, chartContext);
   if (type.includes("双轴") || type.includes("组合")) return renderComboChart(widget, chartContext);
-  if (type.includes("分布") || widget.title.includes("占比") || widget.title.includes("分布")) return renderDonut(widget, chartContext);
+  if (isDonutWidget(widget) || type.includes("分布")) return renderDonut(widget, chartContext);
   if (type.includes("柱状")) return renderBarChart(widget, chartContext);
   return renderLineChart(widget, chartContext);
 }
@@ -396,6 +398,7 @@ function buildChartContext(widget, areaState, widgetState = {}) {
 }
 
 function getWidgetBehavior(widget) {
+  const configuredBehavior = getConfiguredWidgetBehavior(widget);
   const localFilterMap = new Map();
   const suppressSeriesFilters = new Set();
   const enableSeriesFilters = new Set();
@@ -406,17 +409,13 @@ function getWidgetBehavior(widget) {
     localFilterMap.set(filter.name, { ...filter });
   });
 
-  SERIES_RULES.forEach((rule) => {
-    if (!matchesWidgetRule(widget, rule.match || rule.when || {})) return;
-
-    (rule.localFilters || []).forEach((filter) => {
-      if (!filter?.name) return;
-      localFilterMap.set(filter.name, { ...filter });
-    });
-
-    (rule.suppress || rule.suppressSeriesFilters || []).forEach((filterName) => suppressSeriesFilters.add(filterName));
-    (rule.allow || rule.enableSeriesFilters || []).forEach((filterName) => enableSeriesFilters.add(filterName));
+  (configuredBehavior.localFilters || []).forEach((filter) => {
+    if (!filter?.name) return;
+    localFilterMap.set(filter.name, { ...filter });
   });
+
+  (configuredBehavior.seriesFilters?.suppress || []).forEach((filterName) => suppressSeriesFilters.add(filterName));
+  (configuredBehavior.seriesFilters?.allow || []).forEach((filterName) => enableSeriesFilters.add(filterName));
 
   if (supportsFrequencyToggle(widget) && !localFilterMap.has("频率")) {
     localFilterMap.set("频率", {
@@ -433,15 +432,6 @@ function getWidgetBehavior(widget) {
     suppressSeriesFilters: Array.from(suppressSeriesFilters),
     enableSeriesFilters: Array.from(enableSeriesFilters),
   };
-}
-
-function matchesWidgetRule(widget, match) {
-  if (!match || !Object.keys(match).length) return false;
-  const widgetSeq = match.widgetSeq != null ? match.widgetSeq : match.seq;
-  if (widgetSeq != null && Number(widget.seq) !== Number(widgetSeq)) return false;
-  if (match.titleIncludes && !String(widget.title || "").includes(match.titleIncludes)) return false;
-  if (match.legendIncludes && !String(widget.legendDescription || "").includes(match.legendIncludes)) return false;
-  return true;
 }
 
 function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq) {
@@ -758,8 +748,9 @@ function renderBarChart(widget, chartContext) {
 function renderTable(widget, chartContext) {
   if (isEveCurrencyTableWidget(widget)) return renderEveCurrencyTable(widget, chartContext);
   if (isEveScenarioTableWidget(widget)) return renderEveScenarioTable(widget, chartContext);
+  if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
   if (isDurationGapMatrixWidget(widget)) return renderDurationGapMatrixTable(widget);
-  if (String(widget?.title || "").includes("资产负债结构一览表")) return renderBusinessStructureTable(widget, chartContext);
+  if (isBusinessStructureTableWidget(widget)) return renderBusinessStructureTable(widget, chartContext);
   const rowLabels = chartContext.seriesList.length > 1 ? chartContext.seriesList : buildDefaultTableLabels(widget);
   const rows = rowLabels.slice(0, 5).map((label, index) => buildTableRow(label, widget.seq, index, chartContext.signature));
   return `
@@ -854,7 +845,7 @@ function renderDataView(widget, chartContext) {
   if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionDataTable(widget, chartContext);
   if (type.includes("双轴") || type.includes("组合")) return renderComboDataTable(widget, chartContext);
   if (type.includes("柱状")) return renderBarDataTable(widget, chartContext);
-  if (type.includes("分布") || widget.title.includes("占比") || widget.title.includes("分布")) return renderDistributionDataTable(widget, chartContext);
+  if (isDonutWidget(widget) || type.includes("分布")) return renderDistributionDataTable(widget, chartContext);
   return renderLineDataTable(widget, chartContext);
 }
 
@@ -1360,7 +1351,7 @@ function renderDistributionDataTable(widget, chartContext) {
 }
 
 function isMaturityDistributionWidget(widget) {
-  return String(widget.componentType || "").includes("期限分布") || String(widget.title || "").includes("分业务重定价期限分布");
+  return getConfiguredWidgetBehavior(widget).chartKind === "maturityDistribution" || String(widget.componentType || "").includes("期限分布");
 }
 
 function getMaturityDistributionBuckets() {
@@ -1514,7 +1505,7 @@ function renderMaturityDistributionDataTable(widget, chartContext) {
 }
 
 function isNiiCurrencyMatrixWidget(widget) {
-  return Number(widget?.seq) === 8;
+  return getConfiguredWidgetBehavior(widget).tableKind === "niiCurrencyMatrix";
 }
 
 function renderNiiCurrencyScenarioTable(widget, chartContext) {
@@ -1906,14 +1897,7 @@ function buildDailyTimelineEntries(labels) {
 }
 
 function supportsFrequencyToggle(widget) {
-  const title = String(widget?.title || "");
-  return [
-    "重定价缺口率",
-    "重定价规模与缺口",
-    "流动性覆盖率LCR",
-    "优质流动性资产HQLA",
-    "生息资产规模",
-  ].some((keyword) => title.includes(keyword));
+  return Boolean(getConfiguredWidgetBehavior(widget).frequencyToggle);
 }
 
 function getManagementLimitConfig(widget) {
@@ -2049,9 +2033,11 @@ function parseDateValue(value) {
 }
 
 function inferYAxisLabel(widget) {
+  const configuredBehavior = getConfiguredWidgetBehavior(widget);
+  if (configuredBehavior.yAxisLabel) return configuredBehavior.yAxisLabel;
   const metric = widget.metricDescription || "";
-  if (widget.title.includes("久期")) return "久期";
-  if (metric.includes("比率") || metric.includes("波动率") || widget.title.includes("比率")) return "比例 (%)";
+  if (metric.includes("久期")) return "久期";
+  if (metric.includes("比率") || metric.includes("波动率")) return "比例 (%)";
   if (metric.includes("规模") || metric.includes("净额")) return "规模 (亿元)";
   if (metric.includes("变动")) return "变动值 (BP/亿元)";
   if (metric.includes("LCR")) return "指标值 (%)";
@@ -2106,46 +2092,49 @@ function getAreaSubpageLabel(areaGroup, viewScope) {
   return matchedTab?.label || null;
 }
 
-function getVisibleAreaViewGroups(areaGroup, areaSubpage) {
-  if (isBusinessChangePage()) {
-    return [
-      {
-        id: `${areaGroup.id}-merged`,
-        viewScope: "merged",
-        widgets: areaGroup.viewGroups.flatMap((viewGroup) => viewGroup.widgets || []),
-      },
-    ];
-  }
-
-  if (["净利息收入波动率", "流动性覆盖率LCR", "超额备付金"].includes(areaGroup.name) && !areaSubpage.tabs.length) {
-    return [
-      {
-        id: `${areaGroup.id}-merged`,
-        viewScope: "merged",
-        widgets: areaGroup.viewGroups.flatMap((viewGroup) => viewGroup.widgets || []),
-      },
-    ];
+function getVisibleAreaViewGroups(areaGroup, areaSubpage, block) {
+  const areaDisplay = getAreaDisplayConfig(areaGroup, block);
+  if (areaDisplay.mergeViewGroups && !areaSubpage.tabs.length) {
+    return [mergeAreaViewGroups(areaGroup)];
   }
 
   if (!areaSubpage.tabs.length) return areaGroup.viewGroups;
 
-  if (areaGroup.name === "重定价缺口率") {
-    const seriesGroups = areaGroup.viewGroups.filter(
-      (viewGroup) =>
-        !isGapPointViewGroup(viewGroup) &&
-        getAreaSubpageLabel(areaGroup, viewGroup.viewScope) === areaSubpage.activeTab
-    );
-    const fixedPointGroup =
-      areaGroup.viewGroups.find((viewGroup) => String(viewGroup.viewScope || "").includes("时点口径 / 时点")) ||
-      areaGroup.viewGroups.find((viewGroup) => isGapPointViewGroup(viewGroup));
-    return uniqueViewGroups([...seriesGroups, fixedPointGroup]);
-  }
-
-  return areaGroup.viewGroups.filter((viewGroup) => getAreaSubpageLabel(areaGroup, viewGroup.viewScope) === areaSubpage.activeTab);
+  const activeViewGroups = areaGroup.viewGroups.filter(
+    (viewGroup) => getAreaSubpageLabel(areaGroup, viewGroup.viewScope) === areaSubpage.activeTab
+  );
+  const pinnedViewGroup = findPinnedViewGroup(areaGroup.viewGroups, areaDisplay.pinnedViewScopeIncludes);
+  return pinnedViewGroup ? uniqueViewGroups([...activeViewGroups, pinnedViewGroup]) : activeViewGroups;
 }
 
-function isGapPointViewGroup(viewGroup) {
-  return String(viewGroup?.viewScope || "").includes("/ 时点");
+function getPageBehavior(page = getCurrentPage()) {
+  if (!page?.name) return {};
+  return PAGE_BEHAVIOR_CONFIG[page.name] || {};
+}
+
+function getBlockDisplayConfig(block, page = getCurrentPage()) {
+  if (!page?.name || !block?.name) return {};
+  return BLOCK_DISPLAY_CONFIG[page.name]?.[block.name] || {};
+}
+
+function getAreaDisplayConfig(areaGroup, block, page = getCurrentPage()) {
+  if (!page?.name || !block?.name || !areaGroup?.name) return {};
+  return AREA_DISPLAY_CONFIG[page.name]?.[block.name]?.[areaGroup.name] || {};
+}
+
+function mergeAreaViewGroups(areaGroup) {
+  return {
+    id: `${areaGroup.id}-merged`,
+    viewScope: "merged",
+    widgets: areaGroup.viewGroups.flatMap((viewGroup) => viewGroup.widgets || []),
+  };
+}
+
+function findPinnedViewGroup(viewGroups, matchers = []) {
+  if (!Array.isArray(matchers) || !matchers.length) return null;
+  return viewGroups.find((viewGroup) =>
+    matchers.some((matcher) => String(viewGroup?.viewScope || "").includes(matcher))
+  ) || null;
 }
 
 function uniqueViewGroups(items) {
@@ -2219,30 +2208,7 @@ function getDefaultFilterValues(filterName, optionValues = null) {
   return options.slice(0, 1);
 }
 
-function countUniqueAreas() {
-  return data.pages.reduce(
-    (pageSum, page) =>
-      pageSum +
-      page.blocks.reduce((blockSum, block) => blockSum + new Set(block.areas.map((area) => area.name)).size, 0),
-    0
-  );
-}
-
 function groupBlockAreas(block) {
-  if (isBusinessChangePage()) {
-    return [
-      {
-        id: `${block.id}-merged`,
-        name: block.name,
-        sharedFilters: uniqueList(block.areas.flatMap((area) => area.sharedFilters || [])),
-        viewGroups: block.areas.map((area) => ({
-          id: area.id,
-          viewScope: area.viewScope,
-          widgets: area.widgets,
-        })),
-      },
-    ];
-  }
   const grouped = new Map();
   block.areas.forEach((area, index) => {
     if (!grouped.has(area.name)) {
@@ -2313,64 +2279,75 @@ function formatDisplayTitle(text) {
 }
 
 function shouldRenderAreasInPairs(block, groupedAreas) {
-  if (isBusinessChangePage()) return false;
-  return String(block?.name || "").includes("期权性风险") && groupedAreas.length === 2;
+  return Boolean(getBlockDisplayConfig(block).pairAreas) && groupedAreas.length === 2;
 }
 
 function shouldSpanFullWidth(widget) {
-  return widget?.layout === "full" || isRepricingScaleGapWidget(widget);
+  return widget?.layout === "full" || Boolean(getConfiguredWidgetBehavior(widget).fullWidth);
 }
 
 function isInlineWidgetFilter(widgetSeq, filterName) {
-  return (
-    (String(widgetSeq) === "49" && filterName === "期限长度") ||
-    (String(widgetSeq) === "50" && filterName === "口径") ||
-    ((String(widgetSeq) === "89" || String(widgetSeq) === "96") && filterName === "时间区间（起止）")
-  );
+  return (getConfiguredWidgetBehaviorBySeq(widgetSeq).inlineFilters || []).includes(filterName);
 }
 
 function isRepricingScaleGapWidget(widget) {
-  return String(widget?.title || "").includes("重定价规模与缺口");
+  return getConfiguredWidgetBehavior(widget).chartKind === "repricingScaleGap";
 }
 
 function isFundingFlowScaleWidget(widget) {
-  return String(widget?.title || "").includes("资金流入流出规模");
+  return getConfiguredWidgetBehavior(widget).chartKind === "fundingFlowScale";
 }
 
 function isFutureFundingFlowWidget(widget) {
-  return String(widget?.title || "").includes("未来逐日资金流");
-}
-
-function isBusinessChangePage() {
-  return String(appState.currentPageId || "") === "page-4";
+  return getConfiguredWidgetBehavior(widget).chartKind === "futureFundingFlow";
 }
 
 function isDurationRepricingWidget(widget) {
-  return String(widget?.title || "").includes("资产/负债重定价久期");
+  return getConfiguredWidgetBehavior(widget).chartKind === "durationRepricing";
 }
 
 function isDurationGapMatrixWidget(widget) {
-  return String(widget?.title || "").includes("分币种久期缺口一览表");
+  return getConfiguredWidgetBehavior(widget).tableKind === "durationGapMatrix";
 }
 
 function isEveCurrencyTableWidget(widget) {
-  return Number(widget?.seq) === 5 || String(widget?.title || "").includes("各币种最大经济价值变动");
+  return getConfiguredWidgetBehavior(widget).tableKind === "eveCurrency";
 }
 
 function isEveScenarioTableWidget(widget) {
-  return Number(widget?.seq) === 6 || String(widget?.title || "").includes("6种情景下经济价值变动表");
+  return getConfiguredWidgetBehavior(widget).tableKind === "eveScenario";
 }
 
 function isNiiVolatilityWidget(widget) {
-  return String(widget?.title || "").includes("净利息收入波动及波动率");
+  return getConfiguredWidgetBehavior(widget).chartKind === "niiVolatility";
 }
 
 function isLiquidityGapTenorWidget(widget) {
-  return String(widget?.title || "").includes("流动性缺口规模（1/7/90日）");
+  return getConfiguredWidgetBehavior(widget).chartKind === "liquidityGapTenor";
 }
 
 function isThirtyDayLiquidityGapWidget(widget) {
-  return String(widget?.title || "").includes("30日流动性缺口规模");
+  return getConfiguredWidgetBehavior(widget).chartKind === "thirtyDayLiquidityGap";
+}
+
+function isBusinessStructureTableWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).tableKind === "businessStructure";
+}
+
+function isDonutWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "donut";
+}
+
+function getWidgetSimulationBehavior(widget) {
+  return getConfiguredWidgetBehavior(widget).simulationBehavior || null;
+}
+
+function getConfiguredWidgetBehavior(widget) {
+  return getConfiguredWidgetBehaviorBySeq(widget?.seq);
+}
+
+function getConfiguredWidgetBehaviorBySeq(widgetSeq) {
+  return WIDGET_BEHAVIOR_CONFIG[String(widgetSeq)] || WIDGET_BEHAVIOR_CONFIG[widgetSeq] || {};
 }
 
 function hexToRgba(hex, alpha) {
@@ -2482,10 +2459,14 @@ function formatMetricValue(value, yLabel) {
 }
 
 function buildDefaultTableLabels(widget) {
-  const title = widget.title || "";
-  if (title.includes("币种")) return FILTER_OPTIONS.币种.slice(0, 4);
-  if (title.includes("情景")) return FILTER_OPTIONS.情景.slice(0, 4);
-  if (title.includes("机构")) return FILTER_OPTIONS.机构.slice(0, 4);
+  const behavior = getConfiguredWidgetBehavior(widget);
+  const dimension = behavior.defaultTableDimension
+    || (String(widget.legendDescription || "").includes("币种") ? "币种" : "")
+    || (String(widget.legendDescription || "").includes("情景") ? "情景" : "")
+    || (String(widget.axisDescription || "").includes("机构") ? "机构" : "");
+  if (dimension === "币种") return FILTER_OPTIONS.币种.slice(0, 4);
+  if (dimension === "情景") return FILTER_OPTIONS.情景.slice(0, 4);
+  if (dimension === "机构") return FILTER_OPTIONS.机构.slice(0, 4);
   return ["口径A", "口径B", "口径C", "口径D"];
 }
 
@@ -2533,11 +2514,7 @@ function getPageSimulation(pageId = getCurrentPage()?.id) {
 }
 
 function getSimulationMode(page = getCurrentPage()) {
-  const pageName = String(page?.name || "");
-  if (pageName.includes("利率")) return "interest";
-  if (pageName.includes("流动性")) return "liquidity";
-  if (pageName.includes("汇率")) return "fx";
-  return "generic";
+  return getPageBehavior(page).simulationMode || "generic";
 }
 
 function getDefaultSimulationDate() {
@@ -2726,7 +2703,7 @@ function getSimulationProfile(page, simulation) {
   const side = BUSINESS_SIDE_MAP[simulation.businessType] || "asset";
   const scaleWeight = Math.min(1.4, Number(simulation.scale || 0) / 120);
   const tenorWeight = Math.min(1.2, Number(simulation.termMonths || 0) / 24);
-  const fxWeight = String(page?.name || "").includes("汇率") && !["人民币", "全折人民币"].includes(simulation.currency) ? 1.18 : 1;
+  const fxWeight = getSimulationMode(page) === "fx" && !["人民币", "全折人民币"].includes(simulation.currency) ? 1.18 : 1;
   return {
     side,
     impactScore: Number((0.08 + scaleWeight * 0.11 + tenorWeight * 0.07) * fxWeight).toFixed(3),
@@ -2737,28 +2714,31 @@ function shouldRenderSimulationOverlay(widget, chartContext) {
   if (!chartContext?.pageId) return false;
   if (!getPageSimulation(chartContext.pageId)) return false;
   if (!isSimulationPage(data.pages.find((page) => page.id === chartContext.pageId))) return false;
+  if (!getWidgetSimulationBehavior(widget)) return false;
   if (String(widget?.componentType || "").includes("表格")) return false;
-  if (String(widget?.title || "").includes("分布") || String(widget?.title || "").includes("占比")) return false;
+  if (isDonutWidget(widget) || String(widget?.componentType || "").includes("分布")) return false;
   return true;
 }
 
 function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLabel, seriesIndex = 0, role = "line") {
   const page = data.pages.find((item) => item.id === chartContext.pageId) || getCurrentPage();
   const profile = getSimulationProfile(page, simulation);
-  const title = String(widget?.title || "");
-  let sensitivity = title.includes("久期") ? 0.18 : title.includes("缺口") ? 0.16 : title.includes("波动") ? 0.15 : title.includes("变动") ? 0.14 : title.includes("规模及增速") ? 0.13 : 0.11;
+  const simulationBehavior = getWidgetSimulationBehavior(widget) || {};
+  const configuredSensitivity = Number(simulationBehavior.sensitivity);
+  let sensitivity = Number.isFinite(configuredSensitivity) ? configuredSensitivity : 0.11;
   let direction = 1;
   const isLiabilitySeries = role.includes("liability") || role.includes("负债");
   const isGapSeries = role.includes("gap") || role.includes("差额");
   const isWholesaleLiability = ["同业负债", "发行债券", "表外衍生品应付"].includes(simulation.businessType);
-  if (String(page?.name || "").includes("利率")) {
+  if (getSimulationMode(page) === "interest") {
     direction = profile.side === "asset" ? 1 : -1;
     if (isLiabilitySeries) direction *= -1;
     if (isGapSeries) direction *= profile.side === "asset" ? 0.92 : -0.68;
     if (simulation.rateType === "浮动利率") sensitivity *= 0.74;
-  } else if (String(page?.name || "").includes("流动性")) {
-    if (title.includes("覆盖率") || title.includes("LCR")) direction = profile.side === "asset" ? -1 : (isWholesaleLiability ? -0.72 : 0.9);
-    else if (title.includes("缺口") || title.includes("融资")) direction = profile.side === "asset" ? 0.88 : (isWholesaleLiability ? 1 : -0.56);
+  } else if (getSimulationMode(page) === "liquidity") {
+    const directionMode = simulationBehavior.directionMode || "default";
+    if (directionMode === "coverage") direction = profile.side === "asset" ? -1 : (isWholesaleLiability ? -0.72 : 0.9);
+    else if (directionMode === "gap") direction = profile.side === "asset" ? 0.88 : (isWholesaleLiability ? 1 : -0.56);
     else direction = profile.side === "asset" ? 0.74 : (isWholesaleLiability ? 0.82 : -0.42);
   } else {
     sensitivity *= ["人民币", "全折人民币"].includes(simulation.currency) ? 0.45 : 1.14;

@@ -10,6 +10,52 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = ROOT / "prototype" / "dashboard-data.js"
 CONFIG_FILE = ROOT / "prototype" / "dashboard-config.js"
+APP_FILE = ROOT / "prototype" / "app.js"
+
+FORBIDDEN_RENDERER_SNIPPETS = [
+    'pageName.includes("利率")',
+    'pageName.includes("流动性")',
+    'pageName.includes("汇率")',
+    'String(block?.name || "").includes("期权性风险")',
+    'currentPageId || "") === "page-4"',
+    'widget.title.includes("占比")',
+    'widget.title.includes("分布")',
+    'String(widget?.title || "").includes("资产负债结构一览表")',
+    'String(widget?.title || "").includes("重定价规模与缺口")',
+    'String(widget?.title || "").includes("资金流入流出规模")',
+    'String(widget?.title || "").includes("未来逐日资金流")',
+    'String(widget?.title || "").includes("资产/负债重定价久期")',
+    'String(widget?.title || "").includes("分币种久期缺口一览表")',
+    'String(widget?.title || "").includes("各币种最大经济价值变动")',
+    'String(widget?.title || "").includes("6种情景下经济价值变动表")',
+    'String(widget?.title || "").includes("净利息收入波动及波动率")',
+    'String(widget?.title || "").includes("流动性缺口规模（1/7/90日）")',
+    'String(widget?.title || "").includes("30日流动性缺口规模")',
+    'Number(widget?.seq) === 5',
+    'Number(widget?.seq) === 6',
+    'String(widgetSeq) === "49"',
+    'String(widgetSeq) === "50"',
+    'String(widgetSeq) === "89"',
+    'String(widgetSeq) === "96"',
+    'title.includes("\u4e45\u671f")',
+    'title.includes("\u7f3a\u53e3")',
+    'title.includes("\u6ce2\u52a8")',
+    'title.includes("\u53d8\u52a8")',
+    'title.includes("\u89c4\u6a21\u53ca\u589e\u901f")',
+    'title.includes("\u8986\u76d6\u7387")',
+    'title.includes("LCR")',
+    'title.includes("\u878d\u8d44")',
+]
+
+FORBIDDEN_LEGACY_TEXT_SNIPPETS = [
+    "\u5386\u53f2\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891",
+    "\u5386\u53f2\u6708\u9891+\u5f53\u6708\u65e5\u9891",
+    "\u5386\u53f2\u6708\u9891+\u672c\u6708\u9010\u65e5",
+    "\u6708\u9891+\u5f53\u6708\u7684\u65e5\u9891",
+    "\u6708\u9891+\u5f53\u6708\u65e5\u9891",
+    "\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u5f53\u6708\u6309\u65e5\u5c55\u793a",
+    "\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u672c\u6708\u6309\u65e5\u5c55\u793a",
+]
 
 
 def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:
@@ -41,8 +87,12 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
 
     widget_index: dict[int, dict[str, Any]] = {}
     page_ids: set[str] = set()
+    page_names: set[str] = set()
     area_ids: set[str] = set()
     area_names: set[str] = set()
+    block_names_by_page: dict[str, set[str]] = {}
+    area_names_by_scope: dict[tuple[str, str], set[str]] = {}
+    widget_context: dict[int, dict[str, Any]] = {}
     total_blocks = 0
     total_areas = 0
     total_widgets = 0
@@ -52,6 +102,7 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
         if page.get("id") in page_ids:
             errors.append(f"duplicate page id: {page.get('id')}")
         page_ids.add(page.get("id"))
+        page_names.add(str(page.get("name")))
         blocks = page.get("blocks")
         if not isinstance(blocks, list):
             errors.append(f"page {page.get('id')} blocks should be a list")
@@ -62,12 +113,14 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
         page_area_count = 0
         page_widget_count = 0
         page_block_ids: set[str] = set()
+        block_names_by_page[str(page.get("name"))] = set()
 
         for block in blocks:
             ensure_fields(block, ["id", "name", "areas"], f"block {block!r}", errors)
             if block.get("id") in page_block_ids:
                 errors.append(f"duplicate block id within page {page.get('id')}: {block.get('id')}")
             page_block_ids.add(block.get("id"))
+            block_names_by_page[str(page.get("name"))].add(str(block.get("name")))
             areas = block.get("areas")
             if not isinstance(areas, list):
                 errors.append(f"block {block.get('id')} areas should be a list")
@@ -87,6 +140,8 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                     errors.append(f"duplicate area id: {area.get('id')}")
                 area_ids.add(area.get("id"))
                 area_names.add(str(area.get("name")))
+                area_scope = (str(page.get("name")), str(block.get("name")))
+                area_names_by_scope.setdefault(area_scope, set()).add(str(area.get("name")))
                 widgets = area.get("widgets")
                 if not isinstance(widgets, list) or not widgets:
                     errors.append(f"area {area.get('id')} widgets should be a non-empty list")
@@ -114,6 +169,12 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                     if seq in widget_index:
                         errors.append(f"duplicate widget seq: {seq}")
                     widget_index[seq] = widget
+                    widget_context[seq] = {
+                        "page_id": str(page.get("id")),
+                        "page_name": str(page.get("name")),
+                        "title": str(widget.get("title")),
+                        "component_type": str(widget.get("componentType")),
+                    }
 
         if "areaCount" in page and page["areaCount"] != page_area_count:
             errors.append(f"page {page.get('id')} areaCount mismatch: {page['areaCount']} != {page_area_count}")
@@ -131,7 +192,11 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
         "areas": total_areas,
         "widgets": total_widgets,
         "widget_index": widget_index,
+        "widget_context": widget_context,
+        "page_names": page_names,
+        "block_names_by_page": block_names_by_page,
         "area_names": area_names,
+        "area_names_by_scope": area_names_by_scope,
     }
     return errors, warnings, stats
 
@@ -143,11 +208,20 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     filter_options = config.get("filters", {}).get("options", {})
     defaults = config.get("filters", {}).get("defaults", {})
     area_overrides = config.get("filters", {}).get("areaOverrides", {})
+    page_behavior = config.get("pageBehavior", {})
+    block_display = config.get("blockDisplay", {})
+    area_display = config.get("areaDisplay", {})
     tabs = config.get("tabs", {})
+    widget_behavior = config.get("widgetBehavior", {})
     widget_filters = config.get("widgetFilters", {})
     series_rules = config.get("seriesRules", [])
     widget_index = stats["widget_index"]
+    widget_context = stats["widget_context"]
+    page_names = stats["page_names"]
+    block_names_by_page = stats["block_names_by_page"]
     area_names = stats["area_names"]
+    area_names_by_scope = stats["area_names_by_scope"]
+    allowed_direction_modes = {"coverage", "gap", "default"}
 
     if not isinstance(filter_options, dict):
         errors.append("filters.options should be an object")
@@ -190,6 +264,155 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     warnings.append(f"filters.areaOverrides.{area_name}.{filter_name} has no matching filters.options entry")
                 if not isinstance(values, list):
                     errors.append(f"filters.areaOverrides.{area_name}.{filter_name} should be a list")
+
+    if not isinstance(page_behavior, dict):
+        errors.append("pageBehavior should be an object")
+    else:
+        allowed_modes = {"interest", "liquidity", "fx", "generic"}
+        for page_name, behavior in page_behavior.items():
+            if page_name not in page_names:
+                warnings.append(f"pageBehavior references unknown page name: {page_name}")
+            if not isinstance(behavior, dict):
+                errors.append(f"pageBehavior.{page_name} should be an object")
+                continue
+            if "simulationMode" in behavior and behavior.get("simulationMode") not in allowed_modes:
+                errors.append(f"pageBehavior.{page_name}.simulationMode should be one of: {', '.join(sorted(allowed_modes))}")
+
+    if not isinstance(block_display, dict):
+        errors.append("blockDisplay should be an object")
+    else:
+        for page_name, blocks in block_display.items():
+            if page_name not in page_names:
+                warnings.append(f"blockDisplay references unknown page name: {page_name}")
+            if not isinstance(blocks, dict):
+                errors.append(f"blockDisplay.{page_name} should be an object")
+                continue
+            for block_name, behavior in blocks.items():
+                if block_name not in block_names_by_page.get(page_name, set()):
+                    warnings.append(f"blockDisplay.{page_name} references unknown block name: {block_name}")
+                if not isinstance(behavior, dict):
+                    errors.append(f"blockDisplay.{page_name}.{block_name} should be an object")
+                    continue
+                if "pairAreas" in behavior and not isinstance(behavior.get("pairAreas"), bool):
+                    errors.append(f"blockDisplay.{page_name}.{block_name}.pairAreas should be a boolean")
+
+    if not isinstance(area_display, dict):
+        errors.append("areaDisplay should be an object")
+    else:
+        for page_name, blocks in area_display.items():
+            if page_name not in page_names:
+                warnings.append(f"areaDisplay references unknown page name: {page_name}")
+            if not isinstance(blocks, dict):
+                errors.append(f"areaDisplay.{page_name} should be an object")
+                continue
+            for block_name, areas in blocks.items():
+                scope = (page_name, block_name)
+                if block_name not in block_names_by_page.get(page_name, set()):
+                    warnings.append(f"areaDisplay.{page_name} references unknown block name: {block_name}")
+                if not isinstance(areas, dict):
+                    errors.append(f"areaDisplay.{page_name}.{block_name} should be an object")
+                    continue
+                for area_name, behavior in areas.items():
+                    if area_name not in area_names_by_scope.get(scope, set()):
+                        warnings.append(f"areaDisplay.{page_name}.{block_name} references unknown area name: {area_name}")
+                    if not isinstance(behavior, dict):
+                        errors.append(f"areaDisplay.{page_name}.{block_name}.{area_name} should be an object")
+                        continue
+                    if "mergeViewGroups" in behavior and not isinstance(behavior.get("mergeViewGroups"), bool):
+                        errors.append(f"areaDisplay.{page_name}.{block_name}.{area_name}.mergeViewGroups should be a boolean")
+                    if "pinnedViewScopeIncludes" in behavior:
+                        values = behavior.get("pinnedViewScopeIncludes")
+                        if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+                            errors.append(
+                                f"areaDisplay.{page_name}.{block_name}.{area_name}.pinnedViewScopeIncludes should be a non-empty string list"
+                            )
+
+    if not isinstance(widget_behavior, dict):
+        errors.append("widgetBehavior should be an object")
+    else:
+        for seq_text, behavior in widget_behavior.items():
+            try:
+                seq = int(seq_text)
+            except ValueError:
+                errors.append(f"widgetBehavior key is not an integer: {seq_text}")
+                continue
+            if seq not in widget_index:
+                warnings.append(f"widgetBehavior references unknown widget seq: {seq}")
+            if not isinstance(behavior, dict):
+                errors.append(f"widgetBehavior.{seq_text} should be an object")
+                continue
+            if "frequencyToggle" in behavior and not isinstance(behavior.get("frequencyToggle"), bool):
+                errors.append(f"widgetBehavior.{seq_text}.frequencyToggle should be a boolean")
+            if "fullWidth" in behavior and not isinstance(behavior.get("fullWidth"), bool):
+                errors.append(f"widgetBehavior.{seq_text}.fullWidth should be a boolean")
+            if "yAxisLabel" in behavior and not isinstance(behavior.get("yAxisLabel"), str):
+                errors.append(f"widgetBehavior.{seq_text}.yAxisLabel should be a string")
+            for key in ("chartKind", "tableKind", "defaultTableDimension"):
+                if key in behavior and not isinstance(behavior.get(key), str):
+                    errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
+            if "inlineFilters" in behavior:
+                values = behavior.get("inlineFilters")
+                if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                    errors.append(f"widgetBehavior.{seq_text}.inlineFilters should be a string list")
+            if "localFilters" in behavior and not isinstance(behavior.get("localFilters"), list):
+                errors.append(f"widgetBehavior.{seq_text}.localFilters should be a list")
+            if "simulationBehavior" in behavior:
+                simulation_behavior = behavior.get("simulationBehavior")
+                if not isinstance(simulation_behavior, dict):
+                    errors.append(f"widgetBehavior.{seq_text}.simulationBehavior should be an object")
+                else:
+                    if "sensitivity" in simulation_behavior:
+                        sensitivity = simulation_behavior.get("sensitivity")
+                        if not isinstance(sensitivity, (int, float)) or isinstance(sensitivity, bool):
+                            errors.append(f"widgetBehavior.{seq_text}.simulationBehavior.sensitivity should be a number")
+                    if "directionMode" in simulation_behavior and simulation_behavior.get("directionMode") not in allowed_direction_modes:
+                        errors.append(
+                            f"widgetBehavior.{seq_text}.simulationBehavior.directionMode should be one of: "
+                            + ", ".join(sorted(allowed_direction_modes))
+                        )
+            if "seriesFilters" in behavior:
+                series_behavior = behavior.get("seriesFilters")
+                if not isinstance(series_behavior, dict):
+                    errors.append(f"widgetBehavior.{seq_text}.seriesFilters should be an object")
+                else:
+                    for key in ("allow", "suppress"):
+                        if key in series_behavior:
+                            values = series_behavior.get(key)
+                            if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                                errors.append(f"widgetBehavior.{seq_text}.seriesFilters.{key} should be a string list")
+
+        simulation_pages = {
+            page_name: behavior.get("simulationMode")
+            for page_name, behavior in page_behavior.items()
+            if isinstance(behavior, dict) and behavior.get("simulationMode") and behavior.get("simulationMode") != "generic"
+        }
+        for seq, context in widget_context.items():
+            simulation_mode = simulation_pages.get(context["page_name"])
+            if not simulation_mode:
+                continue
+            behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
+            component_type = context["component_type"]
+            if "表格" in component_type:
+                continue
+            if "分布" in component_type or behavior.get("chartKind") == "donut":
+                continue
+            simulation_behavior = behavior.get("simulationBehavior")
+            if not isinstance(simulation_behavior, dict):
+                errors.append(
+                    f"widgetBehavior.{seq}.simulationBehavior is required for simulation-page widget: {context['title']}"
+                )
+                continue
+            sensitivity = simulation_behavior.get("sensitivity")
+            if not isinstance(sensitivity, (int, float)) or isinstance(sensitivity, bool):
+                errors.append(
+                    f"widgetBehavior.{seq}.simulationBehavior.sensitivity is required for simulation-page widget: "
+                    f"{context['title']}"
+                )
+            if simulation_mode == "liquidity" and simulation_behavior.get("directionMode") not in allowed_direction_modes:
+                errors.append(
+                    f"widgetBehavior.{seq}.simulationBehavior.directionMode is required for liquidity widget: "
+                    f"{context['title']}"
+                )
 
     if not isinstance(tabs, dict):
         errors.append("tabs should be an object")
@@ -242,6 +465,8 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(series_rules, list):
         errors.append("seriesRules should be a list")
     else:
+        if series_rules:
+            warnings.append("seriesRules is deprecated; prefer widgetBehavior.seriesFilters")
         for index, rule in enumerate(series_rules, start=1):
             if not isinstance(rule, dict):
                 errors.append(f"seriesRules[{index}] should be an object")
@@ -269,6 +494,33 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     return errors, warnings
 
 
+def validate_renderer_architecture() -> list[str]:
+    text = APP_FILE.read_text(encoding="utf-8")
+    errors: list[str] = []
+    for snippet in FORBIDDEN_RENDERER_SNIPPETS:
+        if snippet in text:
+            errors.append(f"app.js contains forbidden renderer hardcode: {snippet}")
+    return errors
+
+
+def collect_legacy_text_paths(value: Any, path: str = "root") -> list[str]:
+    hits: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            hits.extend(collect_legacy_text_paths(item, f"{path}.{key}"))
+        return hits
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            hits.extend(collect_legacy_text_paths(item, f"{path}[{index}]"))
+        return hits
+    if isinstance(value, str):
+        for snippet in FORBIDDEN_LEGACY_TEXT_SNIPPETS:
+            if snippet in value:
+                hits.append(f"{path} contains legacy text: {snippet}")
+        return hits
+    return hits
+
+
 def main() -> int:
     try:
         data = load_window_json(DATA_FILE, "dashboardData")
@@ -280,7 +532,9 @@ def main() -> int:
     config["filter_option_names"] = set(config.get("filters", {}).get("options", {}).keys())
     data_errors, data_warnings, stats = validate_dashboard_data(data, config)
     config_errors, config_warnings = validate_dashboard_config(config, stats)
-    errors = data_errors + config_errors
+    architecture_errors = validate_renderer_architecture()
+    legacy_text_errors = collect_legacy_text_paths(data, "dashboardData") + collect_legacy_text_paths(config, "dashboardConfig")
+    errors = data_errors + config_errors + architecture_errors + legacy_text_errors
     warnings = data_warnings + config_warnings
 
     if errors:
