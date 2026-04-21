@@ -540,7 +540,7 @@ function chooseSeriesSelection(widget, filterState) {
 
 function renderLineChart(widget, chartContext) {
   if (isDurationRepricingWidget(widget)) return renderDurationRepricingChart(widget, chartContext);
-  const frame = applyFrameAxisLayout(createFrame(chartContext.xLabels.length), widget, chartContext.xLabels);
+  const frame = createFrame(chartContext.xLabels.length);
   const axis = renderAxes(frame, chartContext.xLabels, chartContext.yLabel);
   const seriesDefinitions = [];
   const seriesMarkup = chartContext.seriesList
@@ -573,7 +573,7 @@ function renderLineChart(widget, chartContext) {
 
 function renderComboChart(widget, chartContext) {
   if (isNiiVolatilityWidget(widget)) return renderNiiVolatilityComboChart(widget, chartContext);
-  const frame = applyFrameAxisLayout(createFrame(chartContext.xLabels.length), widget, chartContext.xLabels);
+  const frame = createFrame(chartContext.xLabels.length);
   const axis = renderAxes(frame, chartContext.xLabels, chartContext.yLabel);
   const barValues = buildBarValues(widget.seq, chartContext.xLabels.length, chartContext.signature);
   const barWidth = Math.max(24, (getFrameMinStep(frame, chartContext.xLabels.length)) * 0.36);
@@ -618,7 +618,7 @@ function renderComboChart(widget, chartContext) {
 }
 
 function renderRepricingScaleGapChart(widget, chartContext) {
-  const frame = applyFrameAxisLayout(createWideFrame(chartContext.xLabels.length), widget, chartContext.xLabels);
+  const frame = createWideFrame(chartContext.xLabels.length);
   const axis = renderAxes(frame, chartContext.xLabels, "规模/差额 (亿元)");
   const metricItems = ["资产端重定价规模", "负债端重定价规模", "资产负债差额"];
   const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
@@ -731,7 +731,7 @@ function renderRepricingScaleGapDataTable(widget, chartContext) {
 
 function renderBarChart(widget, chartContext) {
   const labels = chartContext.seriesList.length > 1 ? chartContext.seriesList : chartContext.xLabels.slice(0, 6);
-  const frame = applyFrameAxisLayout(createFrame(labels.length), widget, labels);
+  const frame = createFrame(labels.length);
   const yLabel = chartContext.yLabel;
   const axis = renderAxes(frame, labels, yLabel);
   const values = buildBarValues(widget.seq, labels.length, chartContext.signature);
@@ -903,7 +903,7 @@ function renderThirtyDayLiquidityGapChart(widget, chartContext) {
 }
 
 function renderInlineControlledLineChart(widget, chartContext, filterName, options) {
-  const frame = applyFrameAxisLayout(createFrame(chartContext.xLabels.length), widget, chartContext.xLabels);
+  const frame = createFrame(chartContext.xLabels.length);
   const axis = renderAxes(frame, chartContext.xLabels, chartContext.yLabel);
   const seriesMarkup = chartContext.seriesList
     .map((label, index) => {
@@ -1685,50 +1685,13 @@ function createWideFrame(count) {
   };
 }
 
-function applyFrameAxisLayout(frame, widget, labels) {
-  frame.axisLayout = buildAxisLayout(widget, labels, frame);
-  return frame;
-}
-
-function buildAxisLayout(widget, labels, frame) {
-  if (!supportsFrequencyToggle(widget)) return null;
-  const historyCount = labels.filter((label) => !String(label).includes("/")).length;
-  const dailyCount = labels.length - historyCount;
-  if (!historyCount || !dailyCount) return null;
-  const gap = Math.min(28, Math.max(18, frame.width * 0.024));
-  const segmentWidth = (frame.width - gap) / 2;
-  const historyWidth = segmentWidth;
-  const dailyWidth = segmentWidth;
-  const historyStep = historyCount <= 1 ? 0 : historyWidth / (historyCount - 1);
-  const dailyStep = dailyCount <= 1 ? 0 : dailyWidth / (dailyCount - 1);
-  const positions = labels.map((_, index) => {
-    if (index < historyCount) return Number((frame.left + historyStep * index).toFixed(1));
-    const dailyIndex = index - historyCount;
-    return Number((frame.left + historyWidth + gap + dailyStep * dailyIndex).toFixed(1));
-  });
-  return {
-    historyCount,
-    dailyCount,
-    separatorX: Number((frame.left + historyWidth + gap / 2).toFixed(1)),
-    dailyStartX: Number((frame.left + historyWidth + gap).toFixed(1)),
-    positions,
-  };
-}
-
 function getFrameXPosition(frame, index, count) {
-  if (frame?.axisLayout?.positions?.[index] != null) return frame.axisLayout.positions[index];
   const step = count <= 1 ? 0 : frame.width / (count - 1);
   return Number((frame.left + step * index).toFixed(1));
 }
 
 function getFrameMinStep(frame, count) {
-  if (!frame?.axisLayout?.positions?.length) return count <= 1 ? frame.width : frame.width / Math.max(1, count - 1);
-  let minStep = Number.POSITIVE_INFINITY;
-  for (let index = 1; index < frame.axisLayout.positions.length; index += 1) {
-    const gap = frame.axisLayout.positions[index] - frame.axisLayout.positions[index - 1];
-    if (gap > 0) minStep = Math.min(minStep, gap);
-  }
-  return Number.isFinite(minStep) ? minStep : frame.width;
+  return count <= 1 ? frame.width : frame.width / Math.max(1, count - 1);
 }
 
 function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedValues, options) {
@@ -1778,34 +1741,18 @@ function renderAxes(frame, xLabels, yLabel) {
     })
     .join("");
 
-  const hybridDecorations = frame.axisLayout
-    ? `
-      <rect x="${frame.axisLayout.dailyStartX - 8}" y="${frame.top}" width="${frame.right - frame.axisLayout.dailyStartX + 8}" height="${frame.height}" fill="rgba(47,111,163,0.035)"></rect>
-      <line x1="${frame.axisLayout.separatorX}" y1="${frame.top}" x2="${frame.axisLayout.separatorX}" y2="${frame.bottom}" stroke="rgba(170,136,108,0.24)" stroke-width="1.2" stroke-dasharray="5 5"></line>
-      <text x="${(frame.left + frame.axisLayout.separatorX) / 2}" y="${frame.top - 6}" text-anchor="middle" class="axis-title axis-title--minor">历史月末</text>
-      <text x="${(frame.axisLayout.dailyStartX + frame.right) / 2}" y="${frame.top - 6}" text-anchor="middle" class="axis-title axis-title--minor">本月逐日</text>
-    `
-    : "";
-
   return `
     <text x="${frame.left - 52}" y="${frame.top - 6}" class="axis-title">${yLabel}</text>
     <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 46}" text-anchor="middle" class="axis-title">${inferXAxisTitle(xLabels)}</text>
     <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
     <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
-    ${hybridDecorations}
     ${yTickMarkup}
     ${xTickMarkup}
   `;
 }
 
-function isHybridXAxisLabels(labels) {
-  return labels.some((label) => /^\d{1,2}\/\d{2}$/.test(String(label))) &&
-    labels.some((label) => /^\d{4}-\d{2}$/.test(String(label)) || /^\d{2}$/.test(String(label)));
-}
-
 function formatXAxisTickLabel(label, index, labels) {
   const text = String(label || "");
-  if (isHybridXAxisLabels(labels)) return formatHybridTickLabel(text, index, labels);
   if (labels.length <= 12) return text;
   if (/^\d{4}-\d{2}$/.test(text) || /^\d{2}$/.test(text)) return text;
   const dailyMatch = text.match(/^(\d{1,2})\/(\d{1,2})$/);
@@ -1817,32 +1764,8 @@ function formatXAxisTickLabel(label, index, labels) {
   return index % step === 0 || index === labels.length - 1 ? text : "";
 }
 
-function formatHybridTickLabel(label, index, labels) {
-  const historyCount = labels.filter((item) => !String(item).includes("/")).length;
-  if (index < historyCount) {
-    if (historyCount <= 6) return label;
-    return index === 0 || index === historyCount - 1 || index % 2 === 0 ? label : "";
-  }
-  const match = label.match(/^(\d{1,2})\/(\d{2})$/);
-  if (!match) return "";
-  const day = Number(match[2]);
-  const currentDay = getHybridCurrentDay(labels);
-  if (currentDay <= 1) return label;
-  if (currentDay <= 7) return day === 1 || day === currentDay || day % 2 === 1 ? label : "";
-  if (currentDay <= 12) return [1, 3, 5, 7, 10, currentDay].includes(day) ? label : "";
-  return day === 1 || day % 5 === 0 || day === currentDay ? label : "";
-}
-
-function getHybridCurrentDay(labels) {
-  return labels.reduce((maxDay, label) => {
-    const match = String(label).match(/^\d{1,2}\/(\d{2})$/);
-    return match ? Math.max(maxDay, Number(match[1])) : maxDay;
-  }, 0);
-}
-
 function inferXAxisTitle(xLabels) {
   const joined = xLabels.join("");
-  if (isHybridXAxisLabels(xLabels)) return "统计日期";
   if (joined.includes("月")) return "统计月份";
   if (joined.includes("日")) return "统计日期";
   if (joined.includes("/")) return "统计日期";
@@ -2093,66 +2016,6 @@ function getWidgetObservationDate(widget) {
     return selectedEndDate < latestAllowedDate ? selectedEndDate : latestAllowedDate;
   }
   return latestAllowedDate;
-}
-
-function buildHybridXAxisLabels() {
-  const pivot = getReferenceTimelinePivot();
-  const historyLabels = [];
-  for (let offset = 9; offset >= 1; offset -= 1) {
-    const date = new Date(pivot.year, pivot.month - 1 - offset, 1);
-    if (historyLabels.length === 0 || date.getMonth() === 0) {
-      historyLabels.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
-    } else {
-      historyLabels.push(String(date.getMonth() + 1).padStart(2, "0"));
-    }
-  }
-  const observationDate = getHybridObservationDate(pivot);
-  const dayCount = observationDate.getDate();
-  const currentMonthLabels = Array.from({ length: dayCount }, (_, index) => `${pivot.month}/${String(index + 1).padStart(2, "0")}`);
-  return [...historyLabels, ...currentMonthLabels];
-}
-
-function getHybridObservationDate(pivot) {
-  const monthEnd = new Date(pivot.year, pivot.month, 0);
-  const today = new Date();
-  const todayInPivotMonth = today.getFullYear() === pivot.year && today.getMonth() + 1 === pivot.month;
-  const latestAllowedDate = todayInPivotMonth && today < monthEnd ? today : monthEnd;
-  const selectedEndDate = parseDateValue(appState.globalEndDate);
-  if (selectedEndDate && selectedEndDate.getFullYear() === pivot.year && selectedEndDate.getMonth() + 1 === pivot.month) {
-    return selectedEndDate < latestAllowedDate ? selectedEndDate : latestAllowedDate;
-  }
-  return latestAllowedDate;
-}
-
-function buildHybridTimelineEntries(labels) {
-  let currentYear = null;
-  let previousMonth = null;
-  const pivot = getReferenceTimelinePivot();
-  return labels.map((label) => {
-    const raw = String(label);
-    const fullMatch = raw.match(/^(\d{4})-(\d{2})$/);
-    const monthMatch = raw.match(/^(\d{2})$/);
-    const dayMatch = raw.match(/^(\d{1,2})\/(\d{1,2})$/);
-    if (fullMatch) {
-      currentYear = Number(fullMatch[1]);
-      previousMonth = Number(fullMatch[2]);
-      return { label, date: formatDateValue(new Date(currentYear, previousMonth, 0)) };
-    }
-    if (monthMatch) {
-      const month = Number(monthMatch[1]);
-      if (currentYear == null) currentYear = pivot.year;
-      if (previousMonth != null && month < previousMonth && previousMonth !== 12) currentYear += 1;
-      previousMonth = month;
-      return { label, date: formatDateValue(new Date(currentYear, month, 0)) };
-    }
-    if (dayMatch) {
-      const month = Number(dayMatch[1]);
-      const day = Number(dayMatch[2]);
-      const year = month > pivot.month ? pivot.year - 1 : pivot.year;
-      return { label, date: formatDateValue(new Date(year, month - 1, day)) };
-    }
-    return { label, date: null };
-  });
 }
 
 function getReferenceYear() {
