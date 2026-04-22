@@ -36,7 +36,16 @@ const BUSINESS_SIDE_MAP = {
   表外衍生品应收: "asset",
   表外衍生品应付: "liability",
 };
-const SERIES_PALETTE = ["#BC6F51", "#5F8F84", "#D09147", "#9F8CAE", "#C87963", "#7EA998", "#6F3929", "#D8C0AA"];
+const LINE_SERIES_PALETTE = ["#C36E49", "#3F76B7", "#4F978B", "#C8943A", "#7D72AF", "#B86556", "#5E463A", "#6F9688"];
+const BAR_SERIES_PALETTE = ["#5E97D1", "#71B7A8", "#8C7FD0", "#D4A55D", "#7FAFDF", "#8FC6BB", "#B39CD9", "#E2BE85"];
+const SEMANTIC_COLORS = {
+  gapLine: LINE_SERIES_PALETTE[0],
+  fundingInflow: LINE_SERIES_PALETTE[0],
+  fundingOutflow: LINE_SERIES_PALETTE[2],
+  fundingDailyNetPositive: BAR_SERIES_PALETTE[0],
+  fundingDailyNetNegative: BAR_SERIES_PALETTE[3],
+  fundingCumulative: LINE_SERIES_PALETTE[1],
+};
 
 const appState = {
   currentPageId: data.pages[0]?.id || null,
@@ -136,6 +145,8 @@ function renderBlockSection(block) {
   const groupedAreas = groupBlockAreas(block);
   const areaLayoutClass = shouldRenderAreasInPairs(block, groupedAreas) ? " block-section__areas--paired" : "";
   const simulationSummary = renderSimulationSummary();
+  const renderedAreas = groupedAreas.map((areaGroup) => renderAreaCard(areaGroup, block)).filter(Boolean);
+  if (!renderedAreas.length) return "";
   return `
     <section class="block-section" id="${block.id}">
       <div class="block-section__header">
@@ -147,7 +158,7 @@ function renderBlockSection(block) {
       <div class="block-section__body">
         <div class="block-section__rail" aria-hidden="true"></div>
         <div class="block-section__areas${areaLayoutClass}">
-          ${groupedAreas.map((areaGroup) => renderAreaCard(areaGroup, block)).join("")}
+          ${renderedAreas.join("")}
         </div>
       </div>
     </section>
@@ -156,7 +167,7 @@ function renderBlockSection(block) {
 
 function renderAreaCard(areaGroup, block) {
   const areaState = ensureAreaFilterState(areaGroup);
-  const areaSubpage = ensureAreaSubpageState(areaGroup);
+  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
   const filterGroups = areaGroup.sharedFilters
     .map((filter) =>
       renderFilterGroup(
@@ -189,6 +200,7 @@ function renderAreaCard(areaGroup, block) {
     `
     : "";
   const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
+  if (!visibleViewGroups.length) return "";
 
   return `
     <article class="area-card">
@@ -209,13 +221,26 @@ function renderAreaCard(areaGroup, block) {
 }
 
 function renderAreaViewGroup(areaGroup, viewGroup, areaState) {
+  const viewScopedState = getViewGroupScopedAreaState(areaGroup, viewGroup, areaState);
   return `
     <section class="area-view-group">
       <div class="widgets-grid">
-        ${viewGroup.widgets.map((widget) => renderWidgetCard(areaGroup, widget, areaState)).join("")}
+        ${viewGroup.widgets.map((widget) => renderWidgetCard(areaGroup, widget, viewScopedState)).join("")}
       </div>
     </section>
   `;
+}
+
+function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
+  const scopedState = {};
+  Object.keys(areaState || {}).forEach((key) => {
+    scopedState[key] = [...(areaState[key] || [])];
+  });
+  const matchedTab = getAreaSubpageMatch(areaGroup, viewGroup?.viewScope);
+  if (matchedTab && Array.isArray(matchedTab.matchInstitutions) && matchedTab.matchInstitutions.length) {
+    scopedState["机构"] = matchedTab.matchInstitutions.filter(Boolean);
+  }
+  return scopedState;
 }
 
 function getAreaFilterOptions(areaGroup, filterLabel) {
@@ -362,7 +387,13 @@ function renderChart(widget, chartContext) {
   if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowChart(widget, chartContext);
   if (isLiquidityGapTenorWidget(widget)) return renderLiquidityGapTenorChart(widget, chartContext);
   if (isThirtyDayLiquidityGapWidget(widget)) return renderThirtyDayLiquidityGapChart(widget, chartContext);
+  if (isReserveRatioScaleWidget(widget)) return renderReserveRatioScaleChart(widget, chartContext);
+  if (isLiquidityAssetLiabilityBarsWidget(widget)) return renderLiquidityAssetLiabilityBarsChart(widget, chartContext);
+  if (isDurationGapComboWidget(widget)) return renderDurationGapComboChart(widget, chartContext);
   if (isRepricingScaleGapWidget(widget)) return renderRepricingScaleGapChart(widget, chartContext);
+  if (isBalanceScaleGrowthWidget(widget)) return renderBalanceScaleGrowthChart(widget, chartContext);
+  if (isBusinessScaleGrowthWidget(widget)) return renderBusinessScaleGrowthChart(widget, chartContext);
+  if (isBusinessDurationRepricingWidget(widget)) return renderBusinessDurationRepricingChart(widget, chartContext);
   if (isDurationRepricingWidget(widget)) return renderDurationRepricingChart(widget, chartContext);
   if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionChart(widget, chartContext);
   if (type.includes("表格")) return renderTable(widget, chartContext);
@@ -381,9 +412,26 @@ function buildChartContext(widget, areaState, widgetState = {}) {
     normalizedState[key] = [...(widgetState[key] || [])];
   });
 
+  const widgetBehavior = getWidgetBehavior(widget);
   const seriesSelection = chooseSeriesSelection(widget, normalizedState);
-  const allSeriesList = [...seriesSelection.values];
-  const legendSeriesList = getLegendSelection(widget.seq, "__legend_series__", allSeriesList);
+  const legendFilter = widgetBehavior.localFilters.find(
+    (filter) => filter?.renderMode === "legend" && Array.isArray(filter.options) && filter.options.length
+  );
+  let allSeriesList = [...seriesSelection.values];
+  let defaultLegendSelection = null;
+  if (legendFilter && allSeriesList.every((value) => legendFilter.options.includes(value))) {
+    allSeriesList = [...legendFilter.options];
+    const configuredDefaults = (normalizedState[legendFilter.name] || []).filter((value) => allSeriesList.includes(value));
+    defaultLegendSelection = configuredDefaults.length ? configuredDefaults : null;
+  }
+  const explicitLegendSelection = ((appState.widgetFilters[widget.seq] || {})["__legend_series__"] || []).filter((value) =>
+    allSeriesList.includes(value)
+  );
+  const legendSeriesList = explicitLegendSelection.length
+    ? explicitLegendSelection
+    : defaultLegendSelection?.length
+      ? [...defaultLegendSelection]
+      : getLegendSelection(widget.seq, "__legend_series__", allSeriesList);
   const xLabels = applyGlobalDateRangeToLabels(widget, inferXAxisLabels(widget, normalizedState), normalizedState);
   return {
     pageId: appState.currentPageId,
@@ -483,8 +531,10 @@ function renderWidgetSegmentedFilter(widgetSeq, filterName, filterLabel, selecte
 
 function chooseSeriesSelection(widget, filterState) {
   const widgetBehavior = getWidgetBehavior(widget);
+  const configuredBehavior = getConfiguredWidgetBehavior(widget);
   const suppressedFilters = new Set(widgetBehavior.suppressSeriesFilters || []);
   const enabledSeriesFilters = new Set(widgetBehavior.enableSeriesFilters || []);
+  const maxSeries = Number.isFinite(Number(configuredBehavior.maxSeries)) ? Number(configuredBehavior.maxSeries) : 8;
   const dimConfigs = [
     { key: "利率情景", label: "情景" },
     { key: "情景", label: "情景" },
@@ -511,7 +561,7 @@ function chooseSeriesSelection(widget, filterState) {
 
   const multiDims = activeDims.filter((item) => item.values.length > 1);
   if (multiDims.length > 0) {
-    const combinations = cartesianProduct(multiDims.map((item) => item.values)).slice(0, 8);
+    const combinations = cartesianProduct(multiDims.map((item) => item.values)).slice(0, maxSeries);
     const labels = combinations.map((combo) => combo.join(" / "));
     const dimLabel = multiDims.map((item) => item.label).join(" × ");
     return { label: `按${dimLabel}组合拆线`, values: labels };
@@ -535,7 +585,7 @@ function renderLineChart(widget, chartContext) {
   const seriesDefinitions = [];
   const seriesMarkup = chartContext.seriesList
     .map((label, index) => {
-      const color = getPaletteColor(label, chartContext.allSeriesList, index);
+      const color = getPaletteColor(label, chartContext.allSeriesList, index, "line");
       const points = buildSeries(widget.seq + index * 17, chartContext.xLabels.length, frame, chartContext.signature + index * 31);
       seriesDefinitions.push({ label, points, role: label.includes("负债") ? "liability" : "line" });
       const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
@@ -567,20 +617,20 @@ function renderComboChart(widget, chartContext) {
   const axis = renderAxes(frame, chartContext.xLabels, chartContext.yLabel);
   const barValues = buildBarValues(widget.seq, chartContext.xLabels.length, chartContext.signature);
   const barWidth = Math.max(24, (getFrameMinStep(frame, chartContext.xLabels.length)) * 0.36);
-
+  const barFill = getBarFillColor(widget.title || "combo-bar", [widget.title || "combo-bar"], 0, 0.84);
+  const barStroke = getBarStrokeColor(widget.title || "combo-bar", [widget.title || "combo-bar"], 0, 0.28);
   const bars = barValues
     .map((value, index) => {
       const x = getFrameXPosition(frame, index, chartContext.xLabels.length) - barWidth / 2;
       const y = frame.bottom - value;
-      const fill = index % 2 ? "rgba(156,203,240,0.72)" : "rgba(220,238,255,0.95)";
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${value}" rx="10" fill="${fill}"></rect>`;
+      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${value}" rx="10" fill="${barFill}" stroke="${barStroke}" stroke-width="1.2"></rect>`;
     })
     .join("");
 
   const seriesDefinitions = [];
   const lines = chartContext.seriesList
     .map((label, index) => {
-      const color = getPaletteColor(label, chartContext.allSeriesList, index);
+      const color = getPaletteColor(label, chartContext.allSeriesList, index, "line");
       const points = buildSeries(widget.seq + 19 + index * 13, chartContext.xLabels.length, frame, chartContext.signature + index * 19);
       seriesDefinitions.push({ label, points, role: label.includes("负债") ? "liability" : "line" });
       const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
@@ -612,6 +662,9 @@ function renderRepricingScaleGapChart(widget, chartContext) {
   const axis = renderAxes(frame, chartContext.xLabels, "规模/差额 (亿元)");
   const metricItems = ["资产端重定价规模", "负债端重定价规模", "资产负债差额"];
   const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
+  const assetBarColor = getPaletteColor("资产端重定价规模", metricItems, 0, "bar");
+  const liabilityBarColor = getPaletteColor("负债端重定价规模", metricItems, 1, "bar");
+  const gapLineColor = SEMANTIC_COLORS.gapLine;
   const assetValues = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 28 + (value % 84));
   const liabilityValues = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 23).map((value) => 22 + (value % 78));
   const gapValues = assetValues.map((value, index) => Math.max(12, Math.abs(value - liabilityValues[index]) + 8));
@@ -622,7 +675,7 @@ function renderRepricingScaleGapChart(widget, chartContext) {
     .slice(0, -1)
     .map((_, index) => {
       const x = (getFrameXPosition(frame, index, chartContext.xLabels.length) + getFrameXPosition(frame, index + 1, chartContext.xLabels.length)) / 2;
-      return `<line x1="${x}" y1="${frame.top}" x2="${x}" y2="${frame.bottom}" stroke="rgba(95, 143, 132, 0.12)" stroke-width="1"></line>`;
+      return `<line x1="${x}" y1="${frame.top}" x2="${x}" y2="${frame.bottom}" stroke="${hexToRgba(assetBarColor, 0.14)}" stroke-width="1"></line>`;
     })
     .join("");
 
@@ -632,7 +685,7 @@ function renderRepricingScaleGapChart(widget, chartContext) {
       const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
       const x = center - columnWidth - barGap;
       const y = frame.bottom - (frame.height * value) / 100;
-      return `<rect x="${x}" y="${y}" width="${columnWidth}" height="${frame.bottom - y}" rx="8" fill="rgba(95, 143, 132, 0.82)"></rect>`;
+      return `<rect x="${x}" y="${y}" width="${columnWidth}" height="${frame.bottom - y}" rx="8" fill="${getBarFillColor("资产端重定价规模", metricItems, 0, 0.88)}" stroke="${getBarStrokeColor("资产端重定价规模", metricItems, 0, 0.3)}" stroke-width="1"></rect>`;
     })
     .join("")
     : "";
@@ -643,7 +696,7 @@ function renderRepricingScaleGapChart(widget, chartContext) {
       const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
       const x = center + barGap;
       const y = frame.bottom - (frame.height * value) / 100;
-      return `<rect x="${x}" y="${y}" width="${columnWidth}" height="${frame.bottom - y}" rx="8" fill="rgba(216, 192, 170, 0.92)"></rect>`;
+      return `<rect x="${x}" y="${y}" width="${columnWidth}" height="${frame.bottom - y}" rx="8" fill="${getBarFillColor("负债端重定价规模", metricItems, 1, 0.88)}" stroke="${getBarStrokeColor("负债端重定价规模", metricItems, 1, 0.3)}" stroke-width="1"></rect>`;
     })
     .join("")
     : "";
@@ -665,8 +718,8 @@ function renderRepricingScaleGapChart(widget, chartContext) {
         ${assetBars}
         ${liabilityBars}
         ${selectedMetrics.includes("资产负债差额") ? `
-          <polyline fill="none" stroke="#BC6F51" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" points="${gapPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-          ${gapPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="#BC6F51" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+          <polyline fill="none" stroke="${gapLineColor}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" points="${gapPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+          ${gapPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${gapLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
         ` : ""}
         ${simulationOverlay}
       </svg>
@@ -675,9 +728,9 @@ function renderRepricingScaleGapChart(widget, chartContext) {
         allSeriesList: metricItems,
         seriesList: selectedMetrics,
         legendItems: [
-          { label: "资产端重定价规模", color: "rgba(95, 143, 132, 0.82)" },
-          { label: "负债端重定价规模", color: "rgba(216, 192, 170, 0.92)" },
-          { label: "资产负债差额", color: "#BC6F51" },
+          { label: "资产端重定价规模", color: getBarFillColor("资产端重定价规模", metricItems, 0, 0.88) },
+          { label: "负债端重定价规模", color: getBarFillColor("负债端重定价规模", metricItems, 1, 0.88) },
+          { label: "资产负债差额", color: gapLineColor },
         ],
       }, "__legend_metrics__")}
     </div>
@@ -726,6 +779,7 @@ function renderBarChart(widget, chartContext) {
   const axis = renderAxes(frame, labels, yLabel);
   const values = buildBarValues(widget.seq, labels.length, chartContext.signature);
   const barWidth = Math.max(34, getFrameMinStep(frame, labels.length) * 0.48);
+  const singleSeriesColor = usesTemporalAxis(labels);
 
   return `
     <div class="chart-shell">
@@ -735,19 +789,354 @@ function renderBarChart(widget, chartContext) {
           .map((value, index) => {
             const x = getFrameXPosition(frame, index, labels.length) - barWidth / 2;
             const y = frame.bottom - value;
-            const color = getPaletteColor(labels[index], labels, index);
-            return `<rect x="${x}" y="${y}" width="${barWidth}" height="${value}" rx="10" fill="${color}"></rect>`;
+            const color = singleSeriesColor
+              ? getBarFillColor(widget.title || "bar-series", [widget.title || "bar-series"], 0, 0.86)
+              : getBarFillColor(labels[index], labels, index, 0.9);
+            const stroke = singleSeriesColor
+              ? getBarStrokeColor(widget.title || "bar-series", [widget.title || "bar-series"], 0, 0.26)
+              : getBarStrokeColor(labels[index], labels, index, 0.28);
+            return `<rect x="${x}" y="${y}" width="${barWidth}" height="${value}" rx="10" fill="${color}" stroke="${stroke}" stroke-width="1"></rect>`;
           })
           .join("")}
       </svg>
-      ${renderSeriesLegend(widget, { ...chartContext, seriesList: labels, allSeriesList: labels })}
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        seriesList: labels,
+        allSeriesList: labels,
+        legendItems: singleSeriesColor
+          ? [{
+              label: widget.title || "当前序列",
+              filterValue: widget.title || "当前序列",
+              color: getBarFillColor(widget.title || "bar-series", [widget.title || "bar-series"], 0, 0.86),
+            }]
+          : labels.map((label, index) => ({
+              label,
+              filterValue: label,
+              color: getBarFillColor(label, labels, index, 0.9),
+            })),
+      })}
+    </div>
+  `;
+}
+
+function renderDurationGapComboChart(widget, chartContext) {
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "久期/差值");
+  const metricItems = ["资产端重定价久期", "负债端重定价久期", "久期差值"];
+  const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
+  const assetValues = buildMetricValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 17).map((value) => 18 + (value % 78));
+  const liabilityValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 31).map((value) => 16 + (value % 76));
+  const gapValues = assetValues.map((value, index) => Math.abs(value - liabilityValues[index]).toFixed(1)).map(Number);
+  const barWidth = Math.max(10, Math.min(18, getFrameMinStep(frame, chartContext.xLabels.length) * 0.22));
+  const barGap = Math.max(2, Math.min(5, getFrameMinStep(frame, chartContext.xLabels.length) * 0.05));
+  const assetBarColor = getBarFillColor("资产端重定价久期", metricItems, 0, 0.84);
+  const liabilityBarColor = getBarFillColor("负债端重定价久期", metricItems, 1, 0.84);
+  const gapLineColor = getPaletteColor("久期差值", metricItems, 0, "line");
+
+  const assetBars = selectedMetrics.includes("资产端重定价久期")
+    ? assetValues.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center - barWidth - barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产端重定价久期", metricItems, 0, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const liabilityBars = selectedMetrics.includes("负债端重定价久期")
+    ? liabilityValues.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center + barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债端重定价久期", metricItems, 1, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const gapPoints = gapValues.map((value, index) => ({
+    x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+    y: frame.bottom - (frame.height * value) / 100,
+  }));
+  const simulationOverlay = selectedMetrics.includes("久期差值")
+    ? renderSimulationOverlay(frame, widget, chartContext, [{ label: "久期差值", points: gapPoints, role: "gap" }])
+    : "";
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${assetBars}
+        ${liabilityBars}
+        ${selectedMetrics.includes("久期差值")
+          ? `
+            <polyline fill="none" stroke="${gapLineColor}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" points="${gapPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${gapPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${gapLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+          `
+          : ""}
+        ${simulationOverlay}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: metricItems,
+        seriesList: selectedMetrics,
+        legendItems: [
+          { label: "资产端重定价久期", color: assetBarColor },
+          { label: "负债端重定价久期", color: liabilityBarColor },
+          { label: "久期差值", color: gapLineColor },
+        ],
+      }, "__legend_metrics__")}
+    </div>
+  `;
+}
+
+function renderDurationGapComboDataTable(widget, chartContext) {
+  const assetValues = buildMetricValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 17).map((value) => 18 + (value % 78));
+  const liabilityValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 31).map((value) => 16 + (value % 76));
+  const gapValues = assetValues.map((value, index) => Number(Math.abs(value - liabilityValues[index]).toFixed(1)));
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              <th>资产端重定价久期</th>
+              <th>负债端重定价久期</th>
+              <th>久期差值</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                <td>${assetValues[index].toFixed(1)}</td>
+                <td>${liabilityValues[index].toFixed(1)}</td>
+                <td>${gapValues[index].toFixed(1)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderBalanceScaleGrowthChart(widget, chartContext) {
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "规模/增速");
+  const metricItems = ["资产规模", "负债规模", "资产增速", "负债增速"];
+  const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
+  const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
+  const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
+  const assetGrowth = buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
+  const liabilityGrowth = buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
+  const barWidth = Math.max(10, Math.min(20, getFrameMinStep(frame, chartContext.xLabels.length) * 0.24));
+  const barGap = Math.max(2, Math.min(6, getFrameMinStep(frame, chartContext.xLabels.length) * 0.06));
+
+  const assetBarColor = getBarFillColor("资产规模", metricItems, 0, 0.84);
+  const liabilityBarColor = getBarFillColor("负债规模", metricItems, 1, 0.84);
+  const assetLineColor = getPaletteColor("资产增速", metricItems, 0, "line");
+  const liabilityLineColor = getPaletteColor("负债增速", metricItems, 1, "line");
+
+  const assetBars = selectedMetrics.includes("资产规模")
+    ? assetScale.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center - barWidth - barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产规模", metricItems, 0, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const liabilityBars = selectedMetrics.includes("负债规模")
+    ? liabilityScale.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center + barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债规模", metricItems, 1, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const assetPoints = assetGrowth.map((value, index) => ({
+    x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+    y: frame.bottom - (frame.height * value) / 100,
+  }));
+  const liabilityPoints = liabilityGrowth.map((value, index) => ({
+    x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+    y: frame.bottom - (frame.height * value) / 100,
+  }));
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${assetBars}
+        ${liabilityBars}
+        ${selectedMetrics.includes("资产增速")
+          ? `
+            <polyline fill="none" stroke="${assetLineColor}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" points="${assetPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${assetPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${assetLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+          `
+          : ""}
+        ${selectedMetrics.includes("负债增速")
+          ? `
+            <polyline fill="none" stroke="${liabilityLineColor}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" points="${liabilityPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${liabilityPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${liabilityLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+          `
+          : ""}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: metricItems,
+        seriesList: selectedMetrics,
+        legendItems: [
+          { label: "资产规模", color: assetBarColor },
+          { label: "负债规模", color: liabilityBarColor },
+          { label: "资产增速", color: assetLineColor },
+          { label: "负债增速", color: liabilityLineColor },
+        ],
+      }, "__legend_metrics__")}
+    </div>
+  `;
+}
+
+function renderBalanceScaleGrowthDataTable(widget, chartContext) {
+  const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
+  const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
+  const assetGrowth = buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
+  const liabilityGrowth = buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              <th>资产规模</th>
+              <th>负债规模</th>
+              <th>资产增速</th>
+              <th>负债增速</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                <td>${assetScale[index].toFixed(1)}</td>
+                <td>${liabilityScale[index].toFixed(1)}</td>
+                <td>${assetGrowth[index].toFixed(1)}</td>
+                <td>${liabilityGrowth[index].toFixed(1)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderBusinessScaleGrowthChart(widget, chartContext) {
+  const selectedBusinesses = chartContext.seriesList.length
+    ? chartContext.seriesList
+    : ((chartContext.filterState["业务类型"] || []).filter(Boolean));
+  const seriesList = selectedBusinesses.length
+    ? selectedBusinesses
+    : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS).slice(0, 2);
+  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "规模/增速");
+  const step = chartContext.xLabels.length <= 1 ? 0 : frame.width / (chartContext.xLabels.length - 1);
+  const groupWidth = Math.max(24, step * 0.72);
+  const barWidth = Math.max(6, Math.min(18, groupWidth / Math.max(seriesList.length, 1) - 4));
+
+  const barMarkup = seriesList
+    .map((label, seriesIndex) => {
+      const values = buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52));
+      return values.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const offset = (seriesIndex - (seriesList.length - 1) / 2) * (barWidth + 4);
+        const x = center + offset - barWidth / 2;
+        const height = (frame.height * value) / 100;
+        const y = frame.bottom - height;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${getBarFillColor(label, allSeries, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, allSeries, seriesIndex, 0.28)}" stroke-width="1"></rect>`;
+      }).join("");
+    })
+    .join("");
+
+  const lineMarkup = seriesList
+    .map((label, seriesIndex) => {
+      const color = getPaletteColor(label, allSeries, seriesIndex, "line");
+      const points = buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29)
+        .map((value, index) => ({
+          x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+          y: frame.bottom - (frame.height * (18 + (value % 76))) / 100,
+        }));
+      return `
+        <polyline fill="none" stroke="${color}" stroke-width="${seriesIndex === 0 ? 3.8 : 3.1}" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.6" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${barMarkup}
+        ${lineMarkup}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: allSeries,
+        seriesList,
+        legendItems: allSeries.map((label, index) => ({
+          label,
+          filterValue: label,
+          color: getPaletteColor(label, allSeries, index, "line"),
+        })),
+      })}
+    </div>
+  `;
+}
+
+function renderBusinessScaleGrowthDataTable(widget, chartContext) {
+  const seriesList = chartContext.seriesList.length
+    ? chartContext.seriesList
+    : ((chartContext.filterState["业务类型"] || []).filter(Boolean));
+  const selectedBusinesses = seriesList.length
+    ? seriesList
+    : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS).slice(0, 2);
+
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide chart-table--matrix">
+          <thead>
+            <tr>
+              <th rowspan="2">${inferXAxisTitle(chartContext.xLabels)}</th>
+              ${selectedBusinesses.map((label) => `<th colspan="2">${label}</th>`).join("")}
+            </tr>
+            <tr>
+              ${selectedBusinesses.map(() => `<th>规模</th><th>增速</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((axisLabel, index) => `
+              <tr>
+                <td>${axisLabel}</td>
+                ${selectedBusinesses.map((label, seriesIndex) => {
+                  const scaleValues = buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52));
+                  const growthValues = buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29).map((value) => 18 + (value % 76));
+                  return `<td>${scaleValues[index].toFixed(1)}</td><td>${growthValues[index].toFixed(1)}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
 
 function renderTable(widget, chartContext) {
-  if (isEveCurrencyTableWidget(widget)) return renderEveCurrencyTable(widget, chartContext);
-  if (isEveScenarioTableWidget(widget)) return renderEveScenarioTable(widget, chartContext);
+  if (isEveCombinedTableWidget(widget)) return renderEveCombinedTable(widget, chartContext);
   if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
   if (isDurationGapMatrixWidget(widget)) return renderDurationGapMatrixTable(widget);
   if (isBusinessStructureTableWidget(widget)) return renderBusinessStructureTable(widget, chartContext);
@@ -838,10 +1227,16 @@ function renderDataView(widget, chartContext) {
   const type = widget.componentType || "";
   if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleDataView(widget, chartContext);
   if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowDataView(widget, chartContext);
+  if (isReserveRatioScaleWidget(widget)) return renderReserveRatioScaleDataTable(widget, chartContext);
+  if (isLiquidityAssetLiabilityBarsWidget(widget)) return renderLiquidityAssetLiabilityBarsDataTable(widget, chartContext);
+  if (isBusinessDurationRepricingWidget(widget)) return renderBusinessDurationRepricingDataTable(widget, chartContext);
   if (isDurationRepricingWidget(widget)) return renderDurationRepricingDataTable(widget, chartContext);
   if (isNiiVolatilityWidget(widget)) return renderNiiVolatilityDataTable(widget, chartContext);
   if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
+  if (isDurationGapComboWidget(widget)) return renderDurationGapComboDataTable(widget, chartContext);
   if (isRepricingScaleGapWidget(widget)) return renderRepricingScaleGapDataTable(widget, chartContext);
+  if (isBalanceScaleGrowthWidget(widget)) return renderBalanceScaleGrowthDataTable(widget, chartContext);
+  if (isBusinessScaleGrowthWidget(widget)) return renderBusinessScaleGrowthDataTable(widget, chartContext);
   if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionDataTable(widget, chartContext);
   if (type.includes("双轴") || type.includes("组合")) return renderComboDataTable(widget, chartContext);
   if (type.includes("柱状")) return renderBarDataTable(widget, chartContext);
@@ -893,12 +1288,175 @@ function renderThirtyDayLiquidityGapChart(widget, chartContext) {
   return renderInlineControlledLineChart(widget, chartContext, "口径", ["时点", "月日均"]);
 }
 
+function renderLiquidityAssetLiabilityBarsChart(widget, chartContext) {
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "规模 (亿元)");
+  const metricItems = ["流动性资产", "流动性负债"];
+  const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
+  const assetValues = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 19).map((value) => 36 + (value % 44));
+  const liabilityValues = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 43).map((value) => 28 + (value % 40));
+  const barWidth = Math.max(10, Math.min(18, getFrameMinStep(frame, chartContext.xLabels.length) * 0.22));
+  const barGap = Math.max(2, Math.min(5, getFrameMinStep(frame, chartContext.xLabels.length) * 0.05));
+
+  const assetBars = selectedMetrics.includes("流动性资产")
+    ? assetValues.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center - barWidth - barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${getBarFillColor("流动性资产", metricItems, 0, 0.86)}" stroke="${getBarStrokeColor("流动性资产", metricItems, 0, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const liabilityBars = selectedMetrics.includes("流动性负债")
+    ? liabilityValues.map((value, index) => {
+        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+        const x = center + barGap / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${getBarFillColor("流动性负债", metricItems, 1, 0.86)}" stroke="${getBarStrokeColor("流动性负债", metricItems, 1, 0.28)}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${assetBars}
+        ${liabilityBars}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: metricItems,
+        seriesList: selectedMetrics,
+        legendItems: [
+          { label: "流动性资产", color: getBarFillColor("流动性资产", metricItems, 0, 0.86) },
+          { label: "流动性负债", color: getBarFillColor("流动性负债", metricItems, 1, 0.86) },
+        ],
+      }, "__legend_metrics__")}
+    </div>
+  `;
+}
+
+function renderLiquidityAssetLiabilityBarsDataTable(widget, chartContext) {
+  const assetValues = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 19).map((value) => 36 + (value % 44));
+  const liabilityValues = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 43).map((value) => 28 + (value % 40));
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              <th>流动性资产</th>
+              <th>流动性负债</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                <td>${assetValues[index].toFixed(1)}</td>
+                <td>${liabilityValues[index].toFixed(1)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderReserveRatioScaleChart(widget, chartContext) {
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "规模/比例");
+  const metricItems = ["超额备付金规模", "超额备付金率"];
+  const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
+  const scaleValues = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 23).map((value) => 30 + (value % 48));
+  const ratioValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 20 + (value % 72));
+  const barWidth = Math.max(18, Math.min(28, getFrameMinStep(frame, chartContext.xLabels.length) * 0.36));
+  const scaleColor = getBarFillColor("超额备付金规模", metricItems, 0, 0.86);
+  const scaleStroke = getBarStrokeColor("超额备付金规模", metricItems, 0, 0.28);
+  const ratioColor = getPaletteColor("超额备付金率", metricItems, 0, "line");
+
+  const bars = selectedMetrics.includes("超额备付金规模")
+    ? scaleValues.map((value, index) => {
+        const x = getFrameXPosition(frame, index, chartContext.xLabels.length) - barWidth / 2;
+        const y = frame.bottom - (frame.height * value) / 100;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="10" fill="${scaleColor}" stroke="${scaleStroke}" stroke-width="1"></rect>`;
+      }).join("")
+    : "";
+
+  const ratioPoints = ratioValues.map((value, index) => ({
+    x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+    y: frame.bottom - (frame.height * value) / 100,
+  }));
+
+  const ratioLine = selectedMetrics.includes("超额备付金率")
+    ? `
+      <polyline fill="none" stroke="${ratioColor}" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" points="${ratioPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      ${ratioPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${ratioColor}" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+    `
+    : "";
+
+  const simulationOverlay = selectedMetrics.includes("超额备付金率")
+    ? renderSimulationOverlay(frame, widget, chartContext, [{ label: "超额备付金率", points: ratioPoints, role: "ratio" }])
+    : "";
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${bars}
+        ${ratioLine}
+        ${simulationOverlay}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: metricItems,
+        seriesList: selectedMetrics,
+        legendItems: [
+          { label: "超额备付金规模", color: scaleColor },
+          { label: "超额备付金率", color: ratioColor },
+        ],
+      }, "__legend_metrics__")}
+    </div>
+  `;
+}
+
+function renderReserveRatioScaleDataTable(widget, chartContext) {
+  const scaleValues = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 23).map((value) => 30 + (value % 48));
+  const ratioValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 20 + (value % 72));
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              <th>超额备付金规模</th>
+              <th>超额备付金率</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                <td>${scaleValues[index].toFixed(1)}</td>
+                <td>${ratioValues[index].toFixed(1)}%</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderInlineControlledLineChart(widget, chartContext, filterName, options) {
   const frame = createFrame(chartContext.xLabels.length);
   const axis = renderAxes(frame, chartContext.xLabels, chartContext.yLabel);
   const seriesMarkup = chartContext.seriesList
     .map((label, index) => {
-      const color = getPaletteColor(label, chartContext.allSeriesList, index);
+      const color = getPaletteColor(label, chartContext.allSeriesList, index, "line");
       const points = buildSeries(widget.seq + index * 17, chartContext.xLabels.length, frame, chartContext.signature + index * 31);
       const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
       return `
@@ -932,7 +1490,7 @@ function renderDurationRepricingChart(widget, chartContext) {
   const seriesDefinitions = allSeriesDefinitions.filter((definition) => selectedLabels.includes(definition.label));
   const seriesMarkup = seriesDefinitions
     .map((definition) => {
-      const color = SERIES_PALETTE[definition.colorIndex % SERIES_PALETTE.length];
+      const color = getPaletteColor(definition.label, allSeriesDefinitions.map((item) => item.label), definition.colorIndex, "line");
       const points = buildSeries(definition.seed, chartContext.xLabels.length, frame, chartContext.signature + definition.signatureOffset);
       const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
       return `
@@ -954,7 +1512,7 @@ function renderDurationRepricingChart(widget, chartContext) {
         seriesList: selectedLabels,
         legendItems: allSeriesDefinitions.map((definition) => ({
           label: definition.label,
-          color: SERIES_PALETTE[definition.colorIndex % SERIES_PALETTE.length],
+          color: getPaletteColor(definition.label, allSeriesDefinitions.map((item) => item.label), definition.colorIndex, "line"),
           dashed: definition.dashed,
         })),
       })}
@@ -990,6 +1548,73 @@ function renderDurationRepricingDataTable(widget, chartContext) {
                 `
               )
               .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderBusinessDurationRepricingChart(widget, chartContext) {
+  const frame = createFrame(chartContext.xLabels.length);
+  const axis = renderAxes(frame, chartContext.xLabels, "久期");
+  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
+  const seriesList = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 2);
+  const seriesMarkup = seriesList
+    .map((label, seriesIndex) => {
+      const color = getPaletteColor(label, allSeries, seriesIndex, "line");
+      const points = buildSeries(widget.seq + 31 + seriesIndex * 17, chartContext.xLabels.length, frame, chartContext.signature + seriesIndex * 37);
+      const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+      return `
+        <polyline fill="none" stroke="${color}" stroke-width="${seriesIndex === 0 ? 3.8 : 3.2}" stroke-linecap="round" stroke-linejoin="round" points="${polyline}"></polyline>
+        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${seriesMarkup}
+      </svg>
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        allSeriesList: allSeries,
+        seriesList,
+        legendItems: allSeries.map((label, index) => ({
+          label,
+          filterValue: label,
+          color: getPaletteColor(label, allSeries, index, "line"),
+        })),
+      })}
+    </div>
+  `;
+}
+
+function renderBusinessDurationRepricingDataTable(widget, chartContext) {
+  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
+  const seriesList = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 2);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              ${seriesList.map((label) => `<th>${label}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                ${seriesList.map((seriesLabel, seriesIndex) => {
+                  const values = buildMetricValues(widget.seq + 31 + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 37);
+                  return `<td>${values[index].toFixed(1)}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
           </tbody>
         </table>
       </div>
@@ -1061,25 +1686,37 @@ function renderDurationGapMatrixTable(widget) {
   `;
 }
 
-function renderEveCurrencyTable(widget, chartContext) {
+function renderEveCombinedTable(widget, chartContext) {
   const currencyLabels = FILTER_OPTIONS["币种"] || ["全折人民币", "人民币", "外币折美元", "美元", "港元", "新加坡元", "欧元", "澳元", "英镑", "日元"];
+  const scenarioLabels = ["平行上移", "平行下移", "变陡峭", "变平缓", "短端上升", "短端下降"];
   const orgSignature = createSignature(widget.seq, { 机构: chartContext.filterState["机构"] || [] });
   const rows = currencyLabels.map((currency, index) => {
     const economyChange = -1 * (12 + ((orgSignature + index * 19) % 88));
     const capital = 180 + ((orgSignature + index * 23) % 360);
     const eveRatio = `${((Math.abs(economyChange) / capital) * 100).toFixed(1)}%`;
-    return { currency, economyChange: economyChange.toFixed(1), capital: capital.toFixed(1), eveRatio };
+    const scenarioValues = scenarioLabels.map((_, scenarioIndex) => {
+      const raw = ((orgSignature + 41 + (index + 1) * 29 + (scenarioIndex + 1) * 37) % 180) - 90;
+      return raw.toFixed(1);
+    });
+    return {
+      currency,
+      economyChange: economyChange.toFixed(1),
+      capital: capital.toFixed(1),
+      eveRatio,
+      scenarioValues,
+    };
   });
   return `
     <div class="chart-shell">
       <div class="table-shell">
-        <table class="chart-table chart-table--wide">
+        <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
               <th>币种</th>
               <th>经济价值变动</th>
               <th>一级资本净额</th>
               <th>△EVE</th>
+              ${scenarioLabels.map((label) => `<th>${label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -1091,43 +1728,7 @@ function renderEveCurrencyTable(widget, chartContext) {
                     <td>${row.economyChange}</td>
                     <td>${row.capital}</td>
                     <td>${row.eveRatio}</td>
-                  </tr>
-                `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function renderEveScenarioTable(widget, chartContext) {
-  const currencyLabels = FILTER_OPTIONS["币种"] || ["全折人民币", "人民币", "外币折美元", "美元", "港元", "新加坡元", "欧元", "澳元", "英镑", "日元"];
-  const scenarioLabels = ["平行上移", "平行下移", "变陡峭", "变平缓", "短端上升", "短端下降"];
-  const orgSignature = createSignature(widget.seq, { 机构: chartContext.filterState["机构"] || [] });
-  return `
-    <div class="chart-shell">
-      <div class="table-shell">
-        <table class="chart-table chart-table--wide chart-table--matrix">
-          <thead>
-            <tr>
-              <th>币种</th>
-              ${scenarioLabels.map((label) => `<th>${label}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            ${currencyLabels
-              .map(
-                (currency, rowIndex) => `
-                  <tr>
-                    <td>${currency}</td>
-                    ${scenarioLabels
-                      .map((scenario, colIndex) => {
-                        const raw = ((orgSignature + (rowIndex + 1) * 29 + (colIndex + 1) * 37) % 180) - 90;
-                        return `<td>${raw.toFixed(1)}</td>`;
-                      })
-                      .join("")}
+                    ${row.scenarioValues.map((value) => `<td>${value}</td>`).join("")}
                   </tr>
                 `
               )
@@ -1192,7 +1793,6 @@ function renderNiiVolatilityComboChart(widget, chartContext) {
   const bars = selectedMetrics.includes("柱：净利息收入波动")
     ? seriesList
     .map((label, seriesIndex) => {
-      const color = getPaletteColor(label, chartContext.allSeriesList, seriesIndex);
       const barValues = buildBarValues(widget.seq + seriesIndex * 11, chartContext.xLabels.length, chartContext.signature + seriesIndex * 23).map((value) => 16 + (value % 60));
       return barValues
         .map((value, index) => {
@@ -1201,7 +1801,7 @@ function renderNiiVolatilityComboChart(widget, chartContext) {
           const x = center + offset - barWidth / 2;
           const height = (frame.height * value) / 100;
           const y = frame.bottom - height;
-          return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${hexToRgba(color, 0.34)}"></rect>`;
+          return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${getBarFillColor(label, chartContext.allSeriesList, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, chartContext.allSeriesList, seriesIndex, 0.34)}" stroke-width="1"></rect>`;
         })
         .join("");
     })
@@ -1211,7 +1811,7 @@ function renderNiiVolatilityComboChart(widget, chartContext) {
   const lines = selectedMetrics.includes("线：净利息收入波动率")
     ? seriesList
     .map((label, seriesIndex) => {
-      const color = getPaletteColor(label, chartContext.allSeriesList, seriesIndex);
+      const color = getPaletteColor(label, chartContext.allSeriesList, seriesIndex, "line");
       const points = buildSeries(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, frame, chartContext.signature + seriesIndex * 29);
       const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
       return `
@@ -1236,8 +1836,8 @@ function renderNiiVolatilityComboChart(widget, chartContext) {
         allSeriesList: metricItems,
         seriesList: selectedMetrics,
         legendItems: [
-          { label: "柱：净利息收入波动", color: hexToRgba(SERIES_PALETTE[0], 0.5) },
-          { label: "线：净利息收入波动率", color: "#6F3929" },
+          { label: "柱：净利息收入波动", color: getBarFillColor("柱：净利息收入波动", metricItems, 0, 0.82) },
+          { label: "线：净利息收入波动率", color: getPaletteColor("线：净利息收入波动率", metricItems, 0, "line") },
         ],
       }, "__legend_metrics__")}
       ${renderSeriesLegend(widget, { ...chartContext, allSeriesList: chartContext.allSeriesList, seriesList })}
@@ -1317,8 +1917,8 @@ function renderBarDataTable(widget, chartContext) {
 }
 
 function renderDistributionDataTable(widget, chartContext) {
-  const labels = chartContext.seriesList.length > 1 ? chartContext.seriesList : buildDefaultTableLabels(widget);
-  const values = buildBarValues(widget.seq + 7, labels.length, chartContext.signature);
+  const labels = getDistributionLabels(widget, chartContext);
+  const values = buildDistributionValues(widget, labels, chartContext.signature);
   const total = values.reduce((sum, value) => sum + value, 0) || 1;
   return `
     <div class="chart-shell chart-shell--data">
@@ -1448,7 +2048,7 @@ function renderMaturityDistributionChart(widget, chartContext) {
       return row.values
         .map((value, valueIndex) => {
           const height = Math.abs(value) * scale;
-          const color = getPaletteColor(matrix.series[valueIndex].name, allSeries, valueIndex);
+          const color = getPaletteColor(matrix.series[valueIndex].name, allSeries, valueIndex, "bar");
           if (value >= 0) {
             const y = zeroY - positiveOffset - height;
             positiveOffset += height;
@@ -1519,18 +2119,24 @@ function renderNiiCurrencyScenarioTable(widget, chartContext) {
     values: columnLabels.map((_, columnIndex) => {
       const amount = 8 + ((widget.seq * 17 + orgOnlySignature + rowIndex * 11 + columnIndex * 19) % 56);
       const ratio = (((widget.seq * 7 + orgOnlySignature + rowIndex * 13 + columnIndex * 17) % 48) / 10 + 0.8).toFixed(1);
-      return `${amount.toFixed(1)} / ${ratio}%`;
+      return {
+        amount: amount.toFixed(1),
+        ratio: `${ratio}%`,
+      };
     }),
   }));
 
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
-        <table class="chart-table chart-table--wide">
+        <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
-              <th>币种</th>
-              ${columnLabels.map((label) => `<th>${label}</th>`).join("")}
+              <th rowspan="2">币种</th>
+              ${columnLabels.map((label) => `<th colspan="2">${label}</th>`).join("")}
+            </tr>
+            <tr>
+              ${columnLabels.map(() => `<th>波动值</th><th>波动率</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -1539,7 +2145,7 @@ function renderNiiCurrencyScenarioTable(widget, chartContext) {
                 (row) => `
                   <tr>
                     <td>${row.label}</td>
-                    ${row.values.map((value) => `<td>${value}</td>`).join("")}
+                    ${row.values.map((value) => `<td>${value.amount}</td><td>${value.ratio}</td>`).join("")}
                   </tr>
                 `
               )
@@ -1567,7 +2173,7 @@ function renderMaturityDistributionLegend(widget, selectedNames) {
               data-filter-name="业务类型"
               data-filter-value="${label}"
             >
-              <i class="chart-legend__swatch" style="background:${getPaletteColor(label, allSeries, index)}"></i>
+              <i class="chart-legend__swatch" style="background:${getBarFillColor(label, allSeries, index, 0.9)}"></i>
               ${label}
             </button>
           `;
@@ -1578,10 +2184,14 @@ function renderMaturityDistributionLegend(widget, selectedNames) {
 }
 
 function renderDonut(widget, chartContext) {
-  const allLabels = chartContext.allSeriesList.length > 1 ? chartContext.allSeriesList.slice(0, 4) : buildDefaultTableLabels(widget).slice(0, 4);
+  const allLabels = getDistributionLabels(widget, chartContext).slice(0, 4);
   const selectedLabels = getLegendSelection(widget.seq, "__legend_series__", allLabels);
   const labels = selectedLabels.length ? selectedLabels : allLabels.slice(0, 1);
-  const weights = labels.map((_, index) => 18 + ((chartContext.signature + index * 13) % 22));
+  const distributionValues = buildDistributionValues(widget, allLabels, chartContext.signature);
+  const weights = labels.map((label) => {
+    const valueIndex = allLabels.indexOf(label);
+    return distributionValues[valueIndex] || 1;
+  });
   const total = weights.reduce((sum, value) => sum + value, 0);
   let current = 0;
   const stops = weights
@@ -1615,6 +2225,33 @@ function renderDonut(widget, chartContext) {
   `;
 }
 
+function getDistributionLabels(widget, chartContext) {
+  const configuredLabels = getConfiguredWidgetBehavior(widget).distributionLabels;
+  if (Array.isArray(configuredLabels) && configuredLabels.length) {
+    return configuredLabels.filter((label) => typeof label === "string" && label.trim()).slice(0, 6);
+  }
+  return chartContext.seriesList.length > 1 ? chartContext.seriesList : buildDefaultTableLabels(widget);
+}
+
+function buildDistributionValues(widget, labels, signature) {
+  const values = buildBarValues(widget.seq + 7, labels.length, signature);
+  if (labels.length === 2 && labels.includes("一级资产") && labels.includes("二级资产")) {
+    return labels.map((label, index) => {
+      const baseValue = values[index] || 0;
+      if (label === "一级资产") return 58 + (baseValue % 24);
+      return 18 + (baseValue % 18);
+    });
+  }
+  if (labels.length === 2 && labels.includes("超额存款准备金") && labels.includes("库存现金")) {
+    return labels.map((label, index) => {
+      const baseValue = values[index] || 0;
+      if (label === "超额存款准备金") return 56 + (baseValue % 22);
+      return 18 + (baseValue % 16);
+    });
+  }
+  return values;
+}
+
 function renderSeriesLegend(widget, chartContext, legendKey = "__legend_series__") {
   const legendItems =
     chartContext.legendItems ||
@@ -1624,11 +2261,16 @@ function renderSeriesLegend(widget, chartContext, legendKey = "__legend_series__
       color: getPaletteColor(label, chartContext.allSeriesList || chartContext.seriesList || [], index),
       dashed: false,
     }));
-  const selectedLabels = getLegendSelection(
-    widget.seq,
-    legendKey,
-    legendItems.map((item) => item.filterValue || item.label)
+  const allLegendValues = legendItems.map((item) => item.filterValue || item.label);
+  const explicitSelectedLabels = ((appState.widgetFilters[widget.seq] || {})[legendKey] || []).filter((value) =>
+    allLegendValues.includes(value)
   );
+  const fallbackSelectedLabels = (chartContext.seriesList || []).filter((value) => allLegendValues.includes(value));
+  const selectedLabels = explicitSelectedLabels.length
+    ? explicitSelectedLabels
+    : fallbackSelectedLabels.length
+      ? fallbackSelectedLabels
+      : allLegendValues;
   return `
     <div class="chart-legend chart-legend--filterable">
       ${legendItems
@@ -1642,7 +2284,7 @@ function renderSeriesLegend(widget, chartContext, legendKey = "__legend_series__
               data-legend-key="${legendKey}"
               data-filter-value="${item.filterValue || item.label}"
             >
-              <i class="chart-legend__swatch" style="background:${item.color || SERIES_PALETTE[index % SERIES_PALETTE.length]}; opacity:${item.dashed ? "0.65" : "1"}"></i>
+              <i class="chart-legend__swatch" style="background:${item.color || getPaletteColor(item.label, allLegendValues, index, "line")}; opacity:${item.dashed ? "0.65" : "1"}"></i>
               ${item.label}
             </button>
           `
@@ -1755,6 +2397,16 @@ function formatXAxisTickLabel(label, index, labels) {
   return index % step === 0 || index === labels.length - 1 ? text : "";
 }
 
+function usesTemporalAxis(labels = []) {
+  if (!Array.isArray(labels) || !labels.length) return false;
+  return labels.every((label) => {
+    const text = String(label || "");
+    return /^\d{4}-\d{2}$/.test(text)
+      || /^\d{2}$/.test(text)
+      || /^\d{1,2}\/\d{1,2}$/.test(text);
+  });
+}
+
 function inferXAxisTitle(xLabels) {
   const joined = xLabels.join("");
   if (joined.includes("月")) return "统计月份";
@@ -1770,10 +2422,7 @@ function inferXAxisLabels(widget, filterState = {}) {
       ? buildRecentDailyXAxisLabels(widget)
       : inferBaseXAxisLabels(widget);
   }
-  const grain = widget.grain || "";
-  if (grain.includes("日")) return ["4/01", "4/03", "4/05", "4/07", "4/09", "4/11", "4/13", "4/15"];
-  if (grain.includes("月")) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
-  return ["T1", "T2", "T3", "T4", "T5", "T6"];
+  return inferBaseXAxisLabels(widget);
 }
 
 function ensureGlobalDateRange() {
@@ -1843,9 +2492,18 @@ function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
   const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   if (!datedEntries.length) return labels;
   const visible = datedEntries
-    .filter((entry) => (!rangeStart || entry.date >= rangeStart) && (!rangeEnd || entry.date <= rangeEnd))
+    .filter((entry) => isTimelineEntryWithinRange(entry, rangeStart, rangeEnd))
     .map((entry) => entry.label);
   return visible.length ? visible : [datedEntries[0].label];
+}
+
+function isTimelineEntryWithinRange(entry, rangeStart, rangeEnd) {
+  if (entry.rangeStart || entry.rangeEnd) {
+    const entryStart = entry.rangeStart || entry.date;
+    const entryEnd = entry.rangeEnd || entry.date;
+    return (!rangeStart || entryEnd >= rangeStart) && (!rangeEnd || entryStart <= rangeEnd);
+  }
+  return (!rangeStart || entry.date >= rangeStart) && (!rangeEnd || entry.date <= rangeEnd);
 }
 
 function buildTimelineEntries(widget, labels = inferXAxisLabels(widget), filterState = {}) {
@@ -1868,7 +2526,7 @@ function buildMonthlyTimelineEntries(labels) {
     if (fullMatch) {
       currentYear = Number(fullMatch[1]);
       previousMonth = Number(fullMatch[2]);
-      return { label, date: formatDateValue(new Date(currentYear, previousMonth, 0)) };
+      return buildMonthlyTimelineEntry(label, currentYear, previousMonth);
     }
     if (monthMatch) {
       const month = Number(monthMatch[1]);
@@ -1877,10 +2535,16 @@ function buildMonthlyTimelineEntries(labels) {
         currentYear += 1;
       }
       previousMonth = month;
-      return { label, date: formatDateValue(new Date(currentYear, month, 0)) };
+      return buildMonthlyTimelineEntry(label, currentYear, month);
     }
     return { label, date: null };
   });
+}
+
+function buildMonthlyTimelineEntry(label, year, month) {
+  const rangeStart = formatDateValue(new Date(year, month - 1, 1));
+  const rangeEnd = formatDateValue(new Date(year, month, 0));
+  return { label, date: rangeEnd, rangeStart, rangeEnd };
 }
 
 function buildDailyTimelineEntries(labels) {
@@ -1892,7 +2556,8 @@ function buildDailyTimelineEntries(labels) {
     const month = Number(match[1]);
     const day = Number(match[2]);
     const year = month > pivot.month ? pivot.year - 1 : pivot.year;
-    return { label, date: formatDateValue(new Date(year, month - 1, day)) };
+    const date = formatDateValue(new Date(year, month - 1, day));
+    return { label, date, rangeStart: date, rangeEnd: date };
   });
 }
 
@@ -1976,8 +2641,24 @@ function getReferenceTimelinePivot() {
 function inferBaseXAxisLabels(widget) {
   const grain = widget.grain || "";
   if (grain.includes("日")) return ["4/01", "4/03", "4/05", "4/07", "4/09", "4/11", "4/13", "4/15"];
-  if (grain.includes("月")) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
+  if (grain.includes("月")) return buildMonthlyXAxisLabels();
   return ["T1", "T2", "T3", "T4", "T5", "T6"];
+}
+
+function buildMonthlyXAxisLabels() {
+  const rangeStart = parseDateValue(appState.globalStartDate || getDefaultGlobalStartDate());
+  const rangeEnd = parseDateValue(appState.globalEndDate || getDefaultGlobalEndDate());
+  if (!rangeStart || !rangeEnd) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
+  const startMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+  const labels = [];
+  const cursor = new Date(startMonth);
+  while (cursor <= endMonth) {
+    const month = String(cursor.getMonth() + 1).padStart(2, "0");
+    labels.push(labels.length === 0 || month === "01" ? `${cursor.getFullYear()}-${month}` : month);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return labels.length ? labels : [`${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}`];
 }
 
 function buildRecentDailyXAxisLabels(widget) {
@@ -2050,15 +2731,26 @@ function ensureAreaFilterState(areaGroup) {
     areaGroup.sharedFilters.forEach((filterLabel) => {
       const name = normalizeFilterName(filterLabel);
       const optionValues = getAreaFilterOptions(areaGroup, filterLabel);
-      state[name] = getDefaultFilterValues(name, optionValues);
+      state[name] = getAreaDefaultFilterValues(areaGroup, name, optionValues);
     });
     appState.areaFilters[areaGroup.id] = state;
   }
   return appState.areaFilters[areaGroup.id];
 }
 
-function ensureAreaSubpageState(areaGroup) {
-  const tabs = getAreaSubpageTabs(areaGroup);
+function getAreaDefaultFilterValues(areaGroup, filterName, optionValues) {
+  if (filterName === "机构") {
+    const areaTabs = getAreaSubpageConfig(areaGroup);
+    const tabInstitutions = uniqueList(
+      (areaTabs || []).flatMap((tab) => Array.isArray(tab.matchInstitutions) ? tab.matchInstitutions : [])
+    ).filter((value) => optionValues.includes(value));
+    if (tabInstitutions.length) return tabInstitutions;
+  }
+  return getDefaultFilterValues(filterName, optionValues);
+}
+
+function ensureAreaSubpageState(areaGroup, areaState = ensureAreaFilterState(areaGroup)) {
+  const tabs = getAreaSubpageTabs(areaGroup, areaState);
   if (!tabs.length) return { tabs: [], activeTab: null };
   if (!appState.areaSubpages[areaGroup.id] || !tabs.includes(appState.areaSubpages[areaGroup.id])) {
     appState.areaSubpages[areaGroup.id] = tabs[0];
@@ -2074,22 +2766,32 @@ function getAreaSubpageConfig(areaGroup) {
   return AREA_TAB_CONFIG[areaGroup.name] || null;
 }
 
-function getAreaSubpageTabs(areaGroup) {
+function getAreaSubpageTabs(areaGroup, areaState = ensureAreaFilterState(areaGroup)) {
   const areaTabs = getAreaSubpageConfig(areaGroup);
   if (!areaTabs) return [];
+  const selectedInstitutions = (areaState["机构"] || []).filter(Boolean);
   return uniqueList(
     areaTabs
-      .filter((tab) => areaGroup.viewGroups.some((viewGroup) => String(viewGroup.viewScope || "").includes(tab.matchViewScope || "")))
+      .filter((tab) => {
+        const matchesScope = areaGroup.viewGroups.some((viewGroup) => String(viewGroup.viewScope || "").includes(tab.matchViewScope || ""));
+        if (!matchesScope) return false;
+        if (!Array.isArray(tab.matchInstitutions) || !tab.matchInstitutions.length) return true;
+        return selectedInstitutions.some((institution) => tab.matchInstitutions.includes(institution));
+      })
       .map((tab) => tab.label)
   );
 }
 
 function getAreaSubpageLabel(areaGroup, viewScope) {
+  const matchedTab = getAreaSubpageMatch(areaGroup, viewScope);
+  return matchedTab?.label || null;
+}
+
+function getAreaSubpageMatch(areaGroup, viewScope) {
   const areaTabs = getAreaSubpageConfig(areaGroup);
   if (!areaTabs) return null;
   const source = String(viewScope || "");
-  const matchedTab = areaTabs.find((tab) => source.includes(tab.matchViewScope || ""));
-  return matchedTab?.label || null;
+  return areaTabs.find((tab) => source.includes(tab.matchViewScope || "")) || null;
 }
 
 function getVisibleAreaViewGroups(areaGroup, areaSubpage, block) {
@@ -2173,9 +2875,12 @@ function getLegendSelection(widgetSeq, legendKey, allOptions) {
   return current.length ? current : [...allOptions];
 }
 
-function toggleLegendSelection(widgetSeq, legendKey, filterValue, allOptions) {
+function toggleLegendSelection(widgetSeq, legendKey, filterValue, allOptions, baselineSelection = null) {
   const stateBucket = appState.widgetFilters[widgetSeq] || {};
-  const current = new Set(getLegendSelection(widgetSeq, legendKey, allOptions));
+  const initialSelection = Array.isArray(baselineSelection) && baselineSelection.length
+    ? baselineSelection.filter((value) => allOptions.includes(value))
+    : getLegendSelection(widgetSeq, legendKey, allOptions);
+  const current = new Set(initialSelection);
   if (current.has(filterValue)) {
     if (current.size > 1) current.delete(filterValue);
   } else {
@@ -2200,11 +2905,11 @@ function supportsDisplayToggle(widget) {
 }
 
 function getDefaultFilterValues(filterName, optionValues = null) {
-  const configuredDefaults = DEFAULT_FILTER_VALUES[filterName];
+  const options = optionValues || FILTER_OPTIONS[filterName] || ["默认口径"];
+  const configuredDefaults = (DEFAULT_FILTER_VALUES[filterName] || []).filter((value) => options.includes(value));
   if (Array.isArray(configuredDefaults) && configuredDefaults.length) {
     return [...configuredDefaults];
   }
-  const options = optionValues || FILTER_OPTIONS[filterName] || ["默认口径"];
   return options.slice(0, 1);
 }
 
@@ -2283,7 +2988,11 @@ function shouldRenderAreasInPairs(block, groupedAreas) {
 }
 
 function shouldSpanFullWidth(widget) {
-  return widget?.layout === "full" || Boolean(getConfiguredWidgetBehavior(widget).fullWidth);
+  const configuredBehavior = getConfiguredWidgetBehavior(widget);
+  if (Object.prototype.hasOwnProperty.call(configuredBehavior, "fullWidth")) {
+    return Boolean(configuredBehavior.fullWidth);
+  }
+  return widget?.layout === "full";
 }
 
 function isInlineWidgetFilter(widgetSeq, filterName) {
@@ -2292,6 +3001,18 @@ function isInlineWidgetFilter(widgetSeq, filterName) {
 
 function isRepricingScaleGapWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "repricingScaleGap";
+}
+
+function isDurationGapComboWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "durationGapCombo";
+}
+
+function isBalanceScaleGrowthWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "balanceScaleGrowth";
+}
+
+function isBusinessScaleGrowthWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "businessScaleGrowth";
 }
 
 function isFundingFlowScaleWidget(widget) {
@@ -2306,16 +3027,16 @@ function isDurationRepricingWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "durationRepricing";
 }
 
+function isBusinessDurationRepricingWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "businessDurationRepricing";
+}
+
 function isDurationGapMatrixWidget(widget) {
   return getConfiguredWidgetBehavior(widget).tableKind === "durationGapMatrix";
 }
 
-function isEveCurrencyTableWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).tableKind === "eveCurrency";
-}
-
-function isEveScenarioTableWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).tableKind === "eveScenario";
+function isEveCombinedTableWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).tableKind === "eveCombined";
 }
 
 function isNiiVolatilityWidget(widget) {
@@ -2328,6 +3049,14 @@ function isLiquidityGapTenorWidget(widget) {
 
 function isThirtyDayLiquidityGapWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "thirtyDayLiquidityGap";
+}
+
+function isLiquidityAssetLiabilityBarsWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "liquidityAssetLiabilityBars";
+}
+
+function isReserveRatioScaleWidget(widget) {
+  return getConfiguredWidgetBehavior(widget).chartKind === "reserveRatioScaleCombo";
 }
 
 function isBusinessStructureTableWidget(widget) {
@@ -2357,6 +3086,18 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getPaletteSeries(paletteType = "line") {
+  return paletteType === "bar" ? BAR_SERIES_PALETTE : LINE_SERIES_PALETTE;
+}
+
+function getBarFillColor(label, allLabels = [], fallbackIndex = 0, alpha = 0.9) {
+  return hexToRgba(getPaletteColor(label, allLabels, fallbackIndex, "bar"), alpha);
+}
+
+function getBarStrokeColor(label, allLabels = [], fallbackIndex = 0, alpha = 0.32) {
+  return hexToRgba(getPaletteColor(label, allLabels, fallbackIndex, "bar"), alpha);
 }
 
 function summarizeFilterSelection(filterName, selectedValues) {
@@ -2490,10 +3231,11 @@ function createSignature(seq, filterState) {
   return [...`${seq}-${merged}`].reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
 }
 
-function getPaletteColor(label, allLabels = [], fallbackIndex = 0) {
+function getPaletteColor(label, allLabels = [], fallbackIndex = 0, paletteType = "line") {
+  const palette = getPaletteSeries(paletteType);
   const colorIndex = Array.isArray(allLabels) ? allLabels.indexOf(label) : -1;
   const paletteIndex = colorIndex >= 0 ? colorIndex : fallbackIndex;
-  return SERIES_PALETTE[paletteIndex % SERIES_PALETTE.length];
+  return palette[paletteIndex % palette.length];
 }
 
 function findWidgetBySeq(widgetSeq) {
@@ -2785,7 +3527,7 @@ function buildFundingFlowCompositeState(widget, chartContext) {
   const historyLabels = inferBaseXAxisLabels(widget).slice(0, 6);
   const historyInflow = buildMetricValues(widget.seq + 5, historyLabels.length, chartContext.signature).map((value) => 38 + (value % 34));
   const historyOutflow = buildMetricValues(widget.seq + 11, historyLabels.length, chartContext.signature + 13).map((value) => 34 + (value % 38));
-  const baseDate = parseDateValue(getGlobalTimeBounds().max) || new Date();
+  const baseDate = getWidgetObservationDate(widget);
   const futureLabels = Array.from({ length: 30 }, (_, index) => {
     const date = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + index + 1);
     return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}`;
@@ -2835,8 +3577,8 @@ function renderFundingFlowScaleChart(widget, chartContext) {
   const leftPointsIn = flowState.history.inflow.map((value, index) => ({ x: getFrameXPosition(frame, index, flowState.history.labels.length), y: frame.bottom - (frame.height * value) / 100 }));
   const leftPointsOut = flowState.history.outflow.map((value, index) => ({ x: getFrameXPosition(frame, index, flowState.history.labels.length), y: frame.bottom - (frame.height * value) / 100 }));
   const legendItems = [
-    { label: "资金流入", color: "#BC6F51" },
-    { label: "资金流出", color: "#5F8F84" },
+    { label: "资金流入", color: SEMANTIC_COLORS.fundingInflow },
+    { label: "资金流出", color: SEMANTIC_COLORS.fundingOutflow },
   ];
   const selectedItems = getLegendSelection(widget.seq, "__legend_funding_history__", legendItems.map((item) => item.label));
   return `
@@ -2845,14 +3587,14 @@ function renderFundingFlowScaleChart(widget, chartContext) {
         ${axis}
         ${selectedItems.includes("资金流入")
           ? `
-            <polyline fill="none" stroke="#BC6F51" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsIn.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${leftPointsIn.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#BC6F51" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+            <polyline fill="none" stroke="${SEMANTIC_COLORS.fundingInflow}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsIn.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${leftPointsIn.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${SEMANTIC_COLORS.fundingInflow}" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
           `
           : ""}
         ${selectedItems.includes("资金流出")
           ? `
-            <polyline fill="none" stroke="#5F8F84" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsOut.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${leftPointsOut.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#5F8F84" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+            <polyline fill="none" stroke="${SEMANTIC_COLORS.fundingOutflow}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${leftPointsOut.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${leftPointsOut.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${SEMANTIC_COLORS.fundingOutflow}" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
           `
           : ""}
       </svg>
@@ -2868,8 +3610,8 @@ function renderFutureFundingFlowChart(widget, chartContext) {
   const axis = renderAxes(frame, context.xLabels, context.yLabel);
   const barWidth = Math.max(10, getFrameMinStep(frame, flowState.future.labels.length) * 0.38);
   const legendItems = [
-    { label: "当日净额", color: "rgba(95, 143, 132, 0.72)" },
-    { label: "累计净额", color: "#2F6FA3" },
+    { label: "当日净额", color: getBarFillColor("当日净额", ["当日净额"], 0, 0.84) },
+    { label: "累计净额", color: SEMANTIC_COLORS.fundingCumulative },
   ];
   const selectedItems = getLegendSelection(widget.seq, "__legend_funding_future__", legendItems.map((item) => item.label));
   const bars = flowState.future.dailyNet.map((value, index) => {
@@ -2877,8 +3619,13 @@ function renderFutureFundingFlowChart(widget, chartContext) {
     const height = Math.abs(value) * 2.6;
     const x = getFrameXPosition(frame, index, flowState.future.labels.length) - barWidth / 2;
     const y = value >= 0 ? baseY - height : baseY;
-    const fill = value >= 0 ? "rgba(95, 143, 132, 0.72)" : "rgba(200, 132, 98, 0.82)";
-    return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${fill}"></rect>`;
+    const fill = value >= 0
+      ? hexToRgba(SEMANTIC_COLORS.fundingDailyNetPositive, 0.82)
+      : hexToRgba(SEMANTIC_COLORS.fundingDailyNetNegative, 0.82);
+    const stroke = value >= 0
+      ? hexToRgba(SEMANTIC_COLORS.fundingDailyNetPositive, 0.32)
+      : hexToRgba(SEMANTIC_COLORS.fundingDailyNetNegative, 0.32);
+    return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1"></rect>`;
   }).join("");
   const cumulativePoints = flowState.future.cumulativeNet.map((value, index) => {
     const normalized = clampNumber(45 + value * 0.6, 2, 98);
@@ -2891,8 +3638,8 @@ function renderFutureFundingFlowChart(widget, chartContext) {
         ${selectedItems.includes("当日净额") ? bars : ""}
         ${selectedItems.includes("累计净额")
           ? `
-            <polyline fill="none" stroke="#2F6FA3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${cumulativePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${cumulativePoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#2F6FA3" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
+            <polyline fill="none" stroke="${SEMANTIC_COLORS.fundingCumulative}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${cumulativePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+            ${cumulativePoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${SEMANTIC_COLORS.fundingCumulative}" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
           `
           : ""}
       </svg>
@@ -3087,10 +3834,15 @@ dashboardViewEl.addEventListener("click", (event) => {
   if (legendToggle) {
     const { widgetSeq, filterName, filterValue, legendKey } = legendToggle.dataset;
     if (legendKey) {
-      const allOptions = Array.from(
+      const legendItems = Array.from(
         dashboardViewEl.querySelectorAll(`[data-widget-seq="${widgetSeq}"][data-legend-key="${legendKey}"]`)
-      ).map((item) => item.dataset.filterValue).filter(Boolean);
-      toggleLegendSelection(widgetSeq, legendKey, filterValue, allOptions);
+      );
+      const allOptions = legendItems.map((item) => item.dataset.filterValue).filter(Boolean);
+      const visibleSelection = legendItems
+        .filter((item) => item.classList.contains("is-selected"))
+        .map((item) => item.dataset.filterValue)
+        .filter(Boolean);
+      toggleLegendSelection(widgetSeq, legendKey, filterValue, allOptions, visibleSelection);
       render();
       return;
     }

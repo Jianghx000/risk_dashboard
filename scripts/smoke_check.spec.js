@@ -34,6 +34,8 @@ const TEXT = {
     "\u5206\u4e1a\u52a1\u5230\u671f\u89c4\u6a21\u53ca\u589e\u901f",
     "\u5230\u671f\u4e1a\u52a1\u8d44\u4ea7\u8d1f\u503a\u7ed3\u6784\u4e00\u89c8\u8868",
   ],
+  mergedEveTableTitle: "\u5404\u5e01\u79cd\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8",
+  removedEveTableTitle: "6\u79cd\u60c5\u666f\u4e0b\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u8868",
   liquidityRiskSimulationTitle: "\u6d41\u52a8\u6027\u98ce\u9669\u6a21\u62df\u6d4b\u7b97",
   simulationButton: "\u6a21\u62df\u6d4b\u7b97",
   aiEyebrow: "AI\u667a\u80fd\u5206\u6790",
@@ -91,6 +93,16 @@ test.afterAll(async () => {
 
 test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ page }) => {
   await openPage(page);
+  const expectedEndDate = await page.evaluate(() => {
+    const yesterday = new Date();
+    yesterday.setHours(0, 0, 0, 0);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const year = yesterday.getFullYear();
+    const month = String(yesterday.getMonth() + 1).padStart(2, "0");
+    const day = String(yesterday.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+  await expect(page.locator("#globalEndDate")).toHaveValue(expectedEndDate);
   for (const title of TEXT.pages) {
     await expect(page.getByRole("button", { name: title, exact: true })).toBeVisible();
   }
@@ -102,6 +114,33 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   for (const title of TEXT.businessChangeTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
+});
+
+test("EVE\u8868\u5df2\u5408\u5e76\u4e3a\u5355\u4e00\u8868\u683c", async ({ page }) => {
+  await openPage(page);
+  const mergedHeading = page.getByRole("heading", { name: TEXT.mergedEveTableTitle, exact: true });
+  await expect(mergedHeading).toBeVisible();
+  await expect(page.getByRole("heading", { name: TEXT.removedEveTableTitle, exact: true })).toHaveCount(0);
+  const mergedTable = page.locator('[data-widget-seq="5"] table').first();
+  await expect(mergedTable).toContainText("△EVE");
+  await expect(mergedTable).toContainText("平行上移");
+  await expect(mergedTable).toContainText("短端下降");
+});
+
+test("\u5168\u5c40\u5f00\u59cb\u65f6\u95f4\u4f1a\u540c\u6b65\u66f4\u65b0\u6708\u9891\u6a2a\u5750\u6807", async ({ page }) => {
+  await openPage(page);
+  const firstChartStage = page.locator(".chart-stage").first();
+  await expect(firstChartStage).toContainText("2025-03");
+  await expect(firstChartStage).toContainText("2026-01");
+
+  const startDate = page.locator("#globalStartDate");
+  await startDate.fill("2025-09-30");
+  await startDate.evaluate((element) => {
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  await expect(firstChartStage).toContainText("2025-09");
+  await expect(firstChartStage).not.toContainText("2025-03");
 });
 
 test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", async ({ page }) => {

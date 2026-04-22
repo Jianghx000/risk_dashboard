@@ -82,6 +82,15 @@ window.dashboardConfig = {
       ]
     },
     "areaOverrides": {
+      "\u5206\u884c\u4e2a\u6027\u5316\u76d1\u7ba1\u6307\u6807": {
+        "\u673a\u6784": [
+          "\u9999\u6e2f\u5206\u884c",
+          "\u7ebd\u7ea6\u5206\u884c",
+          "\u65b0\u52a0\u5761\u5206\u884c",
+          "\u5362\u68ee\u5821\u5206\u884c",
+          "\u6089\u5c3c\u5206\u884c"
+        ]
+      },
       "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387": {
         "\u5229\u7387\u60c5\u666f": [
           "\u6240\u6709\u5229\u7387\u5e73\u884c\u4e0a\u79fb200bp",
@@ -131,6 +140,43 @@ window.dashboardConfig = {
         "label": "\u65b0\u53d1\u751f",
         "matchViewScope": "\u65b0\u53d1\u751f\u4e1a\u52a1"
       }
+    ],
+    "\u5206\u884c\u4e2a\u6027\u5316\u76d1\u7ba1\u6307\u6807": [
+      {
+        "label": "\u9999\u6e2f\u5206\u884c",
+        "matchViewScope": "\u9999\u6e2f\u5206\u884c",
+        "matchInstitutions": [
+          "\u9999\u6e2f\u5206\u884c"
+        ]
+      },
+      {
+        "label": "\u7ebd\u7ea6\u5206\u884c",
+        "matchViewScope": "\u7ebd\u7ea6\u5206\u884c",
+        "matchInstitutions": [
+          "\u7ebd\u7ea6\u5206\u884c"
+        ]
+      },
+      {
+        "label": "\u65b0\u52a0\u5761\u5206\u884c",
+        "matchViewScope": "\u65b0\u52a0\u5761\u5206\u884c",
+        "matchInstitutions": [
+          "\u65b0\u52a0\u5761\u5206\u884c"
+        ]
+      },
+      {
+        "label": "\u5362\u68ee\u5821\u5206\u884c",
+        "matchViewScope": "\u5362\u68ee\u5821\u5206\u884c",
+        "matchInstitutions": [
+          "\u5362\u68ee\u5821\u5206\u884c"
+        ]
+      },
+      {
+        "label": "\u6089\u5c3c\u5206\u884c",
+        "matchViewScope": "\u6089\u5c3c\u5206\u884c",
+        "matchInstitutions": [
+          "\u6089\u5c3c\u5206\u884c"
+        ]
+      }
     ]
   },
   "pageBehavior": {
@@ -154,6 +200,9 @@ window.dashboardConfig = {
   "areaDisplay": {
     "\u5229\u7387\u98ce\u9669": {
       "\u6838\u5fc3\u98ce\u9669\u6307\u6807": {
+        "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b": {
+          "mergeViewGroups": true
+        },
         "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387": {
           "mergeViewGroups": true
         }
@@ -250,6 +299,52 @@ window.dashboardConfig = {
       }
     },
     {
+      "indicator": "\u6d41\u52a8\u6027\u7ef4\u6301\u6bd4\u7387\uff08LMR\uff09",
+      "matchTitles": [
+        "\u6d41\u52a8\u6027\u7ef4\u6301\u6bd4\u7387\uff08LMR\uff09"
+      ],
+      "values": {
+        "\u9999\u6e2f\u5206\u884c": 25
+      }
+    },
+    {
+      "indicator": "\u6838\u5fc3\u8d44\u91d1\u6bd4\u7387\uff08CFR\uff09",
+      "matchTitles": [
+        "\u6838\u5fc3\u8d44\u91d1\u6bd4\u7387\uff08CFR\uff09"
+      ],
+      "values": {
+        "\u9999\u6e2f\u5206\u884c": 100
+      }
+    },
+    {
+      "indicator": "\u6cd5\u5b9a\u51c6\u5907\u91d1",
+      "matchTitles": [
+        "\u6cd5\u5b9a\u51c6\u5907\u91d1"
+      ],
+      "values": {
+        "\u7ebd\u7ea6\u5206\u884c": 0
+      }
+    },
+    {
+      "indicator": "\u6700\u4f4e\u6d41\u52a8\u8d44\u4ea7\uff08MLA\uff09",
+      "matchTitles": [
+        "\u6700\u4f4e\u6d41\u52a8\u8d44\u4ea7\uff08MLA\uff09"
+      ],
+      "values": {
+        "\u65b0\u52a0\u5761\u5206\u884c": 16
+      }
+    },
+    {
+      "indicator": "\u672c\u5730\u53e3\u5f84\u6d41\u52a8\u6027\u8986\u76d6\u7387\uff08LCR\uff09",
+      "matchTitles": [
+        "\u672c\u5730\u53e3\u5f84\u6d41\u52a8\u6027\u8986\u76d6\u7387\uff08LCR\uff09"
+      ],
+      "values": {
+        "\u5362\u68ee\u5821\u5206\u884c": 100,
+        "\u6089\u5c3c\u5206\u884c": 100
+      }
+    },
+    {
       "indicator": "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR",
       "matchTitles": [
         "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR"
@@ -301,6 +396,7 @@ window.dashboardConfig = {
       }
     },
     "4": {
+      "fullWidth": false,
       "simulationBehavior": {
         "sensitivity": 0.14
       },
@@ -312,10 +408,7 @@ window.dashboardConfig = {
       }
     },
     "5": {
-      "tableKind": "eveCurrency"
-    },
-    "6": {
-      "tableKind": "eveScenario"
+      "tableKind": "eveCombined"
     },
     "7": {
       "chartKind": "niiVolatility",
@@ -379,23 +472,17 @@ window.dashboardConfig = {
         "sensitivity": 0.16
       }
     },
-    "19": {
-      "chartKind": "donut",
-      "defaultTableDimension": "\u5e01\u79cd"
-    },
     "21": {
-      "chartKind": "durationRepricing",
+      "chartKind": "durationGapCombo",
       "yAxisLabel": "\u4e45\u671f",
       "simulationBehavior": {
         "sensitivity": 0.18
       }
     },
-    "23": {
-      "simulationBehavior": {
-        "sensitivity": 0.16
-      }
-    },
     "24": {
+      "chartKind": "businessDurationRepricing",
+      "fullWidth": false,
+      "maxSeries": 12,
       "yAxisLabel": "\u4e45\u671f",
       "simulationBehavior": {
         "sensitivity": 0.18
@@ -408,21 +495,31 @@ window.dashboardConfig = {
       }
     },
     "25": {
-      "tableKind": "durationGapMatrix"
+      "chartKind": "bondModifiedDuration",
+      "fullWidth": false,
+      "yAxisLabel": "\u4e45\u671f",
+      "simulationBehavior": {
+        "sensitivity": 0.18
+      },
+      "seriesFilters": {
+        "suppress": [
+          "\u673a\u6784",
+          "\u5e01\u79cd"
+        ]
+      }
     },
     "27": {
-      "chartKind": "durationRepricing",
+      "chartKind": "durationGapCombo",
+      "fullWidth": false,
       "yAxisLabel": "\u4e45\u671f",
       "simulationBehavior": {
         "sensitivity": 0.18
       }
     },
-    "29": {
-      "simulationBehavior": {
-        "sensitivity": 0.16
-      }
-    },
     "30": {
+      "chartKind": "businessDurationRepricing",
+      "fullWidth": false,
+      "maxSeries": 12,
       "yAxisLabel": "\u4e45\u671f",
       "simulationBehavior": {
         "sensitivity": 0.18
@@ -469,6 +566,7 @@ window.dashboardConfig = {
       }
     },
     "44": {
+      "frequencyToggle": true,
       "simulationBehavior": {
         "directionMode": "default",
         "sensitivity": 0.11
@@ -476,7 +574,11 @@ window.dashboardConfig = {
     },
     "45": {
       "chartKind": "donut",
-      "defaultTableDimension": "\u5e01\u79cd"
+      "defaultTableDimension": "\u4e00\u7ea7\u8d44\u4ea7",
+      "distributionLabels": [
+        "\u4e00\u7ea7\u8d44\u4ea7",
+        "\u4e8c\u7ea7\u8d44\u4ea7"
+      ]
     },
     "46": {
       "simulationBehavior": {
@@ -516,14 +618,8 @@ window.dashboardConfig = {
         "\u53e3\u5f84"
       ]
     },
-    "51": {
-      "chartKind": "fundingFlowScale",
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
     "52": {
+      "chartKind": "reserveRatioScaleCombo",
       "simulationBehavior": {
         "directionMode": "default",
         "sensitivity": 0.11
@@ -531,12 +627,66 @@ window.dashboardConfig = {
     },
     "53": {
       "chartKind": "donut",
-      "defaultTableDimension": "\u5e01\u79cd"
+      "defaultTableDimension": "\u5907\u4ed8\u91d1\u7c7b\u522b",
+      "distributionLabels": [
+        "\u8d85\u989d\u5b58\u6b3e\u51c6\u5907\u91d1",
+        "\u5e93\u5b58\u73b0\u91d1"
+      ]
     },
     "54": {
       "chartKind": "futureFundingFlow",
+      "fullWidth": true,
       "simulationBehavior": {
         "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "55": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "56": {
+      "chartKind": "liquidityAssetLiabilityBars",
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "57": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "58": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "59": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "60": {
+      "simulationBehavior": {
+        "directionMode": "default",
+        "sensitivity": 0.11
+      }
+    },
+    "61": {
+      "simulationBehavior": {
+        "directionMode": "coverage",
+        "sensitivity": 0.11
+      }
+    },
+    "62": {
+      "simulationBehavior": {
+        "directionMode": "coverage",
         "sensitivity": 0.11
       }
     },
@@ -555,14 +705,35 @@ window.dashboardConfig = {
         "sensitivity": 0.11
       }
     },
+    "72": {
+      "chartKind": "balanceScaleGrowth"
+    },
+    "73": {
+      "chartKind": "businessScaleGrowth",
+      "maxSeries": 12
+    },
     "79": {
       "tableKind": "businessStructure"
+    },
+    "83": {
+      "chartKind": "balanceScaleGrowth"
+    },
+    "84": {
+      "chartKind": "businessScaleGrowth",
+      "maxSeries": 12
     },
     "89": {
       "tableKind": "businessStructure",
       "inlineFilters": [
         "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"
       ]
+    },
+    "90": {
+      "chartKind": "balanceScaleGrowth"
+    },
+    "91": {
+      "chartKind": "businessScaleGrowth",
+      "maxSeries": 12
     },
     "96": {
       "tableKind": "businessStructure",
