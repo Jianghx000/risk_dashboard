@@ -2,18 +2,52 @@
 const config = window.dashboardConfig || {};
 const mockAdapter = window.dashboardMockAdapter || {};
 const FILTER_OPTIONS = config.filters?.options || config.filterOptions || {};
+const FILTER_PRESET_CONFIG = config.filters?.presets || {};
 const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
 const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
 const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
 const BLOCK_DISPLAY_CONFIG = config.blockDisplay || {};
 const AREA_DISPLAY_CONFIG = config.areaDisplay || {};
+const LAYOUT_RULE_CONFIG = config.layoutRules || {};
 const WIDGET_BEHAVIOR_CONFIG = config.widgetBehavior || {};
 const WIDGET_FILTER_CONFIG = config.widgetFilters || {};
+const WIDGET_FILTER_PRESET_CONFIG = config.widgetFilterPresets || {};
+const SERIES_RULE_CONFIG = config.seriesRules || {};
+const VISUAL_RULE_CONFIG = config.visualRules || {};
+const SIMULATION_RULE_CONFIG = config.simulationRules || {};
+const TABLE_TEMPLATE_CONFIG = config.tableTemplates || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
 const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债", "表外衍生品应收", "表外衍生品应付"];
-const SIMULATION_COLOR = "#2F6FA3";
-const SIMULATION_FILL = "rgba(47, 111, 163, 0.16)";
+const DEFAULT_SERIES_DIMENSION_ORDER = ["利率情景", "情景", "机构", "币种", "贷款类型", "存款类型", "期限长度", "业务类型"];
+const DEFAULT_SERIES_LABEL_MAP = {
+  利率情景: "情景",
+  情景: "情景",
+  机构: "机构",
+  币种: "币种",
+  贷款类型: "贷款类型",
+  存款类型: "存款类型",
+  期限长度: "期限",
+  业务类型: "业务类型",
+};
+const DEFAULT_LINE_SERIES_PALETTE = ["#C36E49", "#3F76B7", "#4F978B", "#C8943A", "#7D72AF", "#B86556", "#5E463A", "#6F9688"];
+const DEFAULT_BAR_SERIES_PALETTE = ["#5E97D1", "#71B7A8", "#8C7FD0", "#D4A55D", "#7FAFDF", "#8FC6BB", "#B39CD9", "#E2BE85"];
+const LINE_SERIES_PALETTE = Array.isArray(VISUAL_RULE_CONFIG.palette?.line) && VISUAL_RULE_CONFIG.palette.line.length
+  ? VISUAL_RULE_CONFIG.palette.line
+  : DEFAULT_LINE_SERIES_PALETTE;
+const BAR_SERIES_PALETTE = Array.isArray(VISUAL_RULE_CONFIG.palette?.bar) && VISUAL_RULE_CONFIG.palette.bar.length
+  ? VISUAL_RULE_CONFIG.palette.bar
+  : DEFAULT_BAR_SERIES_PALETTE;
+const SEMANTIC_COLORS = {
+  gapLine: VISUAL_RULE_CONFIG.palette?.semantic?.gapLine || LINE_SERIES_PALETTE[0],
+  fundingInflow: VISUAL_RULE_CONFIG.palette?.semantic?.fundingInflow || LINE_SERIES_PALETTE[0],
+  fundingOutflow: VISUAL_RULE_CONFIG.palette?.semantic?.fundingOutflow || LINE_SERIES_PALETTE[2],
+  fundingDailyNetPositive: VISUAL_RULE_CONFIG.palette?.semantic?.fundingDailyNetPositive || BAR_SERIES_PALETTE[0],
+  fundingDailyNetNegative: VISUAL_RULE_CONFIG.palette?.semantic?.fundingDailyNetNegative || BAR_SERIES_PALETTE[3],
+  fundingCumulative: VISUAL_RULE_CONFIG.palette?.semantic?.fundingCumulative || LINE_SERIES_PALETTE[1],
+};
+const SIMULATION_COLOR = VISUAL_RULE_CONFIG.palette?.semantic?.simulationLine || "#2F6FA3";
+const SIMULATION_FILL = VISUAL_RULE_CONFIG.palette?.semantic?.simulationFill || "rgba(47, 111, 163, 0.16)";
 const RATE_TYPE_OPTIONS = ["固定利率", "浮动利率"];
 const REPRICING_FREQUENCY_OPTIONS = [
   { label: "按月重定价", value: "1" },
@@ -35,16 +69,6 @@ const BUSINESS_SIDE_MAP = {
   内部交易负债: "liability",
   表外衍生品应收: "asset",
   表外衍生品应付: "liability",
-};
-const LINE_SERIES_PALETTE = ["#C36E49", "#3F76B7", "#4F978B", "#C8943A", "#7D72AF", "#B86556", "#5E463A", "#6F9688"];
-const BAR_SERIES_PALETTE = ["#5E97D1", "#71B7A8", "#8C7FD0", "#D4A55D", "#7FAFDF", "#8FC6BB", "#B39CD9", "#E2BE85"];
-const SEMANTIC_COLORS = {
-  gapLine: LINE_SERIES_PALETTE[0],
-  fundingInflow: LINE_SERIES_PALETTE[0],
-  fundingOutflow: LINE_SERIES_PALETTE[2],
-  fundingDailyNetPositive: BAR_SERIES_PALETTE[0],
-  fundingDailyNetNegative: BAR_SERIES_PALETTE[3],
-  fundingCumulative: LINE_SERIES_PALETTE[1],
 };
 
 const appState = {
@@ -236,7 +260,7 @@ function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
   Object.keys(areaState || {}).forEach((key) => {
     scopedState[key] = [...(areaState[key] || [])];
   });
-  const matchedTab = getAreaSubpageMatch(areaGroup, viewGroup?.viewScope);
+  const matchedTab = getAreaSubpageMatch(areaGroup, viewGroup);
   if (matchedTab && Array.isArray(matchedTab.matchInstitutions) && matchedTab.matchInstitutions.length) {
     scopedState["机构"] = matchedTab.matchInstitutions.filter(Boolean);
   }
@@ -383,20 +407,26 @@ function renderWidgetStage(widget, chartContext, displayMode) {
 
 function renderChart(widget, chartContext) {
   const type = widget.componentType || "";
-  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleChart(widget, chartContext);
-  if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowChart(widget, chartContext);
-  if (isLiquidityGapTenorWidget(widget)) return renderLiquidityGapTenorChart(widget, chartContext);
-  if (isThirtyDayLiquidityGapWidget(widget)) return renderThirtyDayLiquidityGapChart(widget, chartContext);
-  if (isReserveRatioScaleWidget(widget)) return renderReserveRatioScaleChart(widget, chartContext);
-  if (isLiquidityAssetLiabilityBarsWidget(widget)) return renderLiquidityAssetLiabilityBarsChart(widget, chartContext);
-  if (isDurationGapComboWidget(widget)) return renderDurationGapComboChart(widget, chartContext);
-  if (isRepricingScaleGapWidget(widget)) return renderRepricingScaleGapChart(widget, chartContext);
-  if (isBalanceScaleGrowthWidget(widget)) return renderBalanceScaleGrowthChart(widget, chartContext);
-  if (isBusinessScaleGrowthWidget(widget)) return renderBusinessScaleGrowthChart(widget, chartContext);
-  if (isBusinessDurationRepricingWidget(widget)) return renderBusinessDurationRepricingChart(widget, chartContext);
-  if (isDurationRepricingWidget(widget)) return renderDurationRepricingChart(widget, chartContext);
-  if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionChart(widget, chartContext);
+  const chartKind = getConfiguredWidgetBehavior(widget).chartKind;
+  const chartRendererRegistry = {
+    fundingFlowScale: renderFundingFlowScaleChart,
+    futureFundingFlow: renderFutureFundingFlowChart,
+    liquidityGapTenor: renderLiquidityGapTenorChart,
+    thirtyDayLiquidityGap: renderThirtyDayLiquidityGapChart,
+    reserveRatioScaleCombo: renderReserveRatioScaleChart,
+    liquidityAssetLiabilityBars: renderLiquidityAssetLiabilityBarsChart,
+    durationGapCombo: renderDurationGapComboChart,
+    repricingScaleGap: renderRepricingScaleGapChart,
+    balanceScaleGrowth: renderBalanceScaleGrowthChart,
+    businessScaleGrowth: renderBusinessScaleGrowthChart,
+    businessDurationRepricing: renderBusinessDurationRepricingChart,
+    durationRepricing: renderDurationRepricingChart,
+    niiVolatility: renderNiiVolatilityComboChart,
+    maturityDistribution: renderMaturityDistributionChart,
+  };
+  if (chartKind && chartRendererRegistry[chartKind]) return chartRendererRegistry[chartKind](widget, chartContext);
   if (type.includes("表格")) return renderTable(widget, chartContext);
+  if (type.includes("期限分布")) return renderMaturityDistributionChart(widget, chartContext);
   if (type.includes("双轴") || type.includes("组合")) return renderComboChart(widget, chartContext);
   if (isDonutWidget(widget) || type.includes("分布")) return renderDonut(widget, chartContext);
   if (type.includes("柱状")) return renderBarChart(widget, chartContext);
@@ -451,13 +481,13 @@ function getWidgetBehavior(widget) {
   const suppressSeriesFilters = new Set();
   const enableSeriesFilters = new Set();
 
-  const widgetFilters = WIDGET_FILTER_CONFIG[String(widget.seq)] || WIDGET_FILTER_CONFIG[widget.seq] || [];
+  const widgetFilters = resolveWidgetFilterEntries(WIDGET_FILTER_CONFIG[String(widget.seq)] || WIDGET_FILTER_CONFIG[widget.seq] || []);
   widgetFilters.forEach((filter) => {
     if (!filter?.name) return;
     localFilterMap.set(filter.name, { ...filter });
   });
 
-  (configuredBehavior.localFilters || []).forEach((filter) => {
+  resolveWidgetFilterEntries(configuredBehavior.localFilters || []).forEach((filter) => {
     if (!filter?.name) return;
     localFilterMap.set(filter.name, { ...filter });
   });
@@ -534,17 +564,14 @@ function chooseSeriesSelection(widget, filterState) {
   const configuredBehavior = getConfiguredWidgetBehavior(widget);
   const suppressedFilters = new Set(widgetBehavior.suppressSeriesFilters || []);
   const enabledSeriesFilters = new Set(widgetBehavior.enableSeriesFilters || []);
-  const maxSeries = Number.isFinite(Number(configuredBehavior.maxSeries)) ? Number(configuredBehavior.maxSeries) : 8;
-  const dimConfigs = [
-    { key: "利率情景", label: "情景" },
-    { key: "情景", label: "情景" },
-    { key: "机构", label: "机构" },
-    { key: "币种", label: "币种" },
-    { key: "贷款类型", label: "贷款类型" },
-    { key: "存款类型", label: "存款类型" },
-    { key: "期限长度", label: "期限" },
-    { key: "业务类型", label: "业务类型" },
-  ];
+  const maxSeries = Number.isFinite(Number(configuredBehavior.maxSeries))
+    ? Number(configuredBehavior.maxSeries)
+    : Number(SERIES_RULE_CONFIG.defaultMaxSeries) || 8;
+  const dimensionOrder = Array.isArray(SERIES_RULE_CONFIG.dimensionOrder) && SERIES_RULE_CONFIG.dimensionOrder.length
+    ? SERIES_RULE_CONFIG.dimensionOrder
+    : DEFAULT_SERIES_DIMENSION_ORDER;
+  const labelMap = { ...DEFAULT_SERIES_LABEL_MAP, ...(SERIES_RULE_CONFIG.labelMap || {}) };
+  const dimConfigs = dimensionOrder.map((key) => ({ key, label: labelMap[key] || key }));
 
   const activeDims = dimConfigs
     .map((config) => {
@@ -1136,10 +1163,16 @@ function renderBusinessScaleGrowthDataTable(widget, chartContext) {
 }
 
 function renderTable(widget, chartContext) {
-  if (isEveCombinedTableWidget(widget)) return renderEveCombinedTable(widget, chartContext);
-  if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
-  if (isDurationGapMatrixWidget(widget)) return renderDurationGapMatrixTable(widget);
-  if (isBusinessStructureTableWidget(widget)) return renderBusinessStructureTable(widget, chartContext);
+  const tableKind = getConfiguredWidgetBehavior(widget).tableKind;
+  const tableRendererRegistry = {
+    eveCombined: renderEveCombinedTable,
+    niiCurrencyMatrix: renderNiiCurrencyScenarioTable,
+    durationGapMatrix: (currentWidget) => renderDurationGapMatrixTable(currentWidget),
+    businessStructure: renderBusinessStructureTable,
+  };
+  if (tableKind && tableRendererRegistry[tableKind]) {
+    return applyTableTemplateClasses(widget, tableRendererRegistry[tableKind](widget, chartContext), getWidgetTableTemplateKey(widget, "compact"));
+  }
   const rowLabels = chartContext.seriesList.length > 1 ? chartContext.seriesList : buildDefaultTableLabels(widget);
   const rows = rowLabels.slice(0, 5).map((label, index) => buildTableRow(label, widget.seq, index, chartContext.signature));
   return `
@@ -1225,23 +1258,38 @@ function renderBusinessStructureTable(widget, chartContext) {
 
 function renderDataView(widget, chartContext) {
   const type = widget.componentType || "";
-  if (isFundingFlowScaleWidget(widget)) return renderFundingFlowScaleDataView(widget, chartContext);
-  if (isFutureFundingFlowWidget(widget)) return renderFutureFundingFlowDataView(widget, chartContext);
-  if (isReserveRatioScaleWidget(widget)) return renderReserveRatioScaleDataTable(widget, chartContext);
-  if (isLiquidityAssetLiabilityBarsWidget(widget)) return renderLiquidityAssetLiabilityBarsDataTable(widget, chartContext);
-  if (isBusinessDurationRepricingWidget(widget)) return renderBusinessDurationRepricingDataTable(widget, chartContext);
-  if (isDurationRepricingWidget(widget)) return renderDurationRepricingDataTable(widget, chartContext);
-  if (isNiiVolatilityWidget(widget)) return renderNiiVolatilityDataTable(widget, chartContext);
-  if (isNiiCurrencyMatrixWidget(widget)) return renderNiiCurrencyScenarioTable(widget, chartContext);
-  if (isDurationGapComboWidget(widget)) return renderDurationGapComboDataTable(widget, chartContext);
-  if (isRepricingScaleGapWidget(widget)) return renderRepricingScaleGapDataTable(widget, chartContext);
-  if (isBalanceScaleGrowthWidget(widget)) return renderBalanceScaleGrowthDataTable(widget, chartContext);
-  if (isBusinessScaleGrowthWidget(widget)) return renderBusinessScaleGrowthDataTable(widget, chartContext);
-  if (isMaturityDistributionWidget(widget) || type.includes("期限分布")) return renderMaturityDistributionDataTable(widget, chartContext);
-  if (type.includes("双轴") || type.includes("组合")) return renderComboDataTable(widget, chartContext);
-  if (type.includes("柱状")) return renderBarDataTable(widget, chartContext);
-  if (isDonutWidget(widget) || type.includes("分布")) return renderDistributionDataTable(widget, chartContext);
-  return renderLineDataTable(widget, chartContext);
+  const behavior = getConfiguredWidgetBehavior(widget);
+  const dataRendererRegistry = {
+    fundingFlowScale: renderFundingFlowScaleDataView,
+    futureFundingFlow: renderFutureFundingFlowDataView,
+    reserveRatioScaleCombo: renderReserveRatioScaleDataTable,
+    liquidityAssetLiabilityBars: renderLiquidityAssetLiabilityBarsDataTable,
+    businessDurationRepricing: renderBusinessDurationRepricingDataTable,
+    durationRepricing: renderDurationRepricingDataTable,
+    niiVolatility: renderNiiVolatilityDataTable,
+    durationGapCombo: renderDurationGapComboDataTable,
+    repricingScaleGap: renderRepricingScaleGapDataTable,
+    balanceScaleGrowth: renderBalanceScaleGrowthDataTable,
+    businessScaleGrowth: renderBusinessScaleGrowthDataTable,
+    maturityDistribution: renderMaturityDistributionDataTable,
+  };
+  const tableRendererRegistry = {
+    eveCombined: renderEveCombinedTable,
+    niiCurrencyMatrix: renderNiiCurrencyScenarioTable,
+    durationGapMatrix: (currentWidget) => renderDurationGapMatrixTable(currentWidget),
+    businessStructure: renderBusinessStructureTable,
+  };
+  if (behavior.tableKind && tableRendererRegistry[behavior.tableKind]) {
+    return applyTableTemplateClasses(widget, tableRendererRegistry[behavior.tableKind](widget, chartContext), getWidgetTableTemplateKey(widget, "compact"));
+  }
+  if (behavior.chartKind && dataRendererRegistry[behavior.chartKind]) {
+    return applyTableTemplateClasses(widget, dataRendererRegistry[behavior.chartKind](widget, chartContext), getWidgetTableTemplateKey(widget, "timeSeries"));
+  }
+  if (type.includes("期限分布")) return applyTableTemplateClasses(widget, renderMaturityDistributionDataTable(widget, chartContext), "timeSeries");
+  if (type.includes("双轴") || type.includes("组合")) return applyTableTemplateClasses(widget, renderComboDataTable(widget, chartContext), "timeSeries");
+  if (type.includes("柱状")) return applyTableTemplateClasses(widget, renderBarDataTable(widget, chartContext), "timeSeries");
+  if (isDonutWidget(widget) || type.includes("分布")) return applyTableTemplateClasses(widget, renderDistributionDataTable(widget, chartContext), "distribution");
+  return applyTableTemplateClasses(widget, renderLineDataTable(widget, chartContext), "timeSeries");
 }
 
 function renderLineDataTable(widget, chartContext) {
@@ -2566,6 +2614,11 @@ function supportsFrequencyToggle(widget) {
 }
 
 function getManagementLimitConfig(widget) {
+  const widgetSeq = Number(widget?.seq);
+  const directMatch = MANAGEMENT_LIMIT_CONFIG.find((item) =>
+    Array.isArray(item.widgetSeqs) && item.widgetSeqs.includes(widgetSeq)
+  );
+  if (directMatch) return directMatch;
   const title = String(widget?.title || "");
   return MANAGEMENT_LIMIT_CONFIG.find((item) => Array.isArray(item.matchTitles) && item.matchTitles.some((keyword) => title.includes(keyword))) || null;
 }
@@ -2773,7 +2826,7 @@ function getAreaSubpageTabs(areaGroup, areaState = ensureAreaFilterState(areaGro
   return uniqueList(
     areaTabs
       .filter((tab) => {
-        const matchesScope = areaGroup.viewGroups.some((viewGroup) => String(viewGroup.viewScope || "").includes(tab.matchViewScope || ""));
+        const matchesScope = areaGroup.viewGroups.some((viewGroup) => viewGroupMatchesTab(viewGroup, tab));
         if (!matchesScope) return false;
         if (!Array.isArray(tab.matchInstitutions) || !tab.matchInstitutions.length) return true;
         return selectedInstitutions.some((institution) => tab.matchInstitutions.includes(institution));
@@ -2790,8 +2843,8 @@ function getAreaSubpageLabel(areaGroup, viewScope) {
 function getAreaSubpageMatch(areaGroup, viewScope) {
   const areaTabs = getAreaSubpageConfig(areaGroup);
   if (!areaTabs) return null;
-  const source = String(viewScope || "");
-  return areaTabs.find((tab) => source.includes(tab.matchViewScope || "")) || null;
+  const candidate = typeof viewScope === "object" ? viewScope : { viewScope };
+  return areaTabs.find((tab) => viewGroupMatchesTab(candidate, tab)) || null;
 }
 
 function getVisibleAreaViewGroups(areaGroup, areaSubpage, block) {
@@ -2816,12 +2869,16 @@ function getPageBehavior(page = getCurrentPage()) {
 
 function getBlockDisplayConfig(block, page = getCurrentPage()) {
   if (!page?.name || !block?.name) return {};
-  return BLOCK_DISPLAY_CONFIG[page.name]?.[block.name] || {};
+  const legacyConfig = BLOCK_DISPLAY_CONFIG[page.name]?.[block.name] || {};
+  const unifiedConfig = LAYOUT_RULE_CONFIG.blocks?.[`${page.name}/${block.name}`] || {};
+  return { ...legacyConfig, ...unifiedConfig };
 }
 
 function getAreaDisplayConfig(areaGroup, block, page = getCurrentPage()) {
   if (!page?.name || !block?.name || !areaGroup?.name) return {};
-  return AREA_DISPLAY_CONFIG[page.name]?.[block.name]?.[areaGroup.name] || {};
+  const legacyConfig = AREA_DISPLAY_CONFIG[page.name]?.[block.name]?.[areaGroup.name] || {};
+  const unifiedConfig = LAYOUT_RULE_CONFIG.areas?.[`${page.name}/${block.name}/${areaGroup.name}`] || {};
+  return { ...legacyConfig, ...unifiedConfig };
 }
 
 function mergeAreaViewGroups(areaGroup) {
@@ -2835,7 +2892,7 @@ function mergeAreaViewGroups(areaGroup) {
 function findPinnedViewGroup(viewGroups, matchers = []) {
   if (!Array.isArray(matchers) || !matchers.length) return null;
   return viewGroups.find((viewGroup) =>
-    matchers.some((matcher) => String(viewGroup?.viewScope || "").includes(matcher))
+    matchers.some((matcher) => getViewGroupScopeLookup(viewGroup).includes(matcher))
   ) || null;
 }
 
@@ -2901,6 +2958,10 @@ function ensureWidgetDisplayMode(widget) {
 }
 
 function supportsDisplayToggle(widget) {
+  const configuredBehavior = getConfiguredWidgetBehavior(widget);
+  if (Object.prototype.hasOwnProperty.call(configuredBehavior, "supportsDisplayToggle")) {
+    return Boolean(configuredBehavior.supportsDisplayToggle);
+  }
   return !String(widget.componentType || "").includes("表格");
 }
 
@@ -2911,6 +2972,69 @@ function getDefaultFilterValues(filterName, optionValues = null) {
     return [...configuredDefaults];
   }
   return options.slice(0, 1);
+}
+
+function getAreaFilterPreset(area) {
+  return FILTER_PRESET_CONFIG[String(area?.filterPreset || "")] || null;
+}
+
+function resolveAreaSharedFilters(area) {
+  const orderedFilters = [...(getAreaFilterPreset(area) || []), ...((area?.sharedFilters || []))];
+  const normalizedMap = new Map();
+  orderedFilters.forEach((filterLabel) => {
+    const normalized = normalizeFilterName(filterLabel);
+    if (!normalized) return;
+    normalizedMap.set(normalized, filterLabel);
+  });
+  return Array.from(normalizedMap.values());
+}
+
+function getViewGroupScopeLookup(viewGroup) {
+  const scopeMeta = viewGroup?.scopeMeta || {};
+  return [
+    viewGroup?.viewScope,
+    scopeMeta.tabKey,
+    scopeMeta.institution,
+    scopeMeta.snapshotMode === "snapshot" ? "时点" : "",
+    scopeMeta.snapshotMode === "trend" ? "时间序列" : "",
+    scopeMeta.timeMode === "monthly" ? "月频" : "",
+    scopeMeta.timeMode === "frequencyToggle" ? "月频 / 日频" : "",
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function viewGroupMatchesTab(viewGroup, tab) {
+  if (!viewGroup || !tab) return false;
+  const scopeMeta = viewGroup.scopeMeta || {};
+  const metaMatcher = tab.matchScopeMeta || {};
+  if (metaMatcher.tabGroup && scopeMeta.tabGroup !== metaMatcher.tabGroup) return false;
+  if (metaMatcher.tabKey && scopeMeta.tabKey !== metaMatcher.tabKey) return false;
+  if (metaMatcher.institution && scopeMeta.institution !== metaMatcher.institution) return false;
+  if (Object.keys(metaMatcher).length) return true;
+  return getViewGroupScopeLookup(viewGroup).includes(tab.matchViewScope || "");
+}
+
+function getWidgetTableTemplateKey(widget, fallbackKey = "compact") {
+  const behavior = getConfiguredWidgetBehavior(widget);
+  if (behavior.tableTemplate) return behavior.tableTemplate;
+  if (behavior.tableKind === "eveCombined" || behavior.tableKind === "niiCurrencyMatrix" || behavior.tableKind === "durationGapMatrix") {
+    return "matrix";
+  }
+  if (behavior.tableKind === "businessStructure") return "businessStructure";
+  if (behavior.chartKind === "futureFundingFlow" || behavior.chartKind === "fundingFlowScale") return "compact";
+  if (behavior.chartKind === "businessScaleGrowth" || behavior.chartKind === "balanceScaleGrowth") return "timeSeries";
+  if (behavior.chartKind === "businessDurationRepricing" || behavior.chartKind === "durationRepricing") return "timeSeries";
+  if (behavior.chartKind === "reserveRatioScaleCombo" || behavior.chartKind === "liquidityAssetLiabilityBars") return "timeSeries";
+  return fallbackKey;
+}
+
+function applyTableTemplateClasses(widget, markup, fallbackKey = "compact") {
+  if (!markup || !markup.includes("<table")) return markup;
+  const templateKey = getWidgetTableTemplateKey(widget, fallbackKey);
+  const classNames = TABLE_TEMPLATE_CONFIG[templateKey]?.classes;
+  if (!Array.isArray(classNames) || !classNames.length) return markup;
+  return markup.replace(/<table class="[^"]*"/, `<table class="${classNames.join(" ")}"`);
 }
 
 function groupBlockAreas(block) {
@@ -2925,10 +3049,11 @@ function groupBlockAreas(block) {
       });
     }
     const target = grouped.get(area.name);
-    target.sharedFilters = uniqueList([...target.sharedFilters, ...(area.sharedFilters || [])]);
+    target.sharedFilters = uniqueList([...target.sharedFilters, ...resolveAreaSharedFilters(area)]);
     target.viewGroups.push({
       id: area.id,
       viewScope: area.viewScope,
+      scopeMeta: area.scopeMeta || {},
       widgets: area.widgets,
     });
   });
@@ -2988,6 +3113,10 @@ function shouldRenderAreasInPairs(block, groupedAreas) {
 }
 
 function shouldSpanFullWidth(widget) {
+  const layoutConfig = LAYOUT_RULE_CONFIG.widgets?.[String(widget?.seq)] || {};
+  if (Object.prototype.hasOwnProperty.call(layoutConfig, "fullWidth")) {
+    return Boolean(layoutConfig.fullWidth);
+  }
   const configuredBehavior = getConfiguredWidgetBehavior(widget);
   if (Object.prototype.hasOwnProperty.call(configuredBehavior, "fullWidth")) {
     return Boolean(configuredBehavior.fullWidth);
@@ -3077,6 +3206,27 @@ function getConfiguredWidgetBehavior(widget) {
 
 function getConfiguredWidgetBehaviorBySeq(widgetSeq) {
   return WIDGET_BEHAVIOR_CONFIG[String(widgetSeq)] || WIDGET_BEHAVIOR_CONFIG[widgetSeq] || {};
+}
+
+function resolveWidgetFilterEntries(entries = []) {
+  return (entries || []).flatMap((entry) => {
+    if (!entry) return [];
+    const presetRefs = [
+      entry.presetRef,
+      ...(Array.isArray(entry.presetRefs) ? entry.presetRefs : []),
+    ].filter(Boolean);
+    const expanded = presetRefs
+      .map((presetRef) => WIDGET_FILTER_PRESET_CONFIG[presetRef])
+      .filter(Boolean)
+      .map((preset) => ({ ...preset }));
+    if (presetRefs.length && Object.keys(entry).every((key) => key === "presetRef" || key === "presetRefs")) {
+      return expanded;
+    }
+    const mergedEntry = { ...entry };
+    delete mergedEntry.presetRef;
+    delete mergedEntry.presetRefs;
+    return [...expanded, mergedEntry];
+  });
 }
 
 function hexToRgba(hex, alpha) {
@@ -3466,29 +3616,47 @@ function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLa
   const page = data.pages.find((item) => item.id === chartContext.pageId) || getCurrentPage();
   const profile = getSimulationProfile(page, simulation);
   const simulationBehavior = getWidgetSimulationBehavior(widget) || {};
+  const simulationDefaults = SIMULATION_RULE_CONFIG.defaults || {};
+  const simulationModes = SIMULATION_RULE_CONFIG.modes || {};
+  const wholesaleLiabilityTypes = SIMULATION_RULE_CONFIG.wholesaleLiabilityTypes || ["同业负债", "发行债券", "表外衍生品应付"];
   const configuredSensitivity = Number(simulationBehavior.sensitivity);
-  let sensitivity = Number.isFinite(configuredSensitivity) ? configuredSensitivity : 0.11;
+  let sensitivity = Number.isFinite(configuredSensitivity) ? configuredSensitivity : Number(simulationDefaults.baseSensitivity) || 0.11;
   let direction = 1;
   const isLiabilitySeries = role.includes("liability") || role.includes("负债");
   const isGapSeries = role.includes("gap") || role.includes("差额");
-  const isWholesaleLiability = ["同业负债", "发行债券", "表外衍生品应付"].includes(simulation.businessType);
-  if (getSimulationMode(page) === "interest") {
-    direction = profile.side === "asset" ? 1 : -1;
+  const isWholesaleLiability = wholesaleLiabilityTypes.includes(simulation.businessType);
+  const simulationMode = getSimulationMode(page);
+  if (simulationMode === "interest") {
+    const modeRule = simulationModes.interest || {};
+    direction = profile.side === "asset" ? (modeRule.assetDirection ?? 1) : (modeRule.liabilityDirection ?? -1);
     if (isLiabilitySeries) direction *= -1;
-    if (isGapSeries) direction *= profile.side === "asset" ? 0.92 : -0.68;
-    if (simulation.rateType === "浮动利率") sensitivity *= 0.74;
-  } else if (getSimulationMode(page) === "liquidity") {
+    if (isGapSeries) direction *= profile.side === "asset" ? (modeRule.gapAssetDirection ?? 0.92) : (modeRule.gapLiabilityDirection ?? -0.68);
+    if (simulation.rateType === "浮动利率") sensitivity *= Number(simulationDefaults.floatingRateMultiplier) || 0.74;
+  } else if (simulationMode === "liquidity") {
     const directionMode = simulationBehavior.directionMode || "default";
-    if (directionMode === "coverage") direction = profile.side === "asset" ? -1 : (isWholesaleLiability ? -0.72 : 0.9);
-    else if (directionMode === "gap") direction = profile.side === "asset" ? 0.88 : (isWholesaleLiability ? 1 : -0.56);
-    else direction = profile.side === "asset" ? 0.74 : (isWholesaleLiability ? 0.82 : -0.42);
+    const modeRule = simulationModes.liquidity?.[directionMode] || simulationModes.liquidity?.default || {};
+    direction = profile.side === "asset"
+      ? (modeRule.assetDirection ?? 0.74)
+      : (isWholesaleLiability ? (modeRule.wholesaleLiabilityDirection ?? 0.82) : (modeRule.liabilityDirection ?? -0.42));
   } else {
-    sensitivity *= ["人民币", "全折人民币"].includes(simulation.currency) ? 0.45 : 1.14;
-    direction = ["人民币", "全折人民币"].includes(simulation.currency) ? 0.34 : 1;
-    if (profile.side === "liability" && (seriesLabel || "").includes("负债")) direction *= 0.82;
+    const isDomesticCurrency = ["人民币", "全折人民币"].includes(simulation.currency);
+    sensitivity *= isDomesticCurrency
+      ? (Number(simulationDefaults.domesticFxSensitivityMultiplier) || 0.45)
+      : (Number(simulationDefaults.foreignFxSensitivityMultiplier) || 1.14);
+    direction = isDomesticCurrency
+      ? (Number(simulationDefaults.domesticFxDirection) || 0.34)
+      : (Number(simulationDefaults.foreignFxDirection) || 1);
+    if (profile.side === "liability" && (seriesLabel || "").includes("负债")) {
+      direction *= Number(simulationDefaults.liabilityFxSeriesMultiplier) || 0.82;
+    }
   }
-  const variation = 1 + (((widget.seq + seriesIndex * 17) % 9) - 4) * 0.035;
-  return clampNumber(profile.impactScore * sensitivity * direction * variation, -0.22, 0.22);
+  const variationStep = Number(simulationDefaults.variationStep) || 0.035;
+  const variation = 1 + (((widget.seq + seriesIndex * 17) % 9) - 4) * variationStep;
+  return clampNumber(
+    profile.impactScore * sensitivity * direction * variation,
+    Number(simulationDefaults.minAdjustmentRatio) || -0.22,
+    Number(simulationDefaults.maxAdjustmentRatio) || 0.22
+  );
 }
 
 function renderSimulationOverlay(frame, widget, chartContext, seriesDefinitions) {

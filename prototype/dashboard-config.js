@@ -1,229 +1,286 @@
 window.dashboardConfig = {
   "filters": {
     "options": {
-      "\u673a\u6784": [
-        "\u6cd5\u4eba\u6c47\u603b",
-        "\u5883\u5916\u5206\u884c\u6c47\u603b",
-        "\u5883\u5185\u6c47\u603b",
-        "\u7ebd\u7ea6\u5206\u884c",
-        "\u65b0\u52a0\u5761\u5206\u884c",
-        "\u5362\u68ee\u5821\u5206\u884c",
-        "\u4f26\u6566\u5206\u884c",
-        "\u6089\u5c3c\u5206\u884c",
-        "\u9999\u6e2f\u5206\u884c"
+      "机构": [
+        "法人汇总",
+        "境外分行汇总",
+        "境内汇总",
+        "纽约分行",
+        "新加坡分行",
+        "卢森堡分行",
+        "伦敦分行",
+        "悉尼分行",
+        "香港分行"
       ],
-      "\u5e01\u79cd": [
-        "\u5168\u6298\u4eba\u6c11\u5e01",
-        "\u4eba\u6c11\u5e01",
-        "\u5916\u5e01\u6298\u7f8e\u5143",
-        "\u7f8e\u5143",
-        "\u6e2f\u5143",
-        "\u65b0\u52a0\u5761\u5143",
-        "\u6b27\u5143",
-        "\u6fb3\u5143",
-        "\u82f1\u9551",
-        "\u65e5\u5143"
+      "币种": [
+        "全折人民币",
+        "人民币",
+        "外币折美元",
+        "美元",
+        "港元",
+        "新加坡元",
+        "欧元",
+        "澳元",
+        "英镑",
+        "日元"
       ],
-      "\u5229\u7387\u60c5\u666f": [
-        "\u5e73\u884c\u4e0a\u79fb",
-        "\u4e0b\u79fb",
-        "\u53d8\u9661\u5ced",
-        "\u53d8\u5e73\u7f13",
-        "\u77ed\u7aef\u4e0a\u5347",
-        "\u77ed\u7aef\u4e0b\u964d"
+      "利率情景": [
+        "平行上移",
+        "下移",
+        "变陡峭",
+        "变平缓",
+        "短端上升",
+        "短端下降"
       ],
-      "\u60c5\u666f": [
-        "\u5e73\u884c\u4e0a\u79fb",
-        "\u4e0b\u79fb",
-        "\u53d8\u9661\u5ced",
-        "\u53d8\u5e73\u7f13",
-        "\u77ed\u7aef\u4e0a\u5347",
-        "\u77ed\u7aef\u4e0b\u964d"
+      "情景": [
+        "平行上移",
+        "下移",
+        "变陡峭",
+        "变平缓",
+        "短端上升",
+        "短端下降"
       ],
-      "\u671f\u9650\u957f\u5ea6": [
-        "1\u65e5",
-        "7\u65e5",
-        "30\u65e5",
-        "90\u65e5"
+      "期限长度": [
+        "1日",
+        "7日",
+        "30日",
+        "90日"
       ],
-      "\u4e1a\u52a1\u7c7b\u578b": [
-        "\u81ea\u8425\u8d37\u6b3e",
-        "\u503a\u5238\u6295\u8d44",
-        "\u540c\u4e1a\u8d44\u4ea7",
-        "\u5b58\u653e\u592e\u884c",
-        "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-        "\u6d3b\u671f\u5b58\u6b3e",
-        "\u5b9a\u671f\u5b58\u6b3e",
-        "\u540c\u4e1a\u8d1f\u503a",
-        "\u53d1\u884c\u503a\u5238",
-        "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-        "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-        "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
+      "业务类型": [
+        "自营贷款",
+        "债券投资",
+        "同业资产",
+        "存放央行",
+        "内部交易资产",
+        "活期存款",
+        "定期存款",
+        "同业负债",
+        "发行债券",
+        "内部交易负债",
+        "表外衍生品应收",
+        "表外衍生品应付"
       ],
-      "\u8d37\u6b3e\u7c7b\u578b": [
-        "\u6574\u4f53\u5bf9\u516c\u8d37\u6b3e",
-        "\u4e2a\u4eba\u4f4f\u623f\u8d37\u6b3e",
-        "\u4e2a\u4eba\u975e\u4f4f\u623f\u8d37\u6b3e"
+      "贷款类型": [
+        "整体对公贷款",
+        "个人住房贷款",
+        "个人非住房贷款"
       ],
-      "\u5b58\u6b3e\u7c7b\u578b": [
-        "\u5bf9\u516c\u5b9a\u671f\u5b58\u6b3e",
-        "\u50a8\u84c4\u5b9a\u671f\u5b58\u6b3e"
+      "存款类型": [
+        "对公定期存款",
+        "储蓄定期存款"
       ],
-      "\u65f6\u95f4\u533a\u95f4": [
-        "\u8fd11\u6708",
-        "\u8fd13\u6708",
-        "\u8fd112\u6708",
-        "\u5e74\u521d\u81f3\u4eca"
+      "时间区间": [
+        "近1月",
+        "近3月",
+        "近12月",
+        "年初至今"
       ],
-      "\u53e3\u5f84": [
-        "\u672c\u5e01",
-        "\u5916\u5e01",
-        "\u672c\u5916\u5e01\u5408\u8ba1"
+      "口径": [
+        "本币",
+        "外币",
+        "本外币合计"
       ]
     },
     "areaOverrides": {
-      "\u5206\u884c\u4e2a\u6027\u5316\u76d1\u7ba1\u6307\u6807": {
-        "\u673a\u6784": [
-          "\u9999\u6e2f\u5206\u884c",
-          "\u7ebd\u7ea6\u5206\u884c",
-          "\u65b0\u52a0\u5761\u5206\u884c",
-          "\u5362\u68ee\u5821\u5206\u884c",
-          "\u6089\u5c3c\u5206\u884c"
+      "分行个性化监管指标": {
+        "机构": [
+          "香港分行",
+          "纽约分行",
+          "新加坡分行",
+          "卢森堡分行",
+          "悉尼分行"
         ]
       },
-      "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387": {
-        "\u5229\u7387\u60c5\u666f": [
-          "\u6240\u6709\u5229\u7387\u5e73\u884c\u4e0a\u79fb200bp",
-          "\u6d3b\u671f\u5229\u7387\u4e0d\u53d8\u4f46\u5176\u4ed6\u5229\u7387\u5e73\u884c\u4e0a\u79fb200bp"
+      "净利息收入波动率": {
+        "利率情景": [
+          "所有利率平行上移200bp",
+          "活期利率不变但其他利率平行上移200bp"
         ]
       }
     },
     "defaults": {
-      "\u673a\u6784": [
-        "\u6cd5\u4eba\u6c47\u603b"
+      "机构": [
+        "法人汇总"
       ],
-      "\u5e01\u79cd": [
-        "\u5168\u6298\u4eba\u6c11\u5e01"
+      "币种": [
+        "全折人民币"
       ],
-      "\u8d37\u6b3e\u7c7b\u578b": [
-        "\u6574\u4f53\u5bf9\u516c\u8d37\u6b3e",
-        "\u4e2a\u4eba\u4f4f\u623f\u8d37\u6b3e",
-        "\u4e2a\u4eba\u975e\u4f4f\u623f\u8d37\u6b3e"
+      "贷款类型": [
+        "整体对公贷款",
+        "个人住房贷款",
+        "个人非住房贷款"
       ],
-      "\u5b58\u6b3e\u7c7b\u578b": [
-        "\u5bf9\u516c\u5b9a\u671f\u5b58\u6b3e",
-        "\u50a8\u84c4\u5b9a\u671f\u5b58\u6b3e"
+      "存款类型": [
+        "对公定期存款",
+        "储蓄定期存款"
       ],
-      "\u4e1a\u52a1\u7c7b\u578b": [
-        "\u81ea\u8425\u8d37\u6b3e",
-        "\u503a\u5238\u6295\u8d44"
+      "业务类型": [
+        "自营贷款",
+        "债券投资"
       ]
+    },
+    "presets": {
+      "orgCurrency": [
+        "机构",
+        "币种"
+      ],
+      "orgCurrencyRateScenario": [
+        "机构",
+        "币种",
+        "利率情景"
+      ],
+      "orgOnly": [
+        "机构"
+      ],
+      "loanType": [
+        "贷款类型"
+      ],
+      "depositType": [
+        "存款类型"
+      ],
+      "none": []
     }
   },
   "tabs": {
-    "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387": [
+    "重定价缺口率": [
       {
-        "label": "\u6708\u65e5\u5747\u53e3\u5f84",
-        "matchViewScope": "\u6708\u65e5\u5747\u53e3\u5f84"
+        "label": "月日均口径",
+        "matchViewScope": "月日均口径",
+        "matchScopeMeta": {
+          "tabGroup": "repricingGapCaliber",
+          "tabKey": "月日均口径"
+        }
       },
       {
-        "label": "\u65f6\u70b9\u53e3\u5f84",
-        "matchViewScope": "\u65f6\u70b9\u53e3\u5f84"
+        "label": "时点口径",
+        "matchViewScope": "时点口径",
+        "matchScopeMeta": {
+          "tabGroup": "repricingGapCaliber",
+          "tabKey": "时点口径"
+        }
       }
     ],
-    "\u91cd\u5b9a\u4ef7\u4e45\u671f": [
+    "重定价久期": [
       {
-        "label": "\u5b58\u91cf",
-        "matchViewScope": "\u5b58\u91cf\u4e1a\u52a1"
+        "label": "存量",
+        "matchViewScope": "存量业务",
+        "matchScopeMeta": {
+          "tabGroup": "repricingDuration",
+          "tabKey": "存量"
+        }
       },
       {
-        "label": "\u65b0\u53d1\u751f",
-        "matchViewScope": "\u65b0\u53d1\u751f\u4e1a\u52a1"
+        "label": "新发生",
+        "matchViewScope": "新发生业务",
+        "matchScopeMeta": {
+          "tabGroup": "repricingDuration",
+          "tabKey": "新发生"
+        }
       }
     ],
-    "\u5206\u884c\u4e2a\u6027\u5316\u76d1\u7ba1\u6307\u6807": [
+    "分行个性化监管指标": [
       {
-        "label": "\u9999\u6e2f\u5206\u884c",
-        "matchViewScope": "\u9999\u6e2f\u5206\u884c",
+        "label": "香港分行",
+        "matchViewScope": "香港分行",
+        "matchScopeMeta": {
+          "tabGroup": "branchLocalRegulation",
+          "tabKey": "香港分行"
+        },
         "matchInstitutions": [
-          "\u9999\u6e2f\u5206\u884c"
+          "香港分行"
         ]
       },
       {
-        "label": "\u7ebd\u7ea6\u5206\u884c",
-        "matchViewScope": "\u7ebd\u7ea6\u5206\u884c",
+        "label": "纽约分行",
+        "matchViewScope": "纽约分行",
+        "matchScopeMeta": {
+          "tabGroup": "branchLocalRegulation",
+          "tabKey": "纽约分行"
+        },
         "matchInstitutions": [
-          "\u7ebd\u7ea6\u5206\u884c"
+          "纽约分行"
         ]
       },
       {
-        "label": "\u65b0\u52a0\u5761\u5206\u884c",
-        "matchViewScope": "\u65b0\u52a0\u5761\u5206\u884c",
+        "label": "新加坡分行",
+        "matchViewScope": "新加坡分行",
+        "matchScopeMeta": {
+          "tabGroup": "branchLocalRegulation",
+          "tabKey": "新加坡分行"
+        },
         "matchInstitutions": [
-          "\u65b0\u52a0\u5761\u5206\u884c"
+          "新加坡分行"
         ]
       },
       {
-        "label": "\u5362\u68ee\u5821\u5206\u884c",
-        "matchViewScope": "\u5362\u68ee\u5821\u5206\u884c",
+        "label": "卢森堡分行",
+        "matchViewScope": "卢森堡分行",
+        "matchScopeMeta": {
+          "tabGroup": "branchLocalRegulation",
+          "tabKey": "卢森堡分行"
+        },
         "matchInstitutions": [
-          "\u5362\u68ee\u5821\u5206\u884c"
+          "卢森堡分行"
         ]
       },
       {
-        "label": "\u6089\u5c3c\u5206\u884c",
-        "matchViewScope": "\u6089\u5c3c\u5206\u884c",
+        "label": "悉尼分行",
+        "matchViewScope": "悉尼分行",
+        "matchScopeMeta": {
+          "tabGroup": "branchLocalRegulation",
+          "tabKey": "悉尼分行"
+        },
         "matchInstitutions": [
-          "\u6089\u5c3c\u5206\u884c"
+          "悉尼分行"
         ]
       }
     ]
   },
   "pageBehavior": {
-    "\u5229\u7387\u98ce\u9669": {
+    "利率风险": {
       "simulationMode": "interest"
     },
-    "\u6d41\u52a8\u6027\u98ce\u9669": {
+    "流动性风险": {
       "simulationMode": "liquidity"
     },
-    "\u6c47\u7387\u98ce\u9669": {
+    "汇率风险": {
       "simulationMode": "fx"
     }
   },
   "blockDisplay": {
-    "\u5229\u7387\u98ce\u9669": {
-      "\u671f\u6743\u6027\u98ce\u9669\uff08\u5883\u5185\u5206\u884c\uff09": {
+    "利率风险": {
+      "期权性风险（境内分行）": {
         "pairAreas": true
       }
     }
   },
   "areaDisplay": {
-    "\u5229\u7387\u98ce\u9669": {
-      "\u6838\u5fc3\u98ce\u9669\u6307\u6807": {
-        "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b": {
+    "利率风险": {
+      "核心风险指标": {
+        "最大经济价值变动比例": {
           "mergeViewGroups": true
         },
-        "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387": {
+        "净利息收入波动率": {
           "mergeViewGroups": true
         }
       },
-      "\u7f3a\u53e3\u98ce\u9669": {
-        "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387": {
+      "缺口风险": {
+        "重定价缺口率": {
           "pinnedViewScopeIncludes": [
-            "\u65f6\u70b9\u53e3\u5f84 / \u65f6\u70b9",
-            "/ \u65f6\u70b9"
+            "时点口径 / 时点",
+            "/ 时点"
           ]
         }
       }
     },
-    "\u6d41\u52a8\u6027\u98ce\u9669": {
-      "\u6838\u5fc3\u98ce\u9669\u6307\u6807": {
-        "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR": {
+    "流动性风险": {
+      "核心风险指标": {
+        "流动性覆盖率LCR": {
           "mergeViewGroups": true
         }
       },
-      "\u8d44\u91d1\u5907\u4ed8": {
-        "\u8d85\u989d\u5907\u4ed8\u91d1": {
+      "资金备付": {
+        "超额备付金": {
           "mergeViewGroups": true
         }
       }
@@ -231,152 +288,186 @@ window.dashboardConfig = {
   },
   "managementLimits": [
     {
-      "indicator": "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
+      "indicator": "最大经济价值变动比例",
       "matchTitles": [
-        "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b"
+        "最大经济价值变动比例"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 28,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 25,
-        "\u5883\u5185\u6c47\u603b": 30,
-        "\u7ebd\u7ea6\u5206\u884c": 32,
-        "\u65b0\u52a0\u5761\u5206\u884c": 29,
-        "\u5362\u68ee\u5821\u5206\u884c": 27,
-        "\u4f26\u6566\u5206\u884c": 31,
-        "\u6089\u5c3c\u5206\u884c": 26,
-        "\u9999\u6e2f\u5206\u884c": 30
-      }
+        "法人汇总": 28,
+        "境外分行汇总": 25,
+        "境内汇总": 30,
+        "纽约分行": 32,
+        "新加坡分行": 29,
+        "卢森堡分行": 27,
+        "伦敦分行": 31,
+        "悉尼分行": 26,
+        "香港分行": 30
+      },
+      "widgetSeqs": [
+        1
+      ]
     },
     {
-      "indicator": "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387",
+      "indicator": "净利息收入波动率",
       "matchTitles": [
-        "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u53ca\u6ce2\u52a8\u7387"
+        "净利息收入波动及波动率"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 24,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 22,
-        "\u5883\u5185\u6c47\u603b": 26,
-        "\u7ebd\u7ea6\u5206\u884c": 28,
-        "\u65b0\u52a0\u5761\u5206\u884c": 25,
-        "\u5362\u68ee\u5821\u5206\u884c": 23,
-        "\u4f26\u6566\u5206\u884c": 27,
-        "\u6089\u5c3c\u5206\u884c": 24,
-        "\u9999\u6e2f\u5206\u884c": 25
-      }
+        "法人汇总": 24,
+        "境外分行汇总": 22,
+        "境内汇总": 26,
+        "纽约分行": 28,
+        "新加坡分行": 25,
+        "卢森堡分行": 23,
+        "伦敦分行": 27,
+        "悉尼分行": 24,
+        "香港分行": 25
+      },
+      "widgetSeqs": [
+        7
+      ]
     },
     {
-      "indicator": "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
+      "indicator": "重定价缺口率",
       "matchTitles": [
-        "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387"
+        "重定价缺口率"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 38,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 34,
-        "\u5883\u5185\u6c47\u603b": 40,
-        "\u7ebd\u7ea6\u5206\u884c": 42,
-        "\u65b0\u52a0\u5761\u5206\u884c": 37,
-        "\u5362\u68ee\u5821\u5206\u884c": 35,
-        "\u4f26\u6566\u5206\u884c": 39,
-        "\u6089\u5c3c\u5206\u884c": 36,
-        "\u9999\u6e2f\u5206\u884c": 38
-      }
+        "法人汇总": 38,
+        "境外分行汇总": 34,
+        "境内汇总": 40,
+        "纽约分行": 42,
+        "新加坡分行": 37,
+        "卢森堡分行": 35,
+        "伦敦分行": 39,
+        "悉尼分行": 36,
+        "香港分行": 38
+      },
+      "widgetSeqs": [
+        9
+      ]
     },
     {
-      "indicator": "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
+      "indicator": "流动性覆盖率LCR",
       "matchTitles": [
-        "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR"
+        "流动性覆盖率LCR"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 62,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 58,
-        "\u5883\u5185\u6c47\u603b": 64,
-        "\u7ebd\u7ea6\u5206\u884c": 67,
-        "\u65b0\u52a0\u5761\u5206\u884c": 61,
-        "\u5362\u68ee\u5821\u5206\u884c": 59,
-        "\u4f26\u6566\u5206\u884c": 65,
-        "\u6089\u5c3c\u5206\u884c": 60,
-        "\u9999\u6e2f\u5206\u884c": 63
-      }
+        "法人汇总": 62,
+        "境外分行汇总": 58,
+        "境内汇总": 64,
+        "纽约分行": 67,
+        "新加坡分行": 61,
+        "卢森堡分行": 59,
+        "伦敦分行": 65,
+        "悉尼分行": 60,
+        "香港分行": 63
+      },
+      "widgetSeqs": [
+        42
+      ]
     },
     {
-      "indicator": "\u6d41\u52a8\u6027\u7ef4\u6301\u6bd4\u7387\uff08LMR\uff09",
+      "indicator": "流动性维持比率（LMR）",
       "matchTitles": [
-        "\u6d41\u52a8\u6027\u7ef4\u6301\u6bd4\u7387\uff08LMR\uff09"
+        "流动性维持比率（LMR）"
       ],
       "values": {
-        "\u9999\u6e2f\u5206\u884c": 25
-      }
+        "香港分行": 25
+      },
+      "widgetSeqs": [
+        57
+      ]
     },
     {
-      "indicator": "\u6838\u5fc3\u8d44\u91d1\u6bd4\u7387\uff08CFR\uff09",
+      "indicator": "核心资金比率（CFR）",
       "matchTitles": [
-        "\u6838\u5fc3\u8d44\u91d1\u6bd4\u7387\uff08CFR\uff09"
+        "核心资金比率（CFR）"
       ],
       "values": {
-        "\u9999\u6e2f\u5206\u884c": 100
-      }
+        "香港分行": 100
+      },
+      "widgetSeqs": [
+        58
+      ]
     },
     {
-      "indicator": "\u6cd5\u5b9a\u51c6\u5907\u91d1",
+      "indicator": "法定准备金",
       "matchTitles": [
-        "\u6cd5\u5b9a\u51c6\u5907\u91d1"
+        "法定准备金"
       ],
       "values": {
-        "\u7ebd\u7ea6\u5206\u884c": 0
-      }
+        "纽约分行": 0
+      },
+      "widgetSeqs": [
+        59
+      ]
     },
     {
-      "indicator": "\u6700\u4f4e\u6d41\u52a8\u8d44\u4ea7\uff08MLA\uff09",
+      "indicator": "最低流动资产（MLA）",
       "matchTitles": [
-        "\u6700\u4f4e\u6d41\u52a8\u8d44\u4ea7\uff08MLA\uff09"
+        "最低流动资产（MLA）"
       ],
       "values": {
-        "\u65b0\u52a0\u5761\u5206\u884c": 16
-      }
+        "新加坡分行": 16
+      },
+      "widgetSeqs": [
+        60
+      ]
     },
     {
-      "indicator": "\u672c\u5730\u53e3\u5f84\u6d41\u52a8\u6027\u8986\u76d6\u7387\uff08LCR\uff09",
+      "indicator": "本地口径流动性覆盖率（LCR）",
       "matchTitles": [
-        "\u672c\u5730\u53e3\u5f84\u6d41\u52a8\u6027\u8986\u76d6\u7387\uff08LCR\uff09"
+        "本地口径流动性覆盖率（LCR）"
       ],
       "values": {
-        "\u5362\u68ee\u5821\u5206\u884c": 100,
-        "\u6089\u5c3c\u5206\u884c": 100
-      }
+        "卢森堡分行": 100,
+        "悉尼分行": 100
+      },
+      "widgetSeqs": [
+        61,
+        62
+      ]
     },
     {
-      "indicator": "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR",
+      "indicator": "净稳定资金比例NSFR",
       "matchTitles": [
-        "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR"
+        "净稳定资金比例NSFR"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 66,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 62,
-        "\u5883\u5185\u6c47\u603b": 68,
-        "\u7ebd\u7ea6\u5206\u884c": 70,
-        "\u65b0\u52a0\u5761\u5206\u884c": 65,
-        "\u5362\u68ee\u5821\u5206\u884c": 63,
-        "\u4f26\u6566\u5206\u884c": 69,
-        "\u6089\u5c3c\u5206\u884c": 64,
-        "\u9999\u6e2f\u5206\u884c": 67
-      }
+        "法人汇总": 66,
+        "境外分行汇总": 62,
+        "境内汇总": 68,
+        "纽约分行": 70,
+        "新加坡分行": 65,
+        "卢森堡分行": 63,
+        "伦敦分行": 69,
+        "悉尼分行": 64,
+        "香港分行": 67
+      },
+      "widgetSeqs": [
+        46
+      ]
     },
     {
-      "indicator": "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21",
+      "indicator": "30日流动性缺口规模",
       "matchTitles": [
-        "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21"
+        "30日流动性缺口规模"
       ],
       "values": {
-        "\u6cd5\u4eba\u6c47\u603b": 55,
-        "\u5883\u5916\u5206\u884c\u6c47\u603b": 50,
-        "\u5883\u5185\u6c47\u603b": 57,
-        "\u7ebd\u7ea6\u5206\u884c": 60,
-        "\u65b0\u52a0\u5761\u5206\u884c": 54,
-        "\u5362\u68ee\u5821\u5206\u884c": 52,
-        "\u4f26\u6566\u5206\u884c": 58,
-        "\u6089\u5c3c\u5206\u884c": 53,
-        "\u9999\u6e2f\u5206\u884c": 56
-      }
+        "法人汇总": 55,
+        "境外分行汇总": 50,
+        "境内汇总": 57,
+        "纽约分行": 60,
+        "新加坡分行": 54,
+        "卢森堡分行": 52,
+        "伦敦分行": 58,
+        "悉尼分行": 53,
+        "香港分行": 56
+      },
+      "widgetSeqs": [
+        50
+      ]
     }
   ],
   "widgetBehavior": {
@@ -391,7 +482,7 @@ window.dashboardConfig = {
       },
       "seriesFilters": {
         "suppress": [
-          "\u5e01\u79cd"
+          "币种"
         ]
       }
     },
@@ -402,8 +493,8 @@ window.dashboardConfig = {
       },
       "seriesFilters": {
         "allow": [
-          "\u5229\u7387\u60c5\u666f",
-          "\u60c5\u666f"
+          "利率情景",
+          "情景"
         ]
       }
     },
@@ -417,8 +508,8 @@ window.dashboardConfig = {
       },
       "seriesFilters": {
         "allow": [
-          "\u5229\u7387\u60c5\u666f",
-          "\u60c5\u666f"
+          "利率情景",
+          "情景"
         ]
       }
     },
@@ -447,7 +538,7 @@ window.dashboardConfig = {
     },
     "13": {
       "chartKind": "donut",
-      "defaultTableDimension": "\u5e01\u79cd"
+      "defaultTableDimension": "币种"
     },
     "14": {
       "chartKind": "maturityDistribution"
@@ -474,7 +565,7 @@ window.dashboardConfig = {
     },
     "21": {
       "chartKind": "durationGapCombo",
-      "yAxisLabel": "\u4e45\u671f",
+      "yAxisLabel": "久期",
       "simulationBehavior": {
         "sensitivity": 0.18
       }
@@ -483,35 +574,35 @@ window.dashboardConfig = {
       "chartKind": "businessDurationRepricing",
       "fullWidth": false,
       "maxSeries": 12,
-      "yAxisLabel": "\u4e45\u671f",
+      "yAxisLabel": "久期",
       "simulationBehavior": {
         "sensitivity": 0.18
       },
       "seriesFilters": {
         "suppress": [
-          "\u673a\u6784",
-          "\u5e01\u79cd"
+          "机构",
+          "币种"
         ]
       }
     },
     "25": {
       "chartKind": "bondModifiedDuration",
       "fullWidth": false,
-      "yAxisLabel": "\u4e45\u671f",
+      "yAxisLabel": "久期",
       "simulationBehavior": {
         "sensitivity": 0.18
       },
       "seriesFilters": {
         "suppress": [
-          "\u673a\u6784",
-          "\u5e01\u79cd"
+          "机构",
+          "币种"
         ]
       }
     },
     "27": {
       "chartKind": "durationGapCombo",
       "fullWidth": false,
-      "yAxisLabel": "\u4e45\u671f",
+      "yAxisLabel": "久期",
       "simulationBehavior": {
         "sensitivity": 0.18
       }
@@ -520,14 +611,14 @@ window.dashboardConfig = {
       "chartKind": "businessDurationRepricing",
       "fullWidth": false,
       "maxSeries": 12,
-      "yAxisLabel": "\u4e45\u671f",
+      "yAxisLabel": "久期",
       "simulationBehavior": {
         "sensitivity": 0.18
       },
       "seriesFilters": {
         "suppress": [
-          "\u673a\u6784",
-          "\u5e01\u79cd"
+          "机构",
+          "币种"
         ]
       }
     },
@@ -574,10 +665,10 @@ window.dashboardConfig = {
     },
     "45": {
       "chartKind": "donut",
-      "defaultTableDimension": "\u4e00\u7ea7\u8d44\u4ea7",
+      "defaultTableDimension": "一级资产",
       "distributionLabels": [
-        "\u4e00\u7ea7\u8d44\u4ea7",
-        "\u4e8c\u7ea7\u8d44\u4ea7"
+        "一级资产",
+        "二级资产"
       ]
     },
     "46": {
@@ -605,7 +696,7 @@ window.dashboardConfig = {
         "sensitivity": 0.16
       },
       "inlineFilters": [
-        "\u671f\u9650\u957f\u5ea6"
+        "期限长度"
       ]
     },
     "50": {
@@ -615,7 +706,7 @@ window.dashboardConfig = {
         "sensitivity": 0.16
       },
       "inlineFilters": [
-        "\u53e3\u5f84"
+        "口径"
       ]
     },
     "52": {
@@ -627,10 +718,10 @@ window.dashboardConfig = {
     },
     "53": {
       "chartKind": "donut",
-      "defaultTableDimension": "\u5907\u4ed8\u91d1\u7c7b\u522b",
+      "defaultTableDimension": "备付金类别",
       "distributionLabels": [
-        "\u8d85\u989d\u5b58\u6b3e\u51c6\u5907\u91d1",
-        "\u5e93\u5b58\u73b0\u91d1"
+        "超额存款准备金",
+        "库存现金"
       ]
     },
     "54": {
@@ -725,7 +816,7 @@ window.dashboardConfig = {
     "89": {
       "tableKind": "businessStructure",
       "inlineFilters": [
-        "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"
+        "时间区间（起止）"
       ]
     },
     "90": {
@@ -738,285 +829,391 @@ window.dashboardConfig = {
     "96": {
       "tableKind": "businessStructure",
       "inlineFilters": [
-        "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"
+        "时间区间（起止）"
       ]
     }
   },
   "widgetFilters": {
     "4": [
       {
-        "name": "\u5229\u7387\u60c5\u666f",
-        "options": [
-          "6\u79cd\u60c5\u666f\u6700\u5927\u503c",
-          "\u5e73\u884c\u4e0a\u79fb",
-          "\u4e0b\u79fb",
-          "\u53d8\u9661\u5ced",
-          "\u53d8\u5e73\u7f13",
-          "\u77ed\u7aef\u4e0a\u5347",
-          "\u77ed\u7aef\u4e0b\u964d"
-        ],
-        "defaultValues": [
-          "6\u79cd\u60c5\u666f\u6700\u5927\u503c"
-        ],
-        "multi": true
+        "presetRef": "interestScenarioLegend"
       }
     ],
     "14": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "24": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "30": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "35": [
       {
-        "name": "\u5229\u7387\u57fa\u51c6",
-        "label": "\u5229\u7387\u57fa\u51c6",
-        "options": [
-          "DR007",
-          "LPR 1Y",
-          "LPR 5Y",
-          "HIBOR",
-          "\u5907\u4ed8\u91d1\u5229\u7387",
-          "\u8d37\u6b3e\u57fa\u51c6\u5229\u7387",
-          "\u6d3b\u671f\u5b58\u6b3e\u5229\u7387",
-          "\u5176\u4ed6\u8d44\u4ea7\u5229\u7387",
-          "\u901a\u77e5\u5b58\u6b3e\u5229\u7387",
-          "\u51c6\u5907\u91d1\u5229\u7387",
-          "LIBOR",
-          "PRIME RATE",
-          "SOFR",
-          "TERM SOFR",
-          "ESTR",
-          "EURIBOR"
-        ],
-        "defaultValues": [
-          "DR007"
-        ],
-        "multi": false
+        "presetRef": "benchmarkSelector"
       }
     ],
     "36": [
       {
-        "name": "\u7ef4\u5ea6",
-        "label": "\u7ef4\u5ea6",
-        "options": [
-          "\u8d44\u4ea7\u7aef",
-          "\u8d1f\u503a\u7aef",
-          "\u8d44\u4ea7\u8d1f\u503a\u5dee\u503c"
-        ],
-        "defaultValues": [
-          "\u8d44\u4ea7\u7aef"
-        ],
-        "multi": false
+        "presetRef": "durationDimensionSelector"
       }
     ],
     "49": [
       {
-        "name": "\u671f\u9650\u957f\u5ea6",
-        "label": "\u671f\u9650\u957f\u5ea6",
-        "options": [
-          "1\u65e5",
-          "7\u65e5",
-          "90\u65e5"
-        ],
-        "defaultValues": [
-          "1\u65e5",
-          "7\u65e5",
-          "90\u65e5"
-        ],
-        "multi": true
+        "presetRef": "liquidityTenorLegend"
       }
     ],
     "50": [
       {
-        "name": "\u53e3\u5f84",
-        "label": "\u53e3\u5f84",
-        "options": [
-          "\u65f6\u70b9",
-          "\u6708\u65e5\u5747"
-        ],
-        "defaultValues": [
-          "\u65f6\u70b9"
-        ],
-        "multi": false
+        "presetRef": "caliberSelector"
       }
     ],
     "73": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "84": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "89": [
       {
-        "name": "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09",
-        "label": "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09",
-        "options": [
-          "\u8fd11\u4e2a\u6708",
-          "\u8fd13\u4e2a\u6708",
-          "\u8fd112\u4e2a\u6708",
-          "\u5e74\u521d\u81f3\u4eca"
-        ],
-        "defaultValues": [
-          "\u8fd13\u4e2a\u6708"
-        ],
-        "multi": false
+        "presetRef": "timeRangeSelector"
       }
     ],
     "91": [
       {
-        "name": "\u4e1a\u52a1\u7c7b\u578b",
-        "renderMode": "legend",
-        "multi": true,
-        "options": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44",
-          "\u540c\u4e1a\u8d44\u4ea7",
-          "\u5b58\u653e\u592e\u884c",
-          "\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7",
-          "\u6d3b\u671f\u5b58\u6b3e",
-          "\u5b9a\u671f\u5b58\u6b3e",
-          "\u540c\u4e1a\u8d1f\u503a",
-          "\u53d1\u884c\u503a\u5238",
-          "\u5185\u90e8\u4ea4\u6613\u8d1f\u503a",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536",
-          "\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8"
-        ],
-        "defaultValues": [
-          "\u81ea\u8425\u8d37\u6b3e",
-          "\u503a\u5238\u6295\u8d44"
-        ]
+        "presetRef": "businessTypeLegend"
       }
     ],
     "96": [
       {
-        "name": "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09",
-        "label": "\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09",
-        "options": [
-          "\u8fd11\u4e2a\u6708",
-          "\u8fd13\u4e2a\u6708",
-          "\u8fd112\u4e2a\u6708",
-          "\u5e74\u521d\u81f3\u4eca"
-        ],
-        "defaultValues": [
-          "\u8fd13\u4e2a\u6708"
-        ],
-        "multi": false
+        "presetRef": "timeRangeSelector"
       }
     ]
   },
-  "seriesRules": []
+  "seriesRules": {
+    "dimensionOrder": [
+      "利率情景",
+      "情景",
+      "机构",
+      "币种",
+      "贷款类型",
+      "存款类型",
+      "期限长度",
+      "业务类型"
+    ],
+    "labelMap": {
+      "利率情景": "情景",
+      "情景": "情景",
+      "机构": "机构",
+      "币种": "币种",
+      "贷款类型": "贷款类型",
+      "存款类型": "存款类型",
+      "期限长度": "期限",
+      "业务类型": "业务类型"
+    },
+    "defaultMaxSeries": 8
+  },
+  "widgetFilterPresets": {
+    "interestScenarioLegend": {
+      "name": "利率情景",
+      "options": [
+        "6种情景最大值",
+        "平行上移",
+        "下移",
+        "变陡峭",
+        "变平缓",
+        "短端上升",
+        "短端下降"
+      ],
+      "defaultValues": [
+        "6种情景最大值"
+      ],
+      "multi": true
+    },
+    "businessTypeLegend": {
+      "name": "业务类型",
+      "renderMode": "legend",
+      "multi": true,
+      "options": [
+        "自营贷款",
+        "债券投资",
+        "同业资产",
+        "存放央行",
+        "内部交易资产",
+        "活期存款",
+        "定期存款",
+        "同业负债",
+        "发行债券",
+        "内部交易负债",
+        "表外衍生品应收",
+        "表外衍生品应付"
+      ],
+      "defaultValues": [
+        "自营贷款",
+        "债券投资"
+      ]
+    },
+    "benchmarkSelector": {
+      "name": "利率基准",
+      "label": "利率基准",
+      "options": [
+        "DR007",
+        "LPR 1Y",
+        "LPR 5Y",
+        "HIBOR",
+        "备付金利率",
+        "贷款基准利率",
+        "活期存款利率",
+        "其他资产利率",
+        "通知存款利率",
+        "准备金利率",
+        "LIBOR",
+        "PRIME RATE",
+        "SOFR",
+        "TERM SOFR",
+        "ESTR",
+        "EURIBOR"
+      ],
+      "defaultValues": [
+        "DR007"
+      ],
+      "multi": false
+    },
+    "durationDimensionSelector": {
+      "name": "维度",
+      "label": "维度",
+      "options": [
+        "资产端",
+        "负债端",
+        "资产负债差值"
+      ],
+      "defaultValues": [
+        "资产端"
+      ],
+      "multi": false
+    },
+    "liquidityTenorLegend": {
+      "name": "期限长度",
+      "label": "期限长度",
+      "options": [
+        "1日",
+        "7日",
+        "90日"
+      ],
+      "defaultValues": [
+        "1日",
+        "7日",
+        "90日"
+      ],
+      "multi": true
+    },
+    "caliberSelector": {
+      "name": "口径",
+      "label": "口径",
+      "options": [
+        "时点",
+        "月日均"
+      ],
+      "defaultValues": [
+        "时点"
+      ],
+      "multi": false
+    },
+    "timeRangeSelector": {
+      "name": "时间区间（起止）",
+      "label": "时间区间（起止）",
+      "options": [
+        "近1个月",
+        "近3个月",
+        "近12个月",
+        "年初至今"
+      ],
+      "defaultValues": [
+        "近3个月"
+      ],
+      "multi": false
+    }
+  },
+  "visualRules": {
+    "palette": {
+      "line": [
+        "#C36E49",
+        "#3F76B7",
+        "#4F978B",
+        "#C8943A",
+        "#7D72AF",
+        "#B86556",
+        "#5E463A",
+        "#6F9688"
+      ],
+      "bar": [
+        "#5E97D1",
+        "#71B7A8",
+        "#8C7FD0",
+        "#D4A55D",
+        "#7FAFDF",
+        "#8FC6BB",
+        "#B39CD9",
+        "#E2BE85"
+      ],
+      "semantic": {
+        "gapLine": "#C36E49",
+        "fundingInflow": "#C36E49",
+        "fundingOutflow": "#4F978B",
+        "fundingDailyNetPositive": "#5E97D1",
+        "fundingDailyNetNegative": "#D4A55D",
+        "fundingCumulative": "#3F76B7",
+        "simulationLine": "#2F6FA3",
+        "simulationFill": "rgba(47, 111, 163, 0.16)"
+      }
+    }
+  },
+  "layoutRules": {
+    "blocks": {
+      "利率风险/期权性风险（境内分行）": {
+        "pairAreas": true
+      }
+    },
+    "areas": {
+      "利率风险/核心风险指标/最大经济价值变动比例": {
+        "mergeViewGroups": true,
+        "sharedFilterPreset": "orgCurrency"
+      },
+      "利率风险/核心风险指标/净利息收入波动率": {
+        "mergeViewGroups": true,
+        "sharedFilterPreset": "orgCurrencyRateScenario"
+      },
+      "利率风险/缺口风险/重定价缺口率": {
+        "pinnedViewScopeIncludes": [
+          "时点口径 / 时点",
+          "/ 时点"
+        ],
+        "sharedFilterPreset": "orgCurrency"
+      },
+      "流动性风险/核心风险指标/流动性覆盖率LCR": {
+        "mergeViewGroups": true,
+        "sharedFilterPreset": "orgCurrency"
+      },
+      "流动性风险/资金备付/超额备付金": {
+        "mergeViewGroups": true,
+        "sharedFilterPreset": "orgOnly"
+      },
+      "流动性风险/分行个性化监管指标/分行个性化监管指标": {
+        "sharedFilterPreset": "orgOnly"
+      }
+    },
+    "widgets": {
+      "4": {
+        "fullWidth": false
+      },
+      "11": {
+        "fullWidth": true
+      },
+      "17": {
+        "fullWidth": true
+      },
+      "24": {
+        "fullWidth": false
+      },
+      "25": {
+        "fullWidth": false
+      },
+      "27": {
+        "fullWidth": false
+      },
+      "30": {
+        "fullWidth": false
+      },
+      "54": {
+        "fullWidth": true
+      }
+    }
+  },
+  "simulationRules": {
+    "defaults": {
+      "baseSensitivity": 0.11,
+      "minAdjustmentRatio": -0.22,
+      "maxAdjustmentRatio": 0.22,
+      "floatingRateMultiplier": 0.74,
+      "domesticFxSensitivityMultiplier": 0.45,
+      "foreignFxSensitivityMultiplier": 1.14,
+      "domesticFxDirection": 0.34,
+      "foreignFxDirection": 1,
+      "liabilityFxSeriesMultiplier": 0.82,
+      "variationStep": 0.035
+    },
+    "wholesaleLiabilityTypes": [
+      "同业负债",
+      "发行债券",
+      "表外衍生品应付"
+    ],
+    "modes": {
+      "interest": {
+        "assetDirection": 1,
+        "liabilityDirection": -1,
+        "gapAssetDirection": 0.92,
+        "gapLiabilityDirection": -0.68
+      },
+      "liquidity": {
+        "default": {
+          "assetDirection": 0.74,
+          "wholesaleLiabilityDirection": 0.82,
+          "liabilityDirection": -0.42
+        },
+        "coverage": {
+          "assetDirection": -1,
+          "wholesaleLiabilityDirection": -0.72,
+          "liabilityDirection": 0.9
+        },
+        "gap": {
+          "assetDirection": 0.88,
+          "wholesaleLiabilityDirection": 1,
+          "liabilityDirection": -0.56
+        }
+      },
+      "fx": {}
+    }
+  },
+  "tableTemplates": {
+    "compact": {
+      "classes": [
+        "chart-table"
+      ]
+    },
+    "timeSeries": {
+      "classes": [
+        "chart-table",
+        "chart-table--wide"
+      ]
+    },
+    "distribution": {
+      "classes": [
+        "chart-table",
+        "chart-table--wide"
+      ]
+    },
+    "matrix": {
+      "classes": [
+        "chart-table",
+        "chart-table--wide",
+        "chart-table--matrix"
+      ]
+    },
+    "businessStructure": {
+      "classes": [
+        "chart-table",
+        "chart-table--wide"
+      ]
+    }
+  }
 };

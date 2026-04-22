@@ -70,7 +70,12 @@ window.dashboardData = {
                   "originPosition": "原始行4",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             },
             {
               "id": "area-5",
@@ -97,7 +102,11 @@ window.dashboardData = {
                   "devNote": "?????????????????????",
                   "originPosition": "???5 / ???6"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             },
             {
               "id": "area-7",
@@ -125,7 +134,12 @@ window.dashboardData = {
                   "devNote": "组件：双轴柱线组合图",
                   "originPosition": "原始行7"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrencyRateScenario",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             },
             {
               "id": "area-8",
@@ -153,7 +167,11 @@ window.dashboardData = {
                   "devNote": "组件：表格",
                   "originPosition": "原始行8"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrencyRateScenario",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             }
           ],
           "widgetCount": 6
@@ -219,7 +237,14 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行11"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot",
+                "timeMode": "frequencyToggle",
+                "tabGroup": "repricingGapCaliber",
+                "tabKey": "时点口径"
+              }
             },
             {
               "id": "area-12",
@@ -262,7 +287,13 @@ window.dashboardData = {
                   "devNote": "组件：折线图；建议支持tooltip同步查看",
                   "originPosition": "原始行14"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot",
+                "tabGroup": "repricingGapCaliber",
+                "tabKey": "时点口径"
+              }
             },
             {
               "id": "area-15",
@@ -321,7 +352,13 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行17"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "timeMode": "frequencyToggle",
+                "tabGroup": "repricingGapCaliber",
+                "tabKey": "月日均口径"
+              }
             },
             {
               "id": "area-20",
@@ -381,7 +418,14 @@ window.dashboardData = {
                   "originPosition": "原始行25",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "repricingDuration",
+                "tabKey": "存量"
+              }
             },
             {
               "id": "area-26",
@@ -423,7 +467,14 @@ window.dashboardData = {
                   "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
                   "devNote": "组件：折线图；按业务类型拆线展示"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "repricingDuration",
+                "tabKey": "新发生"
+              }
             }
           ],
           "widgetCount": 13,
@@ -474,7 +525,12 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行35"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             },
             {
               "id": "area-36",
@@ -502,7 +558,11 @@ window.dashboardData = {
                   "originPosition": "原始行36",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             }
           ],
           "widgetCount": 3,
@@ -536,7 +596,12 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行37"
                 }
-              ]
+              ],
+              "filterPreset": "loanType",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             },
             {
               "id": "area-38",
@@ -562,7 +627,12 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行38"
                 }
-              ]
+              ],
+              "filterPreset": "depositType",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             }
           ],
           "widgetCount": 2
@@ -621,7 +691,12 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行44"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "timeMode": "frequencyToggle",
+                "breakdownMode": "currency"
+              }
             },
             {
               "id": "area-45",
@@ -664,7 +739,11 @@ window.dashboardData = {
                   "devNote": "组件：环形图；建议支持tooltip同步查看",
                   "originPosition": "原始行45"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             },
             {
               "id": "area-46",
@@ -723,7 +802,11 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行48"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "timeMode": "frequencyToggle"
+              }
             }
           ],
           "widgetCount": 7
@@ -772,7 +855,15 @@ window.dashboardData = {
                   "devNote": "组件：折线图；带监管下限虚线",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "branchLocalRegulation",
+                "tabKey": "香港分行",
+                "institution": "香港分行"
+              }
             },
             {
               "id": "area-branch-ny",
@@ -798,7 +889,15 @@ window.dashboardData = {
                   "devNote": "组件：折线图；带监管下限虚线",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "branchLocalRegulation",
+                "tabKey": "纽约分行",
+                "institution": "纽约分行"
+              }
             },
             {
               "id": "area-branch-sg",
@@ -824,7 +923,15 @@ window.dashboardData = {
                   "devNote": "组件：折线图；带监管下限虚线",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "branchLocalRegulation",
+                "tabKey": "新加坡分行",
+                "institution": "新加坡分行"
+              }
             },
             {
               "id": "area-branch-lu",
@@ -850,7 +957,15 @@ window.dashboardData = {
                   "devNote": "组件：折线图；带监管下限虚线",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "branchLocalRegulation",
+                "tabKey": "卢森堡分行",
+                "institution": "卢森堡分行"
+              }
             },
             {
               "id": "area-branch-syd",
@@ -876,7 +991,15 @@ window.dashboardData = {
                   "devNote": "组件：折线图；带监管下限虚线",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly",
+                "tabGroup": "branchLocalRegulation",
+                "tabKey": "悉尼分行",
+                "institution": "悉尼分行"
+              }
             }
           ],
           "widgetCount": 6
@@ -926,7 +1049,12 @@ window.dashboardData = {
                   "devNote": "组件：双柱图",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
+              }
             },
             {
               "id": "area-49",
@@ -969,7 +1097,11 @@ window.dashboardData = {
                   "devNote": "组件：折线图",
                   "originPosition": "原始行50"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "timeMode": "frequencyToggle"
+              }
             },
             {
               "id": "area-51",
@@ -996,7 +1128,11 @@ window.dashboardData = {
                   "devNote": "组件：双轴柱线组合图",
                   "originPosition": "新增"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             }
           ],
           "widgetCount": 5
@@ -1027,7 +1163,11 @@ window.dashboardData = {
                   "devNote": "组件：双轴柱线组合图；柱表示规模，线表示比率",
                   "originPosition": "原始行52"
                 }
-              ]
+              ],
+              "filterPreset": "none",
+              "scopeMeta": {
+                "snapshotMode": "trend"
+              }
             },
             {
               "id": "area-53",
@@ -1051,7 +1191,11 @@ window.dashboardData = {
                   "devNote": "组件：环形图；展示备付金类别结构占比",
                   "originPosition": "原始行53"
                 }
-              ]
+              ],
+              "filterPreset": "none",
+              "scopeMeta": {
+                "snapshotMode": "snapshot"
+              }
             }
           ],
           "widgetCount": 2
@@ -1110,7 +1254,8 @@ window.dashboardData = {
                   "devNote": "组件：折线图；建议支持tooltip同步查看",
                   "originPosition": "原始行69"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-70",
@@ -1137,7 +1282,8 @@ window.dashboardData = {
                   "devNote": "组件：表格；建议支持字段排序、冻结首列",
                   "originPosition": "原始行70"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency"
             }
           ],
           "widgetCount": 3
@@ -1170,7 +1316,8 @@ window.dashboardData = {
                   "devNote": "组件：折线图；建议支持tooltip同步查看",
                   "originPosition": "原始行71"
                 }
-              ]
+              ],
+              "filterPreset": "orgOnly"
             }
           ],
           "widgetCount": 1
@@ -1245,7 +1392,11 @@ window.dashboardData = {
                   "devNote": "",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "mergeMode": "areaMerged"
+              }
             }
           ],
           "widgetCount": 3
@@ -1311,7 +1462,11 @@ window.dashboardData = {
                   "devNote": "",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "mergeMode": "areaMerged"
+              }
             }
           ],
           "widgetCount": 3
@@ -1377,7 +1532,11 @@ window.dashboardData = {
                   "devNote": "",
                   "layout": "full"
                 }
-              ]
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "mergeMode": "areaMerged"
+              }
             }
           ],
           "widgetCount": 3

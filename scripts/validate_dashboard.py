@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import re
@@ -13,24 +13,24 @@ CONFIG_FILE = ROOT / "prototype" / "dashboard-config.js"
 APP_FILE = ROOT / "prototype" / "app.js"
 
 FORBIDDEN_RENDERER_SNIPPETS = [
-    'pageName.includes("利率")',
-    'pageName.includes("流动性")',
-    'pageName.includes("汇率")',
-    'String(block?.name || "").includes("期权性风险")',
+    'pageName.includes("鍒╃巼")',
+    'pageName.includes("娴佸姩鎬?)',
+    'pageName.includes("姹囩巼")',
+    'String(block?.name || "").includes("鏈熸潈鎬ч闄?)',
     'currentPageId || "") === "page-4"',
-    'widget.title.includes("占比")',
-    'widget.title.includes("分布")',
-    'String(widget?.title || "").includes("资产负债结构一览表")',
-    'String(widget?.title || "").includes("重定价规模与缺口")',
-    'String(widget?.title || "").includes("资金流入流出规模")',
-    'String(widget?.title || "").includes("未来逐日资金流")',
-    'String(widget?.title || "").includes("资产/负债重定价久期")',
-    'String(widget?.title || "").includes("分币种久期缺口一览表")',
-    'String(widget?.title || "").includes("各币种最大经济价值变动")',
-    'String(widget?.title || "").includes("6种情景下经济价值变动表")',
-    'String(widget?.title || "").includes("净利息收入波动及波动率")',
-    'String(widget?.title || "").includes("流动性缺口规模（1/7/90日）")',
-    'String(widget?.title || "").includes("30日流动性缺口规模")',
+    'widget.title.includes("鍗犳瘮")',
+    'widget.title.includes("鍒嗗竷")',
+    'String(widget?.title || "").includes("璧勪骇璐熷€虹粨鏋勪竴瑙堣〃")',
+    'String(widget?.title || "").includes("閲嶅畾浠疯妯′笌缂哄彛")',
+    'String(widget?.title || "").includes("璧勯噾娴佸叆娴佸嚭瑙勬ā")',
+    'String(widget?.title || "").includes("鏈潵閫愭棩璧勯噾娴?)',
+    'String(widget?.title || "").includes("璧勪骇/璐熷€洪噸瀹氫环涔呮湡")',
+    'String(widget?.title || "").includes("鍒嗗竵绉嶄箙鏈熺己鍙ｄ竴瑙堣〃")',
+    'String(widget?.title || "").includes("鍚勫竵绉嶆渶澶х粡娴庝环鍊煎彉鍔?)',
+    'String(widget?.title || "").includes("6绉嶆儏鏅笅缁忔祹浠峰€煎彉鍔ㄨ〃")',
+    'String(widget?.title || "").includes("鍑€鍒╂伅鏀跺叆娉㈠姩鍙婃尝鍔ㄧ巼")',
+    'String(widget?.title || "").includes("娴佸姩鎬х己鍙ｈ妯★紙1/7/90鏃ワ級")',
+    'String(widget?.title || "").includes("30鏃ユ祦鍔ㄦ€х己鍙ｈ妯?)',
     'Number(widget?.seq) === 5',
     'Number(widget?.seq) === 6',
     'String(widgetSeq) === "49"',
@@ -68,8 +68,15 @@ def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:
 
 
 def normalize_filter_name(name: str) -> str:
-    return re.sub(r"[（(].*?[）)]", "", str(name)).strip()
-
+    value = str(name)
+    for left, right in (("（", "）"), ("(", ")")):
+        while left in value and right in value:
+            start = value.find(left)
+            end = value.find(right, start + 1)
+            if start < 0 or end < 0:
+                break
+            value = value[:start] + value[end + 1 :]
+    return value.strip()
 
 def ensure_fields(obj: dict[str, Any], required: list[str], label: str, errors: list[str]) -> None:
     missing = [field for field in required if field not in obj or obj[field] in (None, "")]
@@ -152,6 +159,12 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                 shared_filters = area.get("sharedFilters", [])
                 if shared_filters and not isinstance(shared_filters, list):
                     errors.append(f"area {area.get('id')} sharedFilters should be a list")
+                filter_preset = area.get("filterPreset")
+                if filter_preset is not None and filter_preset not in config.get("filter_preset_names", set()):
+                    errors.append(f"area {area.get('id')} references unknown filterPreset: {filter_preset}")
+                scope_meta = area.get("scopeMeta")
+                if scope_meta is not None and not isinstance(scope_meta, dict):
+                    errors.append(f"area {area.get('id')} scopeMeta should be an object")
 
                 for shared_filter in shared_filters:
                     normalized = normalize_filter_name(shared_filter)
@@ -206,15 +219,22 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     warnings: list[str] = []
 
     filter_options = config.get("filters", {}).get("options", {})
+    filter_presets = config.get("filters", {}).get("presets", {})
     defaults = config.get("filters", {}).get("defaults", {})
     area_overrides = config.get("filters", {}).get("areaOverrides", {})
     page_behavior = config.get("pageBehavior", {})
     block_display = config.get("blockDisplay", {})
     area_display = config.get("areaDisplay", {})
+    layout_rules = config.get("layoutRules", {})
     tabs = config.get("tabs", {})
     widget_behavior = config.get("widgetBehavior", {})
     widget_filters = config.get("widgetFilters", {})
-    series_rules = config.get("seriesRules", [])
+    widget_filter_presets = config.get("widgetFilterPresets", {})
+    series_rules = config.get("seriesRules", {})
+    visual_rules = config.get("visualRules", {})
+    simulation_rules = config.get("simulationRules", {})
+    table_templates = config.get("tableTemplates", {})
+    management_limits = config.get("managementLimits", [])
     widget_index = stats["widget_index"]
     widget_context = stats["widget_context"]
     page_names = stats["page_names"]
@@ -228,11 +248,26 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         filter_options = {}
 
     filter_option_names = set(filter_options.keys())
+    normalized_filter_option_names = {normalize_filter_name(name) for name in filter_option_names}
     config["filter_option_names"] = filter_option_names
 
     for filter_name, values in filter_options.items():
         if not isinstance(values, list) or not values:
             errors.append(f"filters.options.{filter_name} should be a non-empty list")
+
+    if not isinstance(filter_presets, dict):
+        errors.append("filters.presets should be an object")
+        filter_presets = {}
+    else:
+        for preset_name, values in filter_presets.items():
+            if not isinstance(values, list):
+                errors.append(f"filters.presets.{preset_name} should be a list")
+                continue
+            invalid = [value for value in values if normalize_filter_name(value) not in normalized_filter_option_names]
+            if invalid:
+                errors.append(
+                    f"filters.presets.{preset_name} contains unknown filter names: {', '.join(map(str, invalid))}"
+                )
 
     if not isinstance(defaults, dict):
         errors.append("filters.defaults should be an object")
@@ -260,7 +295,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 errors.append(f"filters.areaOverrides.{area_name} should be an object")
                 continue
             for filter_name, values in overrides.items():
-                if normalize_filter_name(filter_name) not in filter_option_names:
+                if normalize_filter_name(filter_name) not in normalized_filter_option_names:
                     warnings.append(f"filters.areaOverrides.{area_name}.{filter_name} has no matching filters.options entry")
                 if not isinstance(values, list):
                     errors.append(f"filters.areaOverrides.{area_name}.{filter_name} should be a list")
@@ -392,9 +427,9 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 continue
             behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
             component_type = context["component_type"]
-            if "表格" in component_type:
+            if "\u8868\u683c" in component_type or behavior.get("tableKind"):
                 continue
-            if "分布" in component_type or behavior.get("chartKind") == "donut":
+            if "\u5206\u5e03" in component_type or behavior.get("chartKind") == "donut":
                 continue
             simulation_behavior = behavior.get("simulationBehavior")
             if not isinstance(simulation_behavior, dict):
@@ -426,6 +461,33 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     errors.append(f"tabs.{tab_group} contains a non-object item")
                     continue
                 ensure_fields(item, ["label", "matchViewScope"], f"tabs.{tab_group} item", errors)
+                if "matchScopeMeta" in item and not isinstance(item.get("matchScopeMeta"), dict):
+                    errors.append(f"tabs.{tab_group}.{item.get('label')} matchScopeMeta should be an object")
+
+    if not isinstance(widget_filter_presets, dict):
+        errors.append("widgetFilterPresets should be an object")
+        widget_filter_presets = {}
+    else:
+        for preset_name, filter_item in widget_filter_presets.items():
+            if not isinstance(filter_item, dict):
+                errors.append(f"widgetFilterPresets.{preset_name} should be an object")
+                continue
+            ensure_fields(filter_item, ["name"], f"widgetFilterPresets.{preset_name}", errors)
+            normalized = normalize_filter_name(filter_item.get("name", ""))
+            options = filter_item.get("options")
+            if options is not None and not isinstance(options, list):
+                errors.append(f"widgetFilterPresets.{preset_name}.options should be a list")
+            if normalized not in normalized_filter_option_names and not options:
+                warnings.append(
+                    f"widgetFilterPresets.{preset_name} has no inline options and no matching filters.options entry"
+                )
+            if isinstance(filter_item.get("defaultValues"), list) and isinstance(options, list):
+                invalid_defaults = [value for value in filter_item["defaultValues"] if value not in options]
+                if invalid_defaults:
+                    errors.append(
+                        f"widgetFilterPresets.{preset_name}.defaultValues contain unknown values: "
+                        + ", ".join(map(str, invalid_defaults))
+                    )
 
     if not isinstance(widget_filters, dict):
         errors.append("widgetFilters should be an object")
@@ -445,12 +507,29 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 if not isinstance(filter_item, dict):
                     errors.append(f"widgetFilters.{seq_text} contains a non-object item")
                     continue
+                preset_refs = [
+                    filter_item.get("presetRef"),
+                    *([value for value in filter_item.get("presetRefs", []) if value] if isinstance(filter_item.get("presetRefs"), list) else []),
+                ]
+                unknown_presets = [preset for preset in preset_refs if preset not in widget_filter_presets]
+                if unknown_presets:
+                    errors.append(
+                        f"widgetFilters.{seq_text} references unknown widgetFilterPresets: "
+                        + ", ".join(map(str, unknown_presets))
+                    )
+                if "presetRefs" in filter_item and not isinstance(filter_item.get("presetRefs"), list):
+                    errors.append(f"widgetFilters.{seq_text}.presetRefs should be a list")
+                if "name" not in filter_item and not preset_refs:
+                    errors.append(f"widgetFilters.{seq_text} item missing required fields: name")
+                    continue
+                if "name" not in filter_item:
+                    continue
                 ensure_fields(filter_item, ["name"], f"widgetFilters.{seq_text} item", errors)
                 normalized = normalize_filter_name(filter_item.get("name", ""))
                 options = filter_item.get("options")
                 if options is not None and not isinstance(options, list):
                     errors.append(f"widgetFilters.{seq_text}.{filter_item.get('name')} options should be a list")
-                if normalized not in filter_option_names and not options:
+                if normalized not in normalized_filter_option_names and not options:
                     warnings.append(
                         f"widgetFilters.{seq_text}.{filter_item.get('name')} has no inline options and no matching filters.options entry"
                     )
@@ -462,32 +541,121 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                             + ", ".join(map(str, invalid_defaults))
                         )
 
-    if not isinstance(series_rules, list):
-        errors.append("seriesRules should be a list")
+    if not isinstance(series_rules, dict):
+        errors.append("seriesRules should be an object")
     else:
-        if series_rules:
-            warnings.append("seriesRules is deprecated; prefer widgetBehavior.seriesFilters")
-        for index, rule in enumerate(series_rules, start=1):
-            if not isinstance(rule, dict):
-                errors.append(f"seriesRules[{index}] should be an object")
+        if "dimensionOrder" in series_rules:
+            values = series_rules.get("dimensionOrder")
+            if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                errors.append("seriesRules.dimensionOrder should be a string list")
+        if "labelMap" in series_rules and not isinstance(series_rules.get("labelMap"), dict):
+            errors.append("seriesRules.labelMap should be an object")
+        if "defaultMaxSeries" in series_rules:
+            value = series_rules.get("defaultMaxSeries")
+            if not isinstance(value, int) or value <= 0:
+                errors.append("seriesRules.defaultMaxSeries should be a positive integer")
+
+    if not isinstance(visual_rules, dict):
+        errors.append("visualRules should be an object")
+    else:
+        palette = visual_rules.get("palette", {})
+        if palette and not isinstance(palette, dict):
+            errors.append("visualRules.palette should be an object")
+        else:
+            for key in ("line", "bar"):
+                if key in palette:
+                    values = palette.get(key)
+                    if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                        errors.append(f"visualRules.palette.{key} should be a string list")
+            if "semantic" in palette and not isinstance(palette.get("semantic"), dict):
+                errors.append("visualRules.palette.semantic should be an object")
+
+    if not isinstance(simulation_rules, dict):
+        errors.append("simulationRules should be an object")
+    else:
+        if "defaults" in simulation_rules and not isinstance(simulation_rules.get("defaults"), dict):
+            errors.append("simulationRules.defaults should be an object")
+        if "modes" in simulation_rules and not isinstance(simulation_rules.get("modes"), dict):
+            errors.append("simulationRules.modes should be an object")
+        if "wholesaleLiabilityTypes" in simulation_rules:
+            values = simulation_rules.get("wholesaleLiabilityTypes")
+            if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                errors.append("simulationRules.wholesaleLiabilityTypes should be a string list")
+
+    if not isinstance(table_templates, dict):
+        errors.append("tableTemplates should be an object")
+    else:
+        for template_name, template in table_templates.items():
+            if not isinstance(template, dict):
+                errors.append(f"tableTemplates.{template_name} should be an object")
                 continue
-            match = rule.get("match")
-            if not isinstance(match, dict):
-                errors.append(f"seriesRules[{index}].match should be an object")
+            classes = template.get("classes")
+            if not isinstance(classes, list) or not all(isinstance(value, str) and value for value in classes):
+                errors.append(f"tableTemplates.{template_name}.classes should be a string list")
+
+    if not isinstance(layout_rules, dict):
+        errors.append("layoutRules should be an object")
+    else:
+        block_rules = layout_rules.get("blocks", {})
+        area_rules = layout_rules.get("areas", {})
+        widget_rules = layout_rules.get("widgets", {})
+        if block_rules and not isinstance(block_rules, dict):
+            errors.append("layoutRules.blocks should be an object")
+        else:
+            for path, rule in block_rules.items():
+                if not isinstance(rule, dict):
+                    errors.append(f"layoutRules.blocks.{path} should be an object")
+                    continue
+                if "pairAreas" in rule and not isinstance(rule.get("pairAreas"), bool):
+                    errors.append(f"layoutRules.blocks.{path}.pairAreas should be a boolean")
+        if area_rules and not isinstance(area_rules, dict):
+            errors.append("layoutRules.areas should be an object")
+        else:
+            for path, rule in area_rules.items():
+                if not isinstance(rule, dict):
+                    errors.append(f"layoutRules.areas.{path} should be an object")
+                    continue
+                if "mergeViewGroups" in rule and not isinstance(rule.get("mergeViewGroups"), bool):
+                    errors.append(f"layoutRules.areas.{path}.mergeViewGroups should be a boolean")
+                if "sharedFilterPreset" in rule and rule.get("sharedFilterPreset") not in filter_presets:
+                    errors.append(f"layoutRules.areas.{path}.sharedFilterPreset references unknown filters.presets entry")
+                if "pinnedViewScopeIncludes" in rule:
+                    values = rule.get("pinnedViewScopeIncludes")
+                    if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                        errors.append(f"layoutRules.areas.{path}.pinnedViewScopeIncludes should be a string list")
+        if widget_rules and not isinstance(widget_rules, dict):
+            errors.append("layoutRules.widgets should be an object")
+        else:
+            for seq_text, rule in widget_rules.items():
+                try:
+                    seq = int(seq_text)
+                except ValueError:
+                    errors.append(f"layoutRules.widgets key is not an integer: {seq_text}")
+                    continue
+                if seq not in widget_index:
+                    warnings.append(f"layoutRules.widgets references unknown widget seq: {seq}")
+                if not isinstance(rule, dict):
+                    errors.append(f"layoutRules.widgets.{seq_text} should be an object")
+                    continue
+                if "fullWidth" in rule and not isinstance(rule.get("fullWidth"), bool):
+                    errors.append(f"layoutRules.widgets.{seq_text}.fullWidth should be a boolean")
+
+    if not isinstance(management_limits, list):
+        errors.append("managementLimits should be a list")
+    else:
+        for index, item in enumerate(management_limits, start=1):
+            if not isinstance(item, dict):
+                errors.append(f"managementLimits[{index}] should be an object")
                 continue
-            widget_seq = match.get("widgetSeq")
-            if widget_seq is not None and widget_seq not in widget_index:
-                errors.append(f"seriesRules[{index}] references unknown widget seq: {widget_seq}")
-            for key in ("allow", "suppress"):
-                if key in rule:
-                    values = rule.get(key)
-                    if not isinstance(values, list) or not values:
-                        errors.append(f"seriesRules[{index}].{key} should be a non-empty list")
-                        continue
-                    invalid = [value for value in values if normalize_filter_name(value) not in filter_option_names]
+            if "widgetSeqs" in item:
+                widget_seqs = item.get("widgetSeqs")
+                if not isinstance(widget_seqs, list) or not all(isinstance(seq, int) for seq in widget_seqs):
+                    errors.append(f"managementLimits[{index}].widgetSeqs should be an integer list")
+                else:
+                    invalid = [seq for seq in widget_seqs if seq not in widget_index]
                     if invalid:
-                        warnings.append(
-                            f"seriesRules[{index}].{key} contains names without matching filters.options entry: "
+                        errors.append(
+                            f"managementLimits[{index}].widgetSeqs references unknown widget seqs: "
                             + ", ".join(map(str, invalid))
                         )
 
@@ -530,6 +698,7 @@ def main() -> int:
         return 1
 
     config["filter_option_names"] = set(config.get("filters", {}).get("options", {}).keys())
+    config["filter_preset_names"] = set(config.get("filters", {}).get("presets", {}).keys())
     data_errors, data_warnings, stats = validate_dashboard_data(data, config)
     config_errors, config_warnings = validate_dashboard_config(config, stats)
     architecture_errors = validate_renderer_architecture()
@@ -557,3 +726,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
