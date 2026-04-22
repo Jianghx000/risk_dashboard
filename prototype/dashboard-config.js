@@ -1032,15 +1032,8 @@ window.dashboardConfig = {
     "timeRangeSelector": {
       "name": "时间区间（起止）",
       "label": "时间区间（起止）",
-      "options": [
-        "近1个月",
-        "近3个月",
-        "近12个月",
-        "年初至今"
-      ],
-      "defaultValues": [
-        "近3个月"
-      ],
+      "type": "dateRange",
+      "defaultValues": [],
       "multi": false
     }
   },

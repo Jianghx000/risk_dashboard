@@ -474,10 +474,11 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 continue
             ensure_fields(filter_item, ["name"], f"widgetFilterPresets.{preset_name}", errors)
             normalized = normalize_filter_name(filter_item.get("name", ""))
+            filter_type = filter_item.get("type")
             options = filter_item.get("options")
             if options is not None and not isinstance(options, list):
                 errors.append(f"widgetFilterPresets.{preset_name}.options should be a list")
-            if normalized not in normalized_filter_option_names and not options:
+            if filter_type != "dateRange" and normalized not in normalized_filter_option_names and not options:
                 warnings.append(
                     f"widgetFilterPresets.{preset_name} has no inline options and no matching filters.options entry"
                 )
@@ -526,10 +527,11 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     continue
                 ensure_fields(filter_item, ["name"], f"widgetFilters.{seq_text} item", errors)
                 normalized = normalize_filter_name(filter_item.get("name", ""))
+                filter_type = filter_item.get("type")
                 options = filter_item.get("options")
                 if options is not None and not isinstance(options, list):
                     errors.append(f"widgetFilters.{seq_text}.{filter_item.get('name')} options should be a list")
-                if normalized not in normalized_filter_option_names and not options:
+                if filter_type != "dateRange" and normalized not in normalized_filter_option_names and not options:
                     warnings.append(
                         f"widgetFilters.{seq_text}.{filter_item.get('name')} has no inline options and no matching filters.options entry"
                     )

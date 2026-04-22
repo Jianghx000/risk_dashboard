@@ -70,6 +70,20 @@ const BUSINESS_SIDE_MAP = {
   表外衍生品应收: "asset",
   表外衍生品应付: "liability",
 };
+const BUSINESS_STRUCTURE_GROUPS = [
+  {
+    category: "生息资产",
+    items: ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产"],
+  },
+  {
+    category: "付息负债",
+    items: ["活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债"],
+  },
+  {
+    category: "表外衍生品",
+    items: ["表外衍生品应收", "表外衍生品应付"],
+  },
+];
 
 const appState = {
   currentPageId: data.pages[0]?.id || null,
@@ -1208,23 +1222,32 @@ function renderTable(widget, chartContext) {
 }
 
 function renderBusinessStructureTable(widget, chartContext) {
-  const rows = [
-    { side: "生息资产", businessType: "自营贷款", scale: 268, fixedRate: "61.2%", duration: "1.8" },
-    { side: "生息资产", businessType: "债券投资", scale: 196, fixedRate: "73.5%", duration: "2.4" },
-    { side: "生息资产", businessType: "同业资产", scale: 88, fixedRate: "28.4%", duration: "0.7" },
-    { side: "付息负债", businessType: "活期存款", scale: 214, fixedRate: "12.6%", duration: "0.3" },
-    { side: "付息负债", businessType: "定期存款", scale: 246, fixedRate: "82.1%", duration: "1.5" },
-    { side: "付息负债", businessType: "同业负债", scale: 104, fixedRate: "35.7%", duration: "0.8" },
-  ];
   const widgetState = appState.widgetFilters[widget.seq] || {};
-  const timeRangeText = widgetState["时间区间（起止）"]?.[0];
-  const localFilter = timeRangeText
+  const timeRangeValues = normalizeBusinessStructureDateRange(widgetState["时间区间（起止）"]);
+  const rows = buildBusinessStructureRows(widget, chartContext, timeRangeValues);
+  const localFilter = (widget.seq === 89 || widget.seq === 96)
     ? `
       <div class="chart-inline-controls">
-        ${renderWidgetInlineControl(widget.seq, "时间区间（起止）", "时间区间（起止）", widgetState["时间区间（起止）"], ["近1个月", "近3个月", "近12个月", "年初至今"])}
+        ${renderWidgetDateRangeInlineControl(widget.seq, "时间区间（起止）", "时间区间（起止）", timeRangeValues)}
       </div>
     `
     : "";
+  const groupedBody = BUSINESS_STRUCTURE_GROUPS.map((group) => {
+    const groupRows = rows.filter((row) => row.category === group.category);
+    return groupRows
+      .map((row, index) => `
+        <tr>
+          ${index === 0 ? `<td rowspan="${groupRows.length}" class="chart-table__group-cell">${group.category}</td>` : ""}
+          <td>${row.businessType}</td>
+          <td>${row.scale.toFixed(1)}</td>
+          <td>${row.fixedRate}</td>
+          <td>${row.duration}</td>
+          <td>${row.averageTerm}</td>
+          <td>${row.averageRate}</td>
+        </tr>
+      `)
+      .join("");
+  }).join("");
   return `
     <div class="chart-shell chart-shell--data">
       ${localFilter}
@@ -1232,28 +1255,60 @@ function renderBusinessStructureTable(widget, chartContext) {
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th>资产/负债</th>
+              <th>类别</th>
               <th>业务类型</th>
               <th>规模</th>
               <th>固息占比</th>
               <th>加权久期</th>
+              <th>平均期限</th>
+              <th>平均利率</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <td>${row.side}</td>
-                <td>${row.businessType}</td>
-                <td>${row.scale.toFixed(1)}</td>
-                <td>${row.fixedRate}</td>
-                <td>${row.duration}</td>
-              </tr>
-            `).join("")}
+            ${groupedBody}
           </tbody>
         </table>
       </div>
     </div>
   `;
+}
+
+function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) {
+  const signature = createSignature(widget.seq, {
+    机构: chartContext.filterState["机构"] || [],
+    币种: chartContext.filterState["币种"] || [],
+    时间区间: timeRangeValues,
+  });
+  const groupScaleBase = {
+    生息资产: 180,
+    付息负债: 140,
+    表外衍生品: 42,
+  };
+  const groupRateBase = {
+    生息资产: 2.1,
+    付息负债: 1.6,
+    表外衍生品: 1.2,
+  };
+
+  return BUSINESS_STRUCTURE_GROUPS.flatMap((group, groupIndex) =>
+    group.items.map((businessType, itemIndex) => {
+      const seed = signature + groupIndex * 97 + itemIndex * 43;
+      const scale = groupScaleBase[group.category] + ((widget.seq * 17 + seed) % 210) / 1.15;
+      const fixedRate = `${(22 + ((widget.seq * 9 + seed) % 63)).toFixed(1)}%`;
+      const duration = `${(0.3 + ((widget.seq * 5 + seed) % 29) / 10).toFixed(1)}年`;
+      const averageTerm = `${(0.5 + ((widget.seq * 11 + seed) % 47) / 10).toFixed(1)}年`;
+      const averageRate = `${(groupRateBase[group.category] + ((widget.seq * 7 + seed) % 24) / 10).toFixed(2)}%`;
+      return {
+        category: group.category,
+        businessType,
+        scale: Number(scale.toFixed(1)),
+        fixedRate,
+        duration,
+        averageTerm,
+        averageRate,
+      };
+    })
+  );
 }
 
 function renderDataView(widget, chartContext) {
@@ -2399,6 +2454,44 @@ function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedV
   `;
 }
 
+function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, selectedValues) {
+  const [startDate, endDate] = normalizeBusinessStructureDateRange(selectedValues);
+  return `
+    <div class="chart-inline-control chart-inline-control--daterange">
+      <span class="chart-inline-control__label">${filterLabel}</span>
+      <div class="inline-date-range">
+        <label class="inline-date-range__field">
+          <span>开始时间</span>
+          <input
+            class="inline-date-range__input"
+            type="date"
+            value="${startDate}"
+            max="${endDate}"
+            data-inline-date-filter="true"
+            data-widget-seq="${widgetSeq}"
+            data-filter-name="${filterName}"
+            data-range-index="0"
+          >
+        </label>
+        <label class="inline-date-range__field">
+          <span>结束时间</span>
+          <input
+            class="inline-date-range__input"
+            type="date"
+            value="${endDate}"
+            min="${startDate}"
+            max="${getDefaultGlobalEndDate()}"
+            data-inline-date-filter="true"
+            data-widget-seq="${widgetSeq}"
+            data-filter-name="${filterName}"
+            data-range-index="1"
+          >
+        </label>
+      </div>
+    </div>
+  `;
+}
+
 function renderAxes(frame, xLabels, yLabel) {
   const yTicks = [0, 25, 50, 75, 100];
   const xTickMarkup = xLabels
@@ -2510,6 +2603,29 @@ function getDefaultGlobalStartDate() {
   monthEnd13MonthsAgo.setMonth(monthEnd13MonthsAgo.getMonth() - 12);
   monthEnd13MonthsAgo.setDate(0);
   return formatDateValue(monthEnd13MonthsAgo);
+}
+
+function getDefaultBusinessStructureDateRange() {
+  const endDate = getDefaultGlobalEndDate();
+  return [getMonthStartDateValue(endDate), endDate];
+}
+
+function getMonthStartDateValue(referenceDateValue) {
+  const parsed = parseDateValue(referenceDateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  return formatDateValue(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
+}
+
+function isDateValue(value) {
+  return Boolean(parseDateValue(value));
+}
+
+function normalizeBusinessStructureDateRange(values = []) {
+  const [defaultStart, defaultEnd] = getDefaultBusinessStructureDateRange();
+  let startDate = Array.isArray(values) && isDateValue(values[0]) ? values[0] : defaultStart;
+  let endDate = Array.isArray(values) && isDateValue(values[1]) ? values[1] : defaultEnd;
+  if (endDate > defaultEnd) endDate = defaultEnd;
+  if (startDate > endDate) startDate = endDate;
+  return [startDate, endDate];
 }
 
 function getGlobalTimeBounds() {
@@ -2913,6 +3029,12 @@ function ensureWidgetFilterState(widget, widgetBehavior = getWidgetBehavior(widg
   widgetBehavior.localFilters.forEach((filter) => {
     if (!filter?.name) return;
     const currentValues = appState.widgetFilters[widget.seq][filter.name];
+    if (filter.type === "dateRange") {
+      if (!Array.isArray(currentValues) || currentValues.length !== 2 || !currentValues.every(isDateValue)) {
+        appState.widgetFilters[widget.seq][filter.name] = normalizeBusinessStructureDateRange(currentValues);
+      }
+      return;
+    }
     if (Array.isArray(currentValues) && currentValues.length) return;
     appState.widgetFilters[widget.seq][filter.name] = Array.isArray(filter.defaultValues) && filter.defaultValues.length
       ? [...filter.defaultValues]
@@ -4032,6 +4154,22 @@ dashboardViewEl.addEventListener("click", (event) => {
     return;
   }
 
+});
+
+dashboardViewEl.addEventListener("change", (event) => {
+  const dateField = event.target.closest("[data-inline-date-filter]");
+  if (!dateField) return;
+  const { widgetSeq, filterName, rangeIndex } = dateField.dataset;
+  const widgetState = appState.widgetFilters[widgetSeq] || {};
+  const nextRange = normalizeBusinessStructureDateRange(widgetState[filterName]);
+  nextRange[Number(rangeIndex)] = dateField.value || nextRange[Number(rangeIndex)];
+  if (rangeIndex === "0" && nextRange[0] > nextRange[1]) nextRange[1] = nextRange[0];
+  if (rangeIndex === "1" && nextRange[1] < nextRange[0]) nextRange[0] = nextRange[1];
+  appState.widgetFilters[widgetSeq] = {
+    ...widgetState,
+    [filterName]: normalizeBusinessStructureDateRange(nextRange),
+  };
+  render();
 });
 
 simulationModalEl.addEventListener("input", (event) => {
