@@ -249,7 +249,7 @@ window.dashboardConfig = {
   },
   "blockDisplay": {
     "利率风险": {
-      "期权性风险（境内分行）": {
+      "期权性风险": {
         "pairAreas": true
       }
     }
@@ -345,6 +345,26 @@ window.dashboardConfig = {
       },
       "widgetSeqs": [
         9
+      ]
+    },
+    {
+      "indicator": "债券修正久期",
+      "matchTitles": [
+        "债券修正久期"
+      ],
+      "values": {
+        "法人汇总": 32,
+        "境外分行汇总": 29,
+        "境内汇总": 34,
+        "纽约分行": 36,
+        "新加坡分行": 31,
+        "卢森堡分行": 30,
+        "伦敦分行": 35,
+        "悉尼分行": 30,
+        "香港分行": 33
+      },
+      "widgetSeqs": [
+        25
       ]
     },
     {
@@ -632,6 +652,9 @@ window.dashboardConfig = {
         "sensitivity": 0.11
       }
     },
+    "36": {
+      "tableKind": "benchmarkCurrencyMatrix"
+    },
     "37": {
       "simulationBehavior": {
         "sensitivity": 0.11
@@ -791,6 +814,9 @@ window.dashboardConfig = {
         "sensitivity": 0.11
       }
     },
+    "70": {
+      "tableKind": "fxExposureMatrix"
+    },
     "71": {
       "simulationBehavior": {
         "sensitivity": 0.11
@@ -804,7 +830,13 @@ window.dashboardConfig = {
       "maxSeries": 12
     },
     "79": {
-      "tableKind": "businessStructure"
+      "tableKind": "businessStructure",
+      "drilldownTargetSeq": 80
+    },
+    "80": {
+      "tableKind": "businessDetail",
+      "detailScope": "stock",
+      "detailTablePreset": "businessChangeDetail"
     },
     "83": {
       "chartKind": "balanceScaleGrowth"
@@ -815,9 +847,15 @@ window.dashboardConfig = {
     },
     "89": {
       "tableKind": "businessStructure",
+      "drilldownTargetSeq": 85,
       "inlineFilters": [
         "时间区间（起止）"
       ]
+    },
+    "85": {
+      "tableKind": "businessDetail",
+      "detailScope": "new",
+      "detailTablePreset": "businessChangeDetail"
     },
     "90": {
       "chartKind": "balanceScaleGrowth"
@@ -828,9 +866,15 @@ window.dashboardConfig = {
     },
     "96": {
       "tableKind": "businessStructure",
+      "drilldownTargetSeq": 97,
       "inlineFilters": [
         "时间区间（起止）"
       ]
+    },
+    "97": {
+      "tableKind": "businessDetail",
+      "detailScope": "maturity",
+      "detailTablePreset": "businessChangeDetail"
     }
   },
   "widgetFilters": {
@@ -1006,14 +1050,12 @@ window.dashboardConfig = {
       "name": "期限长度",
       "label": "期限长度",
       "options": [
-        "1日",
-        "7日",
-        "90日"
+        "1D",
+        "7D",
+        "3M"
       ],
       "defaultValues": [
-        "1日",
-        "7日",
-        "90日"
+        "3M"
       ],
       "multi": true
     },
@@ -1073,7 +1115,7 @@ window.dashboardConfig = {
   },
   "layoutRules": {
     "blocks": {
-      "利率风险/期权性风险（境内分行）": {
+      "利率风险/期权性风险": {
         "pairAreas": true
       }
     },
@@ -1206,6 +1248,30 @@ window.dashboardConfig = {
       "classes": [
         "chart-table",
         "chart-table--wide"
+      ]
+    },
+    "businessDetail": {
+      "classes": [
+        "chart-table",
+        "chart-table--wide",
+        "chart-table--matrix"
+      ]
+    }
+  },
+  "detailTables": {
+    "businessChangeDetail": {
+      "columns": [
+        { "key": "businessId", "label": "业务编号" },
+        { "key": "counterparty", "label": "客户" },
+        { "key": "businessType", "label": "业务类型" },
+        { "key": "sideLabel", "label": "资产/负债" },
+        { "key": "startDate", "label": "起始日" },
+        { "key": "maturityDate", "label": "到期日" },
+        { "key": "repricingDate", "label": "下一重定价日" },
+        { "key": "amount", "label": "金额/余额" },
+        { "key": "rate", "label": "利率" },
+        { "key": "rateType", "label": "固浮属性" },
+        { "key": "term", "label": "剩余期限" }
       ]
     }
   }

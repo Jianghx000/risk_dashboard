@@ -234,6 +234,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     visual_rules = config.get("visualRules", {})
     simulation_rules = config.get("simulationRules", {})
     table_templates = config.get("tableTemplates", {})
+    detail_tables = config.get("detailTables", {})
     management_limits = config.get("managementLimits", [])
     widget_index = stats["widget_index"]
     widget_context = stats["widget_context"]
@@ -385,6 +386,18 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             for key in ("chartKind", "tableKind", "defaultTableDimension"):
                 if key in behavior and not isinstance(behavior.get(key), str):
                     errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
+            if "drilldownTargetSeq" in behavior:
+                target_seq = behavior.get("drilldownTargetSeq")
+                if not isinstance(target_seq, int):
+                    errors.append(f"widgetBehavior.{seq_text}.drilldownTargetSeq should be an integer")
+                elif target_seq not in widget_index:
+                    errors.append(f"widgetBehavior.{seq_text}.drilldownTargetSeq references unknown widget seq: {target_seq}")
+            for key in ("detailScope", "detailTablePreset"):
+                if key in behavior and not isinstance(behavior.get(key), str):
+                    errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
+            detail_preset = behavior.get("detailTablePreset")
+            if isinstance(detail_preset, str) and detail_preset and detail_preset not in detail_tables:
+                errors.append(f"widgetBehavior.{seq_text}.detailTablePreset references unknown detailTables entry: {detail_preset}")
             if "inlineFilters" in behavior:
                 values = behavior.get("inlineFilters")
                 if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
@@ -579,6 +592,27 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             errors.append("simulationRules.defaults should be an object")
         if "modes" in simulation_rules and not isinstance(simulation_rules.get("modes"), dict):
             errors.append("simulationRules.modes should be an object")
+
+    if not isinstance(detail_tables, dict):
+        errors.append("detailTables should be an object")
+    else:
+        for preset_name, preset in detail_tables.items():
+            if not isinstance(preset, dict):
+                errors.append(f"detailTables.{preset_name} should be an object")
+                continue
+            columns = preset.get("columns")
+            if not isinstance(columns, list) or not columns:
+                errors.append(f"detailTables.{preset_name}.columns should be a non-empty list")
+                continue
+            for index, column in enumerate(columns):
+                if not isinstance(column, dict):
+                    errors.append(f"detailTables.{preset_name}.columns[{index}] should be an object")
+                    continue
+                ensure_fields(column, ["key", "label"], f"detailTables.{preset_name}.columns[{index}]", errors)
+                for field_name in ("key", "label"):
+                    value = column.get(field_name)
+                    if not isinstance(value, str) or not value:
+                        errors.append(f"detailTables.{preset_name}.columns[{index}].{field_name} should be a non-empty string")
         if "wholesaleLiabilityTypes" in simulation_rules:
             values = simulation_rules.get("wholesaleLiabilityTypes")
             if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):

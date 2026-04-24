@@ -2,7 +2,7 @@ window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
   "pageCount": 4,
-  "widgetCount": 57,
+  "widgetCount": 60,
   "pages": [
     {
       "id": "page-1",
@@ -570,7 +570,7 @@ window.dashboardData = {
         },
         {
           "id": "block-4",
-          "name": "期权性风险（境内分行）",
+          "name": "期权性风险",
           "areas": [
             {
               "id": "area-37",
@@ -1067,9 +1067,9 @@ window.dashboardData = {
               "widgets": [
                 {
                   "seq": 49,
-                  "title": "流动性缺口规模走势（1/7/90日）",
+                  "title": "流动性缺口规模（1D/7D/3M）",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1/7/90日图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：筛选机构和币种，再选择时间长度（1/7/90日），展示所选机构和币种维度下，不同时间长度（1/7/90日）的流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：期限长度支持多选，图上可同时对比1日、7日、90日曲线。",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1D/7D/3M图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：筛选机构和币种，再选择期限长度（1D/7D/3M），展示所选机构和币种维度下，不同期限长度的流动性缺口规模与流动性缺口率走势。开发细化：采用柱状图+折线图实现，柱子表示流动性缺口规模，折线表示流动性缺口率，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：期限长度默认选中3M，可按需追加对比1D、7D。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
@@ -1085,7 +1085,7 @@ window.dashboardData = {
                   "seq": 50,
                   "title": "30日流动性缺口规模",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1/7/90日图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，进一步选择口径（时点或月日均），展示所选机构和币种维度下不同口径（时点或月日均）的30日流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：统计口径支持多选，可同图对比时点与月日均结果。",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1D/7D/3M图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，进一步选择口径（时点或月日均），展示所选机构和币种维度下不同口径（时点或月日均）的30日流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：统计口径支持多选，可同图对比时点与月日均结果。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
@@ -1391,6 +1391,22 @@ window.dashboardData = {
                   "linkageRule": "",
                   "devNote": "",
                   "layout": "full"
+                },
+                {
+                  "seq": 80,
+                  "title": "瀛橀噺涓氬姟鏄庣粏娓呭崟",
+                  "componentType": "琛ㄦ牸",
+                  "displayDescription": "",
+                  "grain": "鏄庣粏",
+                  "defaultFilters": "",
+                  "frontendParams": "",
+                  "axisDescription": "",
+                  "metricDescription": "",
+                  "legendDescription": "",
+                  "responseFields": "",
+                  "linkageRule": "",
+                  "devNote": "",
+                  "layout": "full"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -1399,7 +1415,7 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 3
+          "widgetCount": 4
         },
         {
           "id": "block-2",
@@ -1461,6 +1477,22 @@ window.dashboardData = {
                   "linkageRule": "",
                   "devNote": "",
                   "layout": "full"
+                },
+                {
+                  "seq": 85,
+                  "title": "鏂板彂鐢熶笟鍔℃槑缁嗘竻鍗?",
+                  "componentType": "琛ㄦ牸",
+                  "displayDescription": "",
+                  "grain": "鏄庣粏",
+                  "defaultFilters": "",
+                  "frontendParams": "",
+                  "axisDescription": "",
+                  "metricDescription": "",
+                  "legendDescription": "",
+                  "responseFields": "",
+                  "linkageRule": "",
+                  "devNote": "",
+                  "layout": "full"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -1469,15 +1501,15 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 3
+          "widgetCount": 4
         },
         {
           "id": "block-3",
-          "name": "到期业务（含静态未来到期）",
+          "name": "到期业务",
           "areas": [
             {
               "id": "area-maturity",
-              "name": "到期业务（含静态未来到期）",
+              "name": "到期业务",
               "viewScope": "合并区域",
               "sharedFilters": [
                 "机构（多选）",
@@ -1531,6 +1563,22 @@ window.dashboardData = {
                   "linkageRule": "",
                   "devNote": "",
                   "layout": "full"
+                },
+                {
+                  "seq": 97,
+                  "title": "鍒版湡涓氬姟鏄庣粏娓呭崟",
+                  "componentType": "琛ㄦ牸",
+                  "displayDescription": "",
+                  "grain": "鏄庣粏",
+                  "defaultFilters": "",
+                  "frontendParams": "",
+                  "axisDescription": "",
+                  "metricDescription": "",
+                  "legendDescription": "",
+                  "responseFields": "",
+                  "linkageRule": "",
+                  "devNote": "",
+                  "layout": "full"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -1539,12 +1587,12 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 3
+          "widgetCount": 4
         }
       ],
       "blockCount": 3,
       "areaCount": 3,
-      "widgetCount": 9
+      "widgetCount": 12
     }
   ]
 };

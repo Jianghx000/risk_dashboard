@@ -1100,6 +1100,104 @@ body { min-height: 100vh; overflow-x: hidden; }
   background: rgba(221, 235, 248, 0.28);
 }
 
+.chart-table__row--active td {
+  background: rgba(232, 242, 251, 0.6);
+}
+
+.chart-table__action-col {
+  width: 108px;
+}
+
+.chart-table__action-link {
+  color: #4f8bc1;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.chart-table__action-link.is-active {
+  color: var(--primary-deep);
+}
+
+.business-detail-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.business-detail-panel .table-shell {
+  min-height: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable both-edges;
+}
+
+.business-detail-context {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(244, 249, 254, 0.98), rgba(232, 242, 251, 0.82));
+  border: 1px solid rgba(135, 171, 210, 0.2);
+}
+
+.business-detail-context__eyebrow {
+  color: #4f8bc1;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.business-detail-context__title {
+  color: var(--primary-deep);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.business-detail-context__meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.business-detail-context__clear {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid rgba(135, 171, 210, 0.26);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--primary-deep);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.business-detail-empty {
+  padding: 26px 18px;
+  border-radius: 18px;
+  border: 1px dashed rgba(135, 171, 210, 0.36);
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.96), rgba(240, 247, 253, 0.88));
+}
+
+.business-detail-empty__title {
+  color: var(--primary-deep);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.business-detail-empty__desc {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .donut-shell {
   display: grid;
   place-items: center;
