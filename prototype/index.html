@@ -8,35 +8,55 @@
   </head>
   <body>
     <div class="app-shell">
-      <header class="hero">
-        <div class="hero__backdrop hero__backdrop--left"></div>
-        <div class="hero__backdrop hero__backdrop--right"></div>
-        <div class="hero__content">
-          <div class="hero__title-card">
-            <h1>风险管理驾驶舱</h1>
-            <div class="hero__controls">
-              <div class="hero__control-group">
-                <label class="hero__control-label" for="globalStartDate">开始时间</label>
-                <input class="hero__control-input" id="globalStartDate" type="date" />
+      <aside class="sidebar">
+        <section class="panel sidebar__panel">
+          <div class="sidebar__brand">
+            <div class="sidebar__brand-mark" aria-hidden="true">
+              <img class="sidebar__brand-icon" src="./插图2.png" alt="" />
+            </div>
+            <div class="sidebar__brand-copy">
+              <div class="panel__kicker">ALM RISK</div>
+              <strong>风险管理驾驶舱</strong>
+            </div>
+          </div>
+
+          <div class="sidebar__nav">
+            <div class="panel__heading">
+              <h2>一级导航</h2>
+            </div>
+            <div class="page-tabs" id="pageTabs"></div>
+          </div>
+
+          <div class="sidebar__illustration" aria-hidden="true">
+            <img class="sidebar__illustration-image" src="./插图1.png" alt="" />
+          </div>
+        </section>
+      </aside>
+
+      <div class="workspace">
+        <header class="hero">
+          <div class="hero__content">
+            <div class="hero__title-card">
+              <div class="hero__title-row">
+              <div class="hero__title-copy">
+                <h1>风险管理驾驶舱</h1>
               </div>
-              <div class="hero__control-group">
-                <label class="hero__control-label" for="globalEndDate">结束时间</label>
-                <input class="hero__control-input" id="globalEndDate" type="date" />
+              <div class="hero__meta">
+                  <div class="hero__controls">
+                    <div class="hero__control-group">
+                      <label class="hero__control-label" for="globalStartDate">开始时间</label>
+                      <input class="hero__control-input" id="globalStartDate" type="date" />
+                    </div>
+                    <div class="hero__control-group">
+                      <label class="hero__control-label" for="globalEndDate">结束时间</label>
+                      <input class="hero__control-input" id="globalEndDate" type="date" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
-
-      <main class="layout">
-        <aside class="sidebar">
-          <section class="panel panel--sticky">
-            <div class="panel__heading">
-              <h2>导航切换</h2>
-            </div>
-            <div class="page-tabs" id="pageTabs"></div>
-          </section>
-        </aside>
+        </header>
 
         <section class="content">
           <div class="content__toolbar">
@@ -44,7 +64,11 @@
           </div>
           <div id="dashboardView" class="dashboard-view"></div>
         </section>
-      </main>
+      </div>
+
+      <div class="hero__art" aria-hidden="true">
+        <img class="hero__art-image" src="./插图（透明背景）.png" alt="" />
+      </div>
     </div>
 
     <div class="filter-modal" id="filterModal" aria-hidden="true"></div>

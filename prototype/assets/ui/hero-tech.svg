@@ -1,0 +1,86 @@
+<svg width="720" height="240" viewBox="0 0 720 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hero-bg" x1="84" y1="18" x2="628" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9FCFF"/>
+      <stop offset="0.44" stop-color="#E8F2FF"/>
+      <stop offset="1" stop-color="#DCEBFF"/>
+    </linearGradient>
+    <linearGradient id="hero-line" x1="334" y1="60" x2="608" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#89C1FF"/>
+      <stop offset="1" stop-color="#2E7CF7"/>
+    </linearGradient>
+    <linearGradient id="hero-bar-a" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#BEE0FF"/>
+      <stop offset="1" stop-color="#5A9BFF"/>
+    </linearGradient>
+    <linearGradient id="hero-bar-b" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#D6ECFF"/>
+      <stop offset="1" stop-color="#7FB8FF"/>
+    </linearGradient>
+    <linearGradient id="hero-card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#E8F3FF" stop-opacity="0.88"/>
+    </linearGradient>
+    <filter id="hero-shadow" x="258" y="16" width="364" height="208" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#6CA2F6" flood-opacity="0.16"/>
+    </filter>
+    <filter id="hero-soft" x="0" y="0" width="720" height="240" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="719" height="239" rx="32" fill="url(#hero-bg)" stroke="#D9EAFE"/>
+
+  <g opacity="0.26">
+    <path d="M412 26L672 182" stroke="#BBD9FF" stroke-width="1.5"/>
+    <path d="M366 46L626 200" stroke="#D6E9FF" stroke-width="1.5"/>
+    <path d="M454 20L522 220" stroke="#D2E6FF" stroke-width="1.5"/>
+  </g>
+
+  <g opacity="0.64">
+    <circle cx="454" cy="56" r="3.5" fill="#7EB4FF"/>
+    <circle cx="606" cy="150" r="4.5" fill="#5B9BFF"/>
+    <circle cx="520" cy="206" r="4" fill="#A7CEFF"/>
+  </g>
+
+  <g opacity="0.58">
+    <path d="M332 34H548" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+    <path d="M332 68H594" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+    <path d="M332 102H626" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+    <path d="M332 136H632" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+    <path d="M332 170H640" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+    <path d="M332 204H650" stroke="#D6E8FF" stroke-dasharray="2 10"/>
+  </g>
+
+  <g filter="url(#hero-shadow)">
+    <rect x="360" y="34" width="236" height="148" rx="28" fill="url(#hero-card)"/>
+    <rect x="382" y="56" width="64" height="10" rx="5" fill="#81B5FF" fill-opacity="0.55"/>
+    <rect x="382" y="74" width="118" height="8" rx="4" fill="#CFE4FF"/>
+
+    <rect x="390" y="132" width="22" height="28" rx="8" fill="url(#hero-bar-b)"/>
+    <rect x="422" y="112" width="22" height="48" rx="8" fill="url(#hero-bar-a)"/>
+    <rect x="454" y="96" width="22" height="64" rx="8" fill="url(#hero-bar-b)"/>
+    <rect x="486" y="82" width="22" height="78" rx="8" fill="url(#hero-bar-a)"/>
+
+    <path d="M384 150C412 136 434 136 454 122C474 108 502 84 534 90C553 93 572 108 592 114" stroke="url(#hero-line)" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="384" cy="150" r="7" fill="#F7FBFF" stroke="#5D9EF9" stroke-width="3"/>
+    <circle cx="454" cy="122" r="7" fill="#F7FBFF" stroke="#5D9EF9" stroke-width="3"/>
+    <circle cx="534" cy="90" r="7" fill="#F7FBFF" stroke="#5D9EF9" stroke-width="3"/>
+    <circle cx="592" cy="114" r="7" fill="#F7FBFF" stroke="#5D9EF9" stroke-width="3"/>
+  </g>
+
+  <rect x="310" y="78" width="94" height="64" rx="22" fill="url(#hero-card)" stroke="#E0EEFF"/>
+  <rect x="328" y="96" width="36" height="8" rx="4" fill="#7CB3FF" fill-opacity="0.62"/>
+  <rect x="328" y="112" width="50" height="7" rx="3.5" fill="#D8EAFF"/>
+  <path d="M328 128H372" stroke="#6FA9FF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M332 132L344 122L356 128L370 114" stroke="#3D86F8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g opacity="0.46">
+    <path d="M278 188C320 171 346 152 374 122" stroke="#B8D7FF" stroke-width="2"/>
+    <path d="M282 198C334 178 376 144 406 100" stroke="#D5E8FF" stroke-width="2"/>
+  </g>
+
+  <g filter="url(#hero-soft)" opacity="0.36">
+    <ellipse cx="584" cy="188" rx="84" ry="38" fill="#8EC0FF"/>
+  </g>
+</svg>

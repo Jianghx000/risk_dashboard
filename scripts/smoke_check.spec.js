@@ -42,6 +42,21 @@ const TEXT = {
   aiConclusion: "\u667a\u80fd\u7ed3\u8bba",
 };
 
+function formatYearMonth(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getExpectedDefaultStartMonthLabel() {
+  const monthEnd13MonthsAgo = new Date();
+  monthEnd13MonthsAgo.setHours(0, 0, 0, 0);
+  monthEnd13MonthsAgo.setDate(1);
+  monthEnd13MonthsAgo.setMonth(monthEnd13MonthsAgo.getMonth() - 12);
+  monthEnd13MonthsAgo.setDate(0);
+  return formatYearMonth(monthEnd13MonthsAgo);
+}
+
 let server;
 let baseUrl;
 
@@ -127,10 +142,32 @@ test("EVE\u8868\u5df2\u5408\u5e76\u4e3a\u5355\u4e00\u8868\u683c", async ({ page 
   await expect(mergedTable).toContainText("短端下降");
 });
 
+test("\u673a\u6784\u591a\u9009\u540e\u77e9\u9635\u8868\u6309\u673a\u6784\u5206\u7ec4\u5c55\u793a", async ({ page }) => {
+  await openPage(page);
+  await page.locator('[data-filter-toggle][data-filter-name="机构"]').first().click();
+  await page.locator('[data-filter-option][data-filter-value="境内汇总"]').click();
+  const eveHeader = page.locator('[data-widget-seq="5"] thead').first();
+  await expect(eveHeader).toContainText("法人汇总");
+  await expect(eveHeader).toContainText("境内汇总");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: TEXT.pages[3], exact: true }).click();
+  await page.evaluate(() => {
+    Object.values(appState.areaFilters).forEach((state) => {
+      if (Array.isArray(state["机构"])) state["机构"] = ["法人汇总", "境内汇总"];
+    });
+    render();
+  });
+  const businessStructureHeader = page.locator('[data-widget-seq="79"] thead').first();
+  await expect(businessStructureHeader).toContainText("法人汇总");
+  await expect(businessStructureHeader).toContainText("境内汇总");
+});
+
 test("\u5168\u5c40\u5f00\u59cb\u65f6\u95f4\u4f1a\u540c\u6b65\u66f4\u65b0\u6708\u9891\u6a2a\u5750\u6807", async ({ page }) => {
   await openPage(page);
   const firstChartStage = page.locator(".chart-stage").first();
-  await expect(firstChartStage).toContainText("2025-03");
+  const defaultStartMonthLabel = getExpectedDefaultStartMonthLabel();
+  await expect(firstChartStage).toContainText(defaultStartMonthLabel);
   await expect(firstChartStage).toContainText("2026-01");
 
   const startDate = page.locator("#globalStartDate");
@@ -140,7 +177,7 @@ test("\u5168\u5c40\u5f00\u59cb\u65f6\u95f4\u4f1a\u540c\u6b65\u66f4\u65b0\u6708\u
   });
 
   await expect(firstChartStage).toContainText("2025-09");
-  await expect(firstChartStage).not.toContainText("2025-03");
+  await expect(firstChartStage).not.toContainText(defaultStartMonthLabel);
 });
 
 test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", async ({ page }) => {

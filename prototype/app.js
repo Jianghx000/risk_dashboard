@@ -19,7 +19,7 @@ const SIMULATION_RULE_CONFIG = config.simulationRules || {};
 const TABLE_TEMPLATE_CONFIG = config.tableTemplates || {};
 const DETAIL_TABLE_CONFIG = config.detailTables || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
-const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债", "表外衍生品应收", "表外衍生品应付"];
+const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "中央行借款", "租赁负债", "内部交易负债", "表外衍生品应付", "表外衍生品应收"];
 const LIQUIDITY_GAP_TENOR_OPTIONS = ["1D", "7D", "3M"];
 const DEFAULT_SERIES_DIMENSION_ORDER = ["利率情景", "情景", "机构", "币种", "贷款类型", "存款类型", "期限长度", "业务类型"];
 const DEFAULT_SERIES_LABEL_MAP = {
@@ -62,28 +62,31 @@ const BUSINESS_SIDE_MAP = {
   自营贷款: "asset",
   债券投资: "asset",
   同业资产: "asset",
+  自营非标投资: "asset",
   存放央行: "asset",
   内部交易资产: "asset",
   活期存款: "liability",
   定期存款: "liability",
   同业负债: "liability",
   发行债券: "liability",
+  中央行借款: "liability",
+  租赁负债: "liability",
   内部交易负债: "liability",
-  表外衍生品应收: "asset",
   表外衍生品应付: "liability",
+  表外衍生品应收: "asset",
 };
 const BUSINESS_STRUCTURE_GROUPS = [
   {
     category: "生息资产",
-    items: ["自营贷款", "债券投资", "同业资产", "存放央行", "内部交易资产"],
+    items: ["自营贷款", "债券投资", "同业资产", "自营非标投资", "存放央行", "内部交易资产"],
   },
   {
     category: "付息负债",
-    items: ["活期存款", "定期存款", "同业负债", "发行债券", "内部交易负债"],
+    items: ["活期存款", "定期存款", "同业负债", "发行债券", "中央行借款", "租赁负债", "内部交易负债"],
   },
   {
     category: "表外衍生品",
-    items: ["表外衍生品应收", "表外衍生品应付"],
+    items: ["表外衍生品应付", "表外衍生品应收"],
   },
 ];
 const BUSINESS_DETAIL_SCOPE_META = {
@@ -169,7 +172,7 @@ function renderPageTabs() {
     .map(
       (page) => `
         <button class="page-tab ${page.id === appState.currentPageId ? "is-active" : ""}" data-page-id="${page.id}" type="button">
-          ${page.name}
+          <span class="page-tab__label">${page.name}</span>
         </button>
       `
     )
@@ -245,7 +248,7 @@ function renderAreaCard(areaGroup, block) {
     .join("");
   const tabMarkup = areaSubpage.tabs.length
     ? `
-      <div class="area-subtabs">
+      <div class="area-subtabs area-subtabs--inline">
         ${areaSubpage.tabs
           .map(
             (tab) => `
@@ -263,20 +266,29 @@ function renderAreaCard(areaGroup, block) {
       </div>
     `
     : "";
+  const controlsMarkup = filterGroups
+    ? `
+      <div class="area-card__controls">
+        <div class="filter-panel filter-panel--inline">${filterGroups}</div>
+      </div>
+    `
+    : "";
   const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
   if (!visibleViewGroups.length) return "";
 
   return `
     <article class="area-card">
-      <div class="area-card__header">
-        <div class="area-card__title-wrap">
-          <h3 class="area-card__title">${formatDisplayTitle(areaGroup.name)}</h3>
+      <div class="area-card__header area-card__header--topbar">
+        <div class="area-card__lead">
+          ${shouldHideAreaTitle(areaGroup) ? "" : `
+            <div class="area-card__title-wrap">
+              <h3 class="area-card__title">${formatDisplayTitle(areaGroup.name)}</h3>
+            </div>
+          `}
+          ${tabMarkup}
         </div>
+        ${controlsMarkup}
       </div>
-      <div class="filter-panel">
-        ${filterGroups || `<div class="filter-group"><div class="filter-group__label">无共享筛选项（固定口径）</div></div>`}
-      </div>
-      ${tabMarkup}
       <div class="area-view-groups">
         ${visibleViewGroups.map((viewGroup) => renderAreaViewGroup(areaGroup, viewGroup, areaState)).join("")}
       </div>
@@ -293,6 +305,10 @@ function renderAreaViewGroup(areaGroup, viewGroup, areaState) {
       </div>
     </section>
   `;
+}
+
+function shouldHideAreaTitle(areaGroup) {
+  return areaGroup?.name === "分行个性化监管指标";
 }
 
 function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
@@ -412,7 +428,7 @@ function renderWidgetCard(areaGroup, widget, areaState) {
   const widgetState = ensureWidgetFilterState(widget, widgetBehavior);
   const chartContext = buildChartContext(widget, areaState, widgetState);
   const displayMode = ensureWidgetDisplayMode(widget);
-  const widgetLocalFilters = renderWidgetLocalFilters(widgetBehavior, widgetState, widget.seq);
+  const { headerMarkup: widgetHeaderTabs, bodyMarkup: widgetLocalFilters } = renderWidgetLocalFilters(widgetBehavior, widgetState, widget.seq);
   const widgetCardClass = shouldSpanFullWidth(widget) ? " widget-card--full" : "";
   const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.seq}">AI</button>`;
   const modeSwitch = supportsDisplayToggle(widget)
@@ -426,7 +442,10 @@ function renderWidgetCard(areaGroup, widget, areaState) {
   return `
     <article class="widget-card${widgetCardClass}" data-widget-seq="${widget.seq}">
       <div class="widget-card__header widget-card__header--clean">
-        <h4 class="widget-card__title">${getWidgetDisplayTitle(widget)}</h4>
+        <div class="widget-card__lead">
+          <h4 class="widget-card__title">${getWidgetDisplayTitle(widget)}</h4>
+          ${widgetHeaderTabs}
+        </div>
         <div class="widget-card__actions">
           ${insightButton}
           ${modeSwitch}
@@ -557,27 +576,59 @@ function getWidgetBehavior(widget) {
 function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq) {
   const visibleFilters = widgetBehavior.localFilters.filter((filter) => {
     if (filter.renderMode === "legend") return false;
-    if (isInlineWidgetFilter(widgetSeq, filter.name)) return false;
     return true;
   });
-  if (!visibleFilters.length) return "";
-  return `
-    <div class="widget-card__filters">
-      ${visibleFilters
-        .map((filter) =>
-          filter.renderMode === "segmented"
-            ? renderWidgetSegmentedFilter(widgetSeq, filter.name, filter.label || filter.name, widgetState[filter.name] || filter.defaultValues || [], filter.options || [])
-            : renderFilterGroup("widget", widgetSeq, filter.label || filter.name, widgetState[filter.name] || [], filter.options)
+  if (!visibleFilters.length) return { headerMarkup: "", bodyMarkup: "" };
+  const headerFilters = [];
+  const bodyFilters = [];
+  visibleFilters.forEach((filter) => {
+    if (isInlineWidgetFilter(widgetSeq, filter.name)) {
+      headerFilters.push(renderWidgetHeaderInlineFilter(widgetSeq, filter, widgetState));
+      return;
+    }
+    if (filter.renderMode === "segmented") {
+      headerFilters.push(
+        renderWidgetSegmentedFilter(
+          widgetSeq,
+          filter.name,
+          filter.label || filter.name,
+          widgetState[filter.name] || filter.defaultValues || [],
+          filter.options || [],
+          "widget-segmented-filter--header"
         )
-        .join("")}
-    </div>
-  `;
+      );
+      return;
+    }
+    bodyFilters.push(
+      renderFilterGroup("widget", widgetSeq, filter.label || filter.name, widgetState[filter.name] || [], filter.options)
+    );
+  });
+  return {
+    headerMarkup: headerFilters.length ? `<div class="widget-card__header-tabs">${headerFilters.join("")}</div>` : "",
+    bodyMarkup: bodyFilters.length ? `<div class="widget-card__filters">${bodyFilters.join("")}</div>` : "",
+  };
 }
 
-function renderWidgetSegmentedFilter(widgetSeq, filterName, filterLabel, selectedValues, options) {
+function renderWidgetHeaderInlineFilter(widgetSeq, filter, widgetState) {
+  const selectedValues = widgetState[filter.name] || filter.defaultValues || [];
+  const options = filter.options || [];
+  if (filter.name === "口径" || filter.renderMode === "segmented") {
+    return renderWidgetSegmentedFilter(
+      widgetSeq,
+      filter.name,
+      filter.label || filter.name,
+      selectedValues,
+      options,
+      "widget-segmented-filter--header"
+    );
+  }
+  return renderWidgetInlineControl(widgetSeq, filter.name, filter.label || filter.name, selectedValues, options, "chart-inline-control--header");
+}
+
+function renderWidgetSegmentedFilter(widgetSeq, filterName, filterLabel, selectedValues, options, extraClass = "") {
   const activeValue = (selectedValues || []).find((value) => options.includes(value)) || options[0] || "";
   return `
-    <div class="widget-segmented-filter">
+    <div class="widget-segmented-filter ${extraClass}">
       <span class="widget-segmented-filter__label">${filterLabel}</span>
       <div class="widget-segmented-filter__group" role="tablist" aria-label="${filterLabel}">
         ${options
@@ -1255,10 +1306,12 @@ function renderTable(widget, chartContext) {
 function renderBusinessStructureTable(widget, chartContext) {
   const widgetState = appState.widgetFilters[widget.seq] || {};
   const timeRangeValues = normalizeBusinessStructureDateRange(widgetState["时间区间（起止）"]);
+  const organizations = getSelectedOrganizations(chartContext);
   const rows = buildBusinessStructureRows(widget, chartContext, timeRangeValues);
   const behavior = getConfiguredWidgetBehavior(widget);
   const drilldownTargetSeq = Number(behavior.drilldownTargetSeq) || null;
   const activeDrilldown = drilldownTargetSeq ? getBusinessDrilldown(drilldownTargetSeq) : null;
+  const metricColumns = ["规模", "固息占比", "加权久期", "平均期限", "平均利率"];
   const localFilter = (widget.seq === 89 || widget.seq === 96)
     ? `
       <div class="chart-inline-controls">
@@ -1273,11 +1326,13 @@ function renderBusinessStructureTable(widget, chartContext) {
         <tr class="${activeDrilldown?.businessType === row.businessType ? "chart-table__row--active" : ""}">
           ${index === 0 ? `<td rowspan="${groupRows.length}" class="chart-table__group-cell">${group.category}</td>` : ""}
           <td>${row.businessType}</td>
-          <td>${row.scale.toFixed(1)}</td>
-          <td>${row.fixedRate}</td>
-          <td>${row.duration}</td>
-          <td>${row.averageTerm}</td>
-          <td>${row.averageRate}</td>
+          ${row.orgValues.map((value) => `
+            <td>${value.scale.toFixed(1)}</td>
+            <td>${value.fixedRate}</td>
+            <td>${value.duration}</td>
+            <td>${value.averageTerm}</td>
+            <td>${value.averageRate}</td>
+          `).join("")}
           <td>
             <button
               class="link-button chart-table__action-link ${activeDrilldown?.businessType === row.businessType ? "is-active" : ""}"
@@ -1300,14 +1355,13 @@ function renderBusinessStructureTable(widget, chartContext) {
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th>类别</th>
-              <th>业务类型</th>
-              <th>规模</th>
-              <th>固息占比</th>
-              <th>加权久期</th>
-              <th>平均期限</th>
-              <th>平均利率</th>
-              <th class="chart-table__action-col">明细</th>
+              <th rowspan="2">类别</th>
+              <th rowspan="2">业务类型</th>
+              ${organizations.map((org) => `<th colspan="${metricColumns.length}">${org}</th>`).join("")}
+              <th rowspan="2" class="chart-table__action-col">明细</th>
+            </tr>
+            <tr>
+              ${organizations.map(() => metricColumns.map((label) => `<th>${label}</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -1320,11 +1374,7 @@ function renderBusinessStructureTable(widget, chartContext) {
 }
 
 function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) {
-  const signature = createSignature(widget.seq, {
-    机构: chartContext.filterState["机构"] || [],
-    币种: chartContext.filterState["币种"] || [],
-    时间区间: timeRangeValues,
-  });
+  const organizations = getSelectedOrganizations(chartContext);
   const groupScaleBase = {
     生息资产: 180,
     付息负债: 140,
@@ -1338,20 +1388,26 @@ function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) 
 
   return BUSINESS_STRUCTURE_GROUPS.flatMap((group, groupIndex) =>
     group.items.map((businessType, itemIndex) => {
-      const seed = signature + groupIndex * 97 + itemIndex * 43;
-      const scale = groupScaleBase[group.category] + ((widget.seq * 17 + seed) % 210) / 1.15;
-      const fixedRate = `${(22 + ((widget.seq * 9 + seed) % 63)).toFixed(1)}%`;
-      const duration = `${(0.3 + ((widget.seq * 5 + seed) % 29) / 10).toFixed(1)}年`;
-      const averageTerm = `${(0.5 + ((widget.seq * 11 + seed) % 47) / 10).toFixed(1)}年`;
-      const averageRate = `${(groupRateBase[group.category] + ((widget.seq * 7 + seed) % 24) / 10).toFixed(2)}%`;
+      const orgValues = organizations.map((org) => {
+        const signature = createSignature(widget.seq, {
+          机构: [org],
+          币种: chartContext.filterState["币种"] || [],
+          时间区间: timeRangeValues,
+        });
+        const seed = signature + groupIndex * 97 + itemIndex * 43;
+        const scale = groupScaleBase[group.category] + ((widget.seq * 17 + seed) % 210) / 1.15;
+        return {
+          scale: Number(scale.toFixed(1)),
+          fixedRate: `${(22 + ((widget.seq * 9 + seed) % 63)).toFixed(1)}%`,
+          duration: `${(0.3 + ((widget.seq * 5 + seed) % 29) / 10).toFixed(1)}年`,
+          averageTerm: `${(0.5 + ((widget.seq * 11 + seed) % 47) / 10).toFixed(1)}年`,
+          averageRate: `${(groupRateBase[group.category] + ((widget.seq * 7 + seed) % 24) / 10).toFixed(2)}%`,
+        };
+      });
       return {
         category: group.category,
         businessType,
-        scale: Number(scale.toFixed(1)),
-        fixedRate,
-        duration,
-        averageTerm,
-        averageRate,
+        orgValues,
       };
     })
   );
@@ -1686,9 +1742,6 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
 
   return `
     <div class="chart-shell">
-      <div class="chart-inline-controls">
-        ${renderWidgetInlineControl(widget.seq, "期限长度", "期限长度", chartContext.filterState["期限长度"] || [LIQUIDITY_GAP_TENOR_OPTIONS[LIQUIDITY_GAP_TENOR_OPTIONS.length - 1]], LIQUIDITY_GAP_TENOR_OPTIONS)}
-      </div>
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
         ${barMarkup}
@@ -1919,9 +1972,6 @@ function renderInlineControlledLineChart(widget, chartContext, filterName, optio
 
   return `
     <div class="chart-shell">
-      <div class="chart-inline-controls">
-        ${renderWidgetInlineControl(widget.seq, filterName, filterName, chartContext.filterState[filterName] || options.slice(0, 1), options)}
-      </div>
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
         ${managementLimitOverlay}
@@ -2139,21 +2189,27 @@ function renderDurationGapMatrixTable(widget) {
 function renderEveCombinedTable(widget, chartContext) {
   const currencyLabels = FILTER_OPTIONS["币种"] || ["全折人民币", "人民币", "外币折美元", "美元", "港元", "新加坡元", "欧元", "澳元", "英镑", "日元"];
   const scenarioLabels = ["平行上移", "平行下移", "变陡峭", "变平缓", "短端上升", "短端下降"];
-  const orgSignature = createSignature(widget.seq, { 机构: chartContext.filterState["机构"] || [] });
+  const organizations = getSelectedOrganizations(chartContext);
+  const metricColumns = ["经济价值变动", "一级资本净额", "△EVE", ...scenarioLabels];
   const rows = currencyLabels.map((currency, index) => {
-    const economyChange = -1 * (12 + ((orgSignature + index * 19) % 88));
-    const capital = 180 + ((orgSignature + index * 23) % 360);
-    const eveRatio = `${((Math.abs(economyChange) / capital) * 100).toFixed(1)}%`;
-    const scenarioValues = scenarioLabels.map((_, scenarioIndex) => {
-      const raw = ((orgSignature + 41 + (index + 1) * 29 + (scenarioIndex + 1) * 37) % 180) - 90;
-      return raw.toFixed(1);
-    });
     return {
       currency,
-      economyChange: economyChange.toFixed(1),
-      capital: capital.toFixed(1),
-      eveRatio,
-      scenarioValues,
+      orgValues: organizations.map((org) => {
+        const orgSignature = createSignature(widget.seq, { 机构: [org] });
+        const economyChange = -1 * (12 + ((orgSignature + index * 19) % 88));
+        const capital = 180 + ((orgSignature + index * 23) % 360);
+        const eveRatio = `${((Math.abs(economyChange) / capital) * 100).toFixed(1)}%`;
+        const scenarioValues = scenarioLabels.map((_, scenarioIndex) => {
+          const raw = ((orgSignature + 41 + (index + 1) * 29 + (scenarioIndex + 1) * 37) % 180) - 90;
+          return raw.toFixed(1);
+        });
+        return {
+          economyChange: economyChange.toFixed(1),
+          capital: capital.toFixed(1),
+          eveRatio,
+          scenarioValues,
+        };
+      }),
     };
   });
   return `
@@ -2162,11 +2218,11 @@ function renderEveCombinedTable(widget, chartContext) {
         <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
-              <th>币种</th>
-              <th>经济价值变动</th>
-              <th>一级资本净额</th>
-              <th>△EVE</th>
-              ${scenarioLabels.map((label) => `<th>${label}</th>`).join("")}
+              <th rowspan="2">币种</th>
+              ${organizations.map((org) => `<th colspan="${metricColumns.length}">${org}</th>`).join("")}
+            </tr>
+            <tr>
+              ${organizations.map(() => metricColumns.map((label) => `<th>${label}</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -2175,10 +2231,12 @@ function renderEveCombinedTable(widget, chartContext) {
                 (row) => `
                   <tr>
                     <td>${row.currency}</td>
-                    <td>${row.economyChange}</td>
-                    <td>${row.capital}</td>
-                    <td>${row.eveRatio}</td>
-                    ${row.scenarioValues.map((value) => `<td>${value}</td>`).join("")}
+                    ${row.orgValues.map((values) => `
+                      <td>${values.economyChange}</td>
+                      <td>${values.capital}</td>
+                      <td>${values.eveRatio}</td>
+                      ${values.scenarioValues.map((value) => `<td>${value}</td>`).join("")}
+                    `).join("")}
                   </tr>
                 `
               )
@@ -2413,13 +2471,18 @@ function getMaturityDistributionSeries() {
     { name: "自营贷款", direction: 1 },
     { name: "债券投资", direction: 1 },
     { name: "同业资产", direction: 1 },
+    { name: "自营非标投资", direction: 1 },
     { name: "存放央行", direction: 1 },
     { name: "内部交易资产", direction: 1 },
     { name: "活期存款", direction: -1 },
     { name: "定期存款", direction: -1 },
     { name: "同业负债", direction: -1 },
     { name: "发行债券", direction: -1 },
+    { name: "中央行借款", direction: -1 },
+    { name: "租赁负债", direction: -1 },
+    { name: "内部交易负债", direction: -1 },
     { name: "表外衍生品应付", direction: -1 },
+    { name: "表外衍生品应收", direction: 1 },
   ];
 }
 
@@ -2560,6 +2623,7 @@ function isNiiCurrencyMatrixWidget(widget) {
 
 function renderFxExposureMatrixTable(widget, chartContext) {
   const rowLabels = uniqueList(FILTER_OPTIONS["币种"] || ["全折人民币"]);
+  const organizations = getSelectedOrganizations(chartContext);
   const columns = [
     { key: "spotAsset", label: "即期资产" },
     { key: "spotLiability", label: "即期负债" },
@@ -2572,35 +2636,37 @@ function renderFxExposureMatrixTable(widget, chartContext) {
     { key: "structuralExposureTotal", label: "结构性敞口合计" },
     { key: "internalExposureLimit", label: "内部敞口额度" },
   ];
-  const signature = createSignature(widget.seq, {
-    机构: chartContext.filterState["机构"] || [],
-    币种: rowLabels,
-  });
   const rows = rowLabels.map((label, rowIndex) => {
-    const spotAsset = 120 + ((widget.seq * 19 + signature + rowIndex * 23) % 240);
-    const spotLiability = 90 + ((widget.seq * 17 + signature + rowIndex * 29) % 210);
-    const forwardBuy = 18 + ((widget.seq * 11 + signature + rowIndex * 13) % 110);
-    const forwardSell = 15 + ((widget.seq * 7 + signature + rowIndex * 17) % 100);
-    const adjustedOptionPosition = Number(((((widget.seq * 5 + signature + rowIndex * 31) % 180) - 90) / 2).toFixed(1));
-    const netExposure = Number((spotAsset - spotLiability + forwardBuy - forwardSell + adjustedOptionPosition).toFixed(1));
-    const structuralExposure = Number((20 + ((widget.seq * 13 + signature + rowIndex * 19) % 95)).toFixed(1));
-    const totalExposure = Number((netExposure + structuralExposure).toFixed(1));
-    const structuralExposureTotal = Number(Math.abs(structuralExposure).toFixed(1));
-    const internalExposureLimit = Number((Math.max(Math.abs(totalExposure) * 1.2, structuralExposureTotal + 60) + 25).toFixed(1));
     return {
       label,
-      values: {
-        spotAsset: Number(spotAsset.toFixed(1)),
-        spotLiability: Number(spotLiability.toFixed(1)),
-        forwardBuy: Number(forwardBuy.toFixed(1)),
-        forwardSell: Number(forwardSell.toFixed(1)),
-        adjustedOptionPosition,
-        netExposure,
-        structuralExposure,
-        totalExposure,
-        structuralExposureTotal,
-        internalExposureLimit,
-      },
+      orgValues: organizations.map((org) => {
+        const signature = createSignature(widget.seq, {
+          机构: [org],
+          币种: [label],
+        });
+        const spotAsset = 120 + ((widget.seq * 19 + signature + rowIndex * 23) % 240);
+        const spotLiability = 90 + ((widget.seq * 17 + signature + rowIndex * 29) % 210);
+        const forwardBuy = 18 + ((widget.seq * 11 + signature + rowIndex * 13) % 110);
+        const forwardSell = 15 + ((widget.seq * 7 + signature + rowIndex * 17) % 100);
+        const adjustedOptionPosition = Number(((((widget.seq * 5 + signature + rowIndex * 31) % 180) - 90) / 2).toFixed(1));
+        const netExposure = Number((spotAsset - spotLiability + forwardBuy - forwardSell + adjustedOptionPosition).toFixed(1));
+        const structuralExposure = Number((20 + ((widget.seq * 13 + signature + rowIndex * 19) % 95)).toFixed(1));
+        const totalExposure = Number((netExposure + structuralExposure).toFixed(1));
+        const structuralExposureTotal = Number(Math.abs(structuralExposure).toFixed(1));
+        const internalExposureLimit = Number((Math.max(Math.abs(totalExposure) * 1.2, structuralExposureTotal + 60) + 25).toFixed(1));
+        return {
+          spotAsset: Number(spotAsset.toFixed(1)),
+          spotLiability: Number(spotLiability.toFixed(1)),
+          forwardBuy: Number(forwardBuy.toFixed(1)),
+          forwardSell: Number(forwardSell.toFixed(1)),
+          adjustedOptionPosition,
+          netExposure,
+          structuralExposure,
+          totalExposure,
+          structuralExposureTotal,
+          internalExposureLimit,
+        };
+      }),
     };
   });
 
@@ -2610,8 +2676,11 @@ function renderFxExposureMatrixTable(widget, chartContext) {
         <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
-              <th>币种</th>
-              ${columns.map((column) => `<th>${column.label}</th>`).join("")}
+              <th rowspan="2">币种</th>
+              ${organizations.map((org) => `<th colspan="${columns.length}">${org}</th>`).join("")}
+            </tr>
+            <tr>
+              ${organizations.map(() => columns.map((column) => `<th>${column.label}</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -2620,7 +2689,7 @@ function renderFxExposureMatrixTable(widget, chartContext) {
                 (row) => `
                   <tr>
                     <td>${row.label}</td>
-                    ${columns.map((column) => `<td>${Number(row.values[column.key]).toFixed(1)}</td>`).join("")}
+                    ${row.orgValues.map((values) => columns.map((column) => `<td>${Number(values[column.key]).toFixed(1)}</td>`).join("")).join("")}
                   </tr>
                 `
               )
@@ -2635,19 +2704,22 @@ function renderFxExposureMatrixTable(widget, chartContext) {
 function renderBenchmarkCurrencyMatrixTable(widget, chartContext) {
   const rowLabels = WIDGET_FILTER_PRESET_CONFIG.benchmarkSelector?.options || FILTER_OPTIONS["利率基准"] || ["DR007"];
   const columnLabels = uniqueList(FILTER_OPTIONS["币种"] || ["全折人民币"]);
+  const organizations = getSelectedOrganizations(chartContext);
   const dimension = (chartContext.filterState["维度"] || WIDGET_FILTER_PRESET_CONFIG.durationDimensionSelector?.defaultValues || ["资产端"])[0] || "资产端";
-  const signature = createSignature(widget.seq, {
-    机构: chartContext.filterState["机构"] || [],
-    币种: columnLabels,
-    维度: [dimension],
-  });
   const rows = rowLabels.map((label, rowIndex) => ({
     label,
-    values: columnLabels.map((_, columnIndex) => {
-      const base = 48 + ((widget.seq * 17 + signature + rowIndex * 19 + columnIndex * 23) % 260);
-      if (dimension === "负债端") return Number((-base).toFixed(1));
-      if (dimension === "资产负债差额") return Number((((base % 220) - 110) * 1.1).toFixed(1));
-      return Number(base.toFixed(1));
+    orgValues: organizations.map((org) => {
+      const signature = createSignature(widget.seq, {
+        机构: [org],
+        币种: columnLabels,
+        维度: [dimension],
+      });
+      return columnLabels.map((_, columnIndex) => {
+        const base = 48 + ((widget.seq * 17 + signature + rowIndex * 19 + columnIndex * 23) % 260);
+        if (dimension === "负债端") return Number((-base).toFixed(1));
+        if (dimension === "资产负债差额") return Number((((base % 220) - 110) * 1.1).toFixed(1));
+        return Number(base.toFixed(1));
+      });
     }),
   }));
 
@@ -2657,8 +2729,11 @@ function renderBenchmarkCurrencyMatrixTable(widget, chartContext) {
         <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
-              <th>利率基准</th>
-              ${columnLabels.map((label) => `<th>${label}</th>`).join("")}
+              <th rowspan="2">利率基准</th>
+              ${organizations.map((org) => `<th colspan="${columnLabels.length}">${org}</th>`).join("")}
+            </tr>
+            <tr>
+              ${organizations.map(() => columnLabels.map((label) => `<th>${label}</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -2667,7 +2742,7 @@ function renderBenchmarkCurrencyMatrixTable(widget, chartContext) {
                 (row) => `
                   <tr>
                     <td>${row.label}</td>
-                    ${row.values.map((value) => `<td>${value.toFixed(1)}</td>`).join("")}
+                    ${row.orgValues.map((values) => values.map((value) => `<td>${value.toFixed(1)}</td>`).join("")).join("")}
                   </tr>
                 `
               )
@@ -2681,19 +2756,22 @@ function renderBenchmarkCurrencyMatrixTable(widget, chartContext) {
 
 function renderNiiCurrencyScenarioTable(widget, chartContext) {
   const rowLabels = FILTER_OPTIONS["币种"] || ["全折人民币", "人民币", "外币折美元", "美元", "港元", "新加坡元", "欧元", "澳元", "英镑", "日元"];
+  const organizations = getSelectedOrganizations(chartContext);
   const columnLabels =
     (AREA_FILTER_OPTION_OVERRIDES["净利息收入波动率"] && AREA_FILTER_OPTION_OVERRIDES["净利息收入波动率"]["利率情景"]) ||
     ["所有利率平行上移200bp", "活期利率不变但其他利率平行上移200bp"];
-  const orgOnlySignature = createSignature(widget.seq, { 机构: chartContext.filterState["机构"] || [] });
   const rows = rowLabels.map((label, rowIndex) => ({
     label,
-    values: columnLabels.map((_, columnIndex) => {
-      const amount = 8 + ((widget.seq * 17 + orgOnlySignature + rowIndex * 11 + columnIndex * 19) % 56);
-      const ratio = (((widget.seq * 7 + orgOnlySignature + rowIndex * 13 + columnIndex * 17) % 48) / 10 + 0.8).toFixed(1);
-      return {
-        amount: amount.toFixed(1),
-        ratio: `${ratio}%`,
-      };
+    orgValues: organizations.map((org) => {
+      const orgOnlySignature = createSignature(widget.seq, { 机构: [org] });
+      return columnLabels.map((_, columnIndex) => {
+        const amount = 8 + ((widget.seq * 17 + orgOnlySignature + rowIndex * 11 + columnIndex * 19) % 56);
+        const ratio = (((widget.seq * 7 + orgOnlySignature + rowIndex * 13 + columnIndex * 17) % 48) / 10 + 0.8).toFixed(1);
+        return {
+          amount: amount.toFixed(1),
+          ratio: `${ratio}%`,
+        };
+      });
     }),
   }));
 
@@ -2703,11 +2781,14 @@ function renderNiiCurrencyScenarioTable(widget, chartContext) {
         <table class="chart-table chart-table--wide chart-table--matrix">
           <thead>
             <tr>
-              <th rowspan="2">币种</th>
-              ${columnLabels.map((label) => `<th colspan="2">${label}</th>`).join("")}
+              <th rowspan="3">币种</th>
+              ${organizations.map((org) => `<th colspan="${columnLabels.length * 2}">${org}</th>`).join("")}
             </tr>
             <tr>
-              ${columnLabels.map(() => `<th>波动值</th><th>波动率</th>`).join("")}
+              ${organizations.map(() => columnLabels.map((label) => `<th colspan="2">${label}</th>`).join("")).join("")}
+            </tr>
+            <tr>
+              ${organizations.map(() => columnLabels.map(() => `<th>波动值</th><th>波动率</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -2716,7 +2797,7 @@ function renderNiiCurrencyScenarioTable(widget, chartContext) {
                 (row) => `
                   <tr>
                     <td>${row.label}</td>
-                    ${row.values.map((value) => `<td>${value.amount}</td><td>${value.ratio}</td>`).join("")}
+                    ${row.orgValues.map((values) => values.map((value) => `<td>${value.amount}</td><td>${value.ratio}</td>`).join("")).join("")}
                   </tr>
                 `
               )
@@ -2832,6 +2913,14 @@ function renderSeriesLegend(widget, chartContext, legendKey = "__legend_series__
       color: getPaletteColor(label, chartContext.allSeriesList || chartContext.seriesList || [], index),
       dashed: false,
     }));
+  const simulationLegend = shouldRenderSimulationOverlay(widget, chartContext)
+    ? `
+      <span class="chart-legend__item chart-legend__item--simulation" aria-label="模拟后最新值">
+        <i class="chart-legend__diamond" style="background:${SIMULATION_COLOR}"></i>
+        模拟后最新值
+      </span>
+    `
+    : "";
   const allLegendValues = legendItems.map((item) => item.filterValue || item.label);
   const explicitSelectedLabels = ((appState.widgetFilters[widget.seq] || {})[legendKey] || []).filter((value) =>
     allLegendValues.includes(value)
@@ -2861,6 +2950,7 @@ function renderSeriesLegend(widget, chartContext, legendKey = "__legend_series__
           `
         )
         .join("")}
+      ${simulationLegend}
     </div>
   `;
 }
@@ -2898,11 +2988,11 @@ function getFrameMinStep(frame, count) {
   return count <= 1 ? frame.width : frame.width / Math.max(1, count - 1);
 }
 
-function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedValues, options) {
+function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedValues, options, extraClass = "") {
   const openKey = buildFilterKey("widget", widgetSeq, filterName);
   const isOpen = appState.openFilterKey === openKey;
   return `
-    <div class="chart-inline-control ${isOpen ? "is-open" : ""}">
+    <div class="chart-inline-control ${extraClass} ${isOpen ? "is-open" : ""}">
       <span class="chart-inline-control__label">${filterLabel}</span>
       <button
         class="filter-select filter-select--compact"
@@ -4228,7 +4318,7 @@ function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLa
   const simulationBehavior = getWidgetSimulationBehavior(widget) || {};
   const simulationDefaults = SIMULATION_RULE_CONFIG.defaults || {};
   const simulationModes = SIMULATION_RULE_CONFIG.modes || {};
-  const wholesaleLiabilityTypes = SIMULATION_RULE_CONFIG.wholesaleLiabilityTypes || ["同业负债", "发行债券", "表外衍生品应付"];
+  const wholesaleLiabilityTypes = SIMULATION_RULE_CONFIG.wholesaleLiabilityTypes || ["同业负债", "发行债券", "中央行借款", "租赁负债", "表外衍生品应付"];
   const configuredSensitivity = Number(simulationBehavior.sensitivity);
   let sensitivity = Number.isFinite(configuredSensitivity) ? configuredSensitivity : Number(simulationDefaults.baseSensitivity) || 0.11;
   let direction = 1;
@@ -4288,10 +4378,6 @@ function renderSimulationOverlay(frame, widget, chartContext, seriesDefinitions)
   }).join("");
   return `
     <g class="chart-simulation-overlay">
-      <g transform="translate(${frame.right - 108}, ${frame.top + 12})">
-        <path d="${buildDiamondPath(0, 0, 5.2)}" fill="${SIMULATION_COLOR}" stroke="#ffffff" stroke-width="1.6"></path>
-        <text x="11" y="4" class="chart-simulation-key">模拟后最新值</text>
-      </g>
       ${overlays}
     </g>
   `;
