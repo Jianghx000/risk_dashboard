@@ -185,6 +185,11 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
   await page.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(page.getByRole("heading", { name: TEXT.liquidityRiskSimulationTitle, exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "\u65b0\u589e\u4e1a\u52a1", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "\u4e1a\u52a1 2", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
+  await expect(page.locator(".simulation-summary").first().getByText("\u6a21\u62df\u4e1a\u52a1\uff1a2\u7b14", { exact: true })).toBeVisible();
+  await page.locator(".simulation-summary").first().getByRole("button", { name: "\u8c03\u6574\u6a21\u62df\u6d4b\u7b97", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: TEXT.liquidityRiskSimulationTitle, exact: true })).toHaveCount(0);
 

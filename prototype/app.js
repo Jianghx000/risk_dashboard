@@ -4132,27 +4132,55 @@ function getSimulationFieldDefs(page = getCurrentPage()) {
   return commonFields;
 }
 
-function createDefaultSimulationDraft(page = getCurrentPage()) {
+function createDefaultSimulationEntry(page = getCurrentPage()) {
   const fieldDefs = getSimulationFieldDefs(page);
-  const draft = {};
+  const entry = {};
   fieldDefs.forEach((field) => {
-    if (field.type === "date") draft[field.name] = getDefaultSimulationDate();
-    else if (field.type === "number") draft[field.name] = field.name === "scale" ? "50" : "12";
+    if (field.type === "date") entry[field.name] = getDefaultSimulationDate();
+    else if (field.type === "number") entry[field.name] = field.name === "scale" ? "50" : "12";
     else if (field.options?.length) {
       const firstOption = field.options[0];
-      draft[field.name] = typeof firstOption === "object" ? firstOption[field.valueKey || "value"] : firstOption;
-    } else draft[field.name] = "";
+      entry[field.name] = typeof firstOption === "object" ? firstOption[field.valueKey || "value"] : firstOption;
+    } else entry[field.name] = "";
   });
-  return draft;
+  return entry;
 }
 
-function renderSimulationField(field, draft) {
+function createDefaultSimulationDraft(page = getCurrentPage()) {
+  return { entries: [createDefaultSimulationEntry(page)] };
+}
+
+function getSimulationEntries(simulation) {
+  if (!simulation) return [];
+  if (Array.isArray(simulation.entries)) return simulation.entries.filter(Boolean);
+  return [simulation];
+}
+
+function getSimulationDraftEntries(draft, page = getCurrentPage()) {
+  const entries = getSimulationEntries(draft);
+  return entries.length ? entries : [createDefaultSimulationEntry(page)];
+}
+
+function createSimulationDraftFromScenario(page, scenario) {
+  const fallbackEntry = createDefaultSimulationEntry(page);
+  const entries = getSimulationEntries(scenario);
+  return {
+    entries: (entries.length ? entries : [fallbackEntry]).map((entry) => ({
+      ...fallbackEntry,
+      ...entry,
+      scale: String(entry?.scale ?? fallbackEntry.scale),
+      termMonths: String(entry?.termMonths ?? fallbackEntry.termMonths),
+    })),
+  };
+}
+
+function renderSimulationField(field, draft, entryIndex) {
   const value = draft?.[field.name] ?? "";
   if (field.type === "select") {
     return `
       <label class="simulation-form__field">
         <span class="simulation-form__label">${field.label}</span>
-        <select class="simulation-form__control" data-simulation-field="${field.name}">
+        <select class="simulation-form__control" data-simulation-entry-index="${entryIndex}" data-simulation-field="${field.name}">
           ${(field.options || []).map((option) => {
             const optionValue = typeof option === "object" ? option[field.valueKey || "value"] : option;
             const optionLabel = typeof option === "object" ? option[field.labelKey || "label"] : option;
@@ -4165,13 +4193,13 @@ function renderSimulationField(field, draft) {
   return `
     <label class="simulation-form__field">
       <span class="simulation-form__label">${field.label}</span>
-      <input class="simulation-form__control" data-simulation-field="${field.name}" type="${field.type}" value="${value}" ${field.min ? `min="${field.min}"` : ""} ${field.step ? `step="${field.step}"` : ""} />
+      <input class="simulation-form__control" data-simulation-entry-index="${entryIndex}" data-simulation-field="${field.name}" type="${field.type}" value="${value}" ${field.min ? `min="${field.min}"` : ""} ${field.step ? `step="${field.step}"` : ""} />
     </label>
   `;
 }
 
 function normalizeSimulationRecord(page, draft) {
-  const normalized = { ...draft };
+  const normalized = { ...createDefaultSimulationEntry(page), ...draft };
   normalized.businessDate = String(normalized.businessDate || getDefaultSimulationDate());
   normalized.scale = Math.max(1, Number(normalized.scale || 0));
   normalized.termMonths = Math.max(1, Number(normalized.termMonths || 0));
@@ -4179,19 +4207,63 @@ function normalizeSimulationRecord(page, draft) {
   return normalized;
 }
 
+function getSharedSimulationValue(entries, key, mixedLabel) {
+  const values = Array.from(new Set(entries.map((entry) => entry[key]).filter(Boolean)));
+  if (!values.length) return "";
+  if (values.length === 1) return values[0];
+  return mixedLabel;
+}
+
+function summarizeSimulationValues(entries, key) {
+  const values = Array.from(new Set(entries.map((entry) => entry[key]).filter(Boolean)));
+  if (values.length <= 2) return values.join("、");
+  return `${values.slice(0, 2).join("、")}等${values.length}项`;
+}
+
+function normalizeSimulationScenario(page, draft) {
+  const entries = getSimulationDraftEntries(draft, page).map((entry) => normalizeSimulationRecord(page, entry));
+  const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
+  const weightedTerm = entries.reduce((sum, entry) => sum + Number(entry.termMonths || 0) * Number(entry.scale || 0), 0);
+  return {
+    entries,
+    businessDate: getSharedSimulationValue(entries, "businessDate", "多日期"),
+    org: getSharedSimulationValue(entries, "org", "多机构"),
+    currency: getSharedSimulationValue(entries, "currency", "多币种"),
+    businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
+    scale: Number(totalScale.toFixed(1)),
+    termMonths: totalScale ? Number((weightedTerm / totalScale).toFixed(1)) : 1,
+  };
+}
+
 function renderSimulationSummary(pageId = getCurrentPage()?.id) {
   const simulation = getPageSimulation(pageId);
   if (!simulation) return "";
+  const entries = getSimulationEntries(simulation);
+  const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
   return `
     <div class="simulation-summary">
-      <span class="simulation-summary__item">业务发生日期：${simulation.businessDate}</span>
-      <span class="simulation-summary__item">机构：${simulation.org}</span>
-      <span class="simulation-summary__item">币种：${simulation.currency}</span>
-      <span class="simulation-summary__item">业务类型：${simulation.businessType}</span>
-      <span class="simulation-summary__item">规模：${simulation.scale}亿元</span>
+      <span class="simulation-summary__item">模拟业务：${entries.length}笔</span>
+      <span class="simulation-summary__item">机构：${summarizeSimulationValues(entries, "org")}</span>
+      <span class="simulation-summary__item">币种：${summarizeSimulationValues(entries, "currency")}</span>
+      <span class="simulation-summary__item">业务类型：${summarizeSimulationValues(entries, "businessType")}</span>
+      <span class="simulation-summary__item">规模合计：${Number(totalScale.toFixed(1))}亿元</span>
       <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}">调整模拟测算</button>
       <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
     </div>
+  `;
+}
+
+function renderSimulationEntryForm(page, entry, entryIndex, entryCount) {
+  return `
+    <section class="simulation-entry" data-simulation-entry="${entryIndex}">
+      <div class="simulation-entry__header">
+        <h4 class="simulation-entry__title">业务 ${entryIndex + 1}</h4>
+        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-simulation-entry="${entryIndex}">删除</button>` : ""}
+      </div>
+      <div class="simulation-form simulation-form--entry">
+        ${getSimulationFieldDefs(page).map((field) => renderSimulationField(field, entry, entryIndex)).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -4204,6 +4276,7 @@ function renderSimulationModal() {
     return;
   }
   const draft = appState.simulationDraft || createDefaultSimulationDraft(page);
+  const entries = getSimulationDraftEntries(draft, page);
   simulationModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="simulationModal"></div>
     <section class="overlay-panel overlay-panel--wide" role="dialog" aria-modal="true" aria-labelledby="simulationModalTitle">
@@ -4214,8 +4287,11 @@ function renderSimulationModal() {
         </div>
         <button class="overlay-panel__close" type="button" data-close-overlay="simulationModal">关闭</button>
       </div>
-      <div class="simulation-form">
-        ${getSimulationFieldDefs(page).map((field) => renderSimulationField(field, draft)).join("")}
+      <div class="simulation-entry-list">
+        ${entries.map((entry, entryIndex) => renderSimulationEntryForm(page, entry, entryIndex, entries.length)).join("")}
+      </div>
+      <div class="simulation-entry-actions">
+        <button class="toolbar-action" type="button" data-add-simulation-entry="${page.id}">新增业务</button>
       </div>
       <div class="overlay-panel__footer">
         <button class="toolbar-action" type="button" data-close-overlay="simulationModal">取消</button>
@@ -4312,7 +4388,7 @@ function shouldRenderSimulationOverlay(widget, chartContext) {
   return true;
 }
 
-function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLabel, seriesIndex = 0, role = "line") {
+function getSingleSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLabel, seriesIndex = 0, role = "line") {
   const page = data.pages.find((item) => item.id === chartContext.pageId) || getCurrentPage();
   const profile = getSimulationProfile(page, simulation);
   const simulationBehavior = getWidgetSimulationBehavior(widget) || {};
@@ -4354,6 +4430,22 @@ function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLa
   const variation = 1 + (((widget.seq + seriesIndex * 17) % 9) - 4) * variationStep;
   return clampNumber(
     profile.impactScore * sensitivity * direction * variation,
+    Number(simulationDefaults.minAdjustmentRatio) || -0.22,
+    Number(simulationDefaults.maxAdjustmentRatio) || 0.22
+  );
+}
+
+function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLabel, seriesIndex = 0, role = "line") {
+  const simulationDefaults = SIMULATION_RULE_CONFIG.defaults || {};
+  const entries = getSimulationEntries(simulation);
+  if (!entries.length) return 0;
+  const totalScale = entries.reduce((sum, entry) => sum + Math.max(1, Number(entry.scale || 0)), 0);
+  const weightedRatio = entries.reduce((sum, entry) => {
+    const weight = Math.max(1, Number(entry.scale || 0)) / totalScale;
+    return sum + getSingleSimulationAdjustmentRatio(widget, chartContext, entry, seriesLabel, seriesIndex, role) * weight;
+  }, 0);
+  return clampNumber(
+    weightedRatio,
     Number(simulationDefaults.minAdjustmentRatio) || -0.22,
     Number(simulationDefaults.maxAdjustmentRatio) || 0.22
   );
@@ -4587,7 +4679,7 @@ blockPillsEl.addEventListener("click", (event) => {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
     const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
     appState.simulationModalPageId = pageId;
-    appState.simulationDraft = { ...(getPageSimulation(pageId) || createDefaultSimulationDraft(page)) };
+    appState.simulationDraft = createSimulationDraftFromScenario(page, getPageSimulation(pageId));
     render();
     return;
   }
@@ -4667,7 +4759,7 @@ dashboardViewEl.addEventListener("click", (event) => {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
     const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
     appState.simulationModalPageId = pageId;
-    appState.simulationDraft = { ...(getPageSimulation(pageId) || createDefaultSimulationDraft(page)) };
+    appState.simulationDraft = createSimulationDraftFromScenario(page, getPageSimulation(pageId));
     render();
     return;
   }
@@ -4777,19 +4869,27 @@ dashboardViewEl.addEventListener("change", (event) => {
 simulationModalEl.addEventListener("input", (event) => {
   const field = event.target.closest("[data-simulation-field]");
   if (!field) return;
-  appState.simulationDraft = {
-    ...(appState.simulationDraft || {}),
+  const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
+  const entries = getSimulationDraftEntries(appState.simulationDraft, page).map((entry) => ({ ...entry }));
+  const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
+  entries[entryIndex] = {
+    ...(entries[entryIndex] || createDefaultSimulationEntry(page)),
     [field.dataset.simulationField]: field.value,
   };
+  appState.simulationDraft = { entries };
 });
 
 simulationModalEl.addEventListener("change", (event) => {
   const field = event.target.closest("[data-simulation-field]");
   if (!field) return;
-  appState.simulationDraft = {
-    ...(appState.simulationDraft || {}),
+  const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
+  const entries = getSimulationDraftEntries(appState.simulationDraft, page).map((entry) => ({ ...entry }));
+  const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
+  entries[entryIndex] = {
+    ...(entries[entryIndex] || createDefaultSimulationEntry(page)),
     [field.dataset.simulationField]: field.value,
   };
+  appState.simulationDraft = { entries };
 });
 
 simulationModalEl.addEventListener("click", (event) => {
@@ -4800,10 +4900,27 @@ simulationModalEl.addEventListener("click", (event) => {
     render();
     return;
   }
+  const addEntryButton = event.target.closest("[data-add-simulation-entry]");
+  if (addEntryButton) {
+    const page = data.pages.find((item) => item.id === addEntryButton.dataset.addSimulationEntry) || getCurrentPage();
+    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
+    appState.simulationDraft = { entries: [...entries, createDefaultSimulationEntry(page)] };
+    renderSimulationModal();
+    return;
+  }
+  const removeEntryButton = event.target.closest("[data-remove-simulation-entry]");
+  if (removeEntryButton) {
+    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
+    const removeIndex = Number(removeEntryButton.dataset.removeSimulationEntry);
+    const entries = getSimulationDraftEntries(appState.simulationDraft, page).filter((_, index) => index !== removeIndex);
+    appState.simulationDraft = { entries: entries.length ? entries : [createDefaultSimulationEntry(page)] };
+    renderSimulationModal();
+    return;
+  }
   const applyButton = event.target.closest("[data-apply-simulation]");
   if (applyButton) {
     const page = data.pages.find((item) => item.id === applyButton.dataset.applySimulation) || getCurrentPage();
-    appState.pageSimulations[page.id] = normalizeSimulationRecord(page, appState.simulationDraft || createDefaultSimulationDraft(page));
+    appState.pageSimulations[page.id] = normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
     appState.simulationModalPageId = null;
     appState.simulationDraft = null;
     render();
