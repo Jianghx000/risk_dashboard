@@ -1418,19 +1418,39 @@ function getBusinessDrilldown(widgetSeq) {
   return drilldown?.businessType ? drilldown : null;
 }
 
-function getBusinessDetailColumns(widget) {
+function getBusinessDetailColumns(widget, drilldown = null) {
   const behavior = getConfiguredWidgetBehavior(widget);
-  const presetKey = behavior.detailTablePreset;
-  const presetColumns = DETAIL_TABLE_CONFIG[presetKey]?.columns;
-  if (Array.isArray(presetColumns) && presetColumns.length) return presetColumns;
+  const detailScope = behavior.detailScope || "stock";
+  if (drilldown?.businessType === "债券投资") {
+    const bondColumns = [
+      { key: "bondCode", label: "债券代码" },
+      { key: "issuer", label: "发行人" },
+      { key: "holdingScale", label: "持仓规模" },
+      { key: "rateType", label: "利率类型" },
+      { key: "rateBenchmark", label: "利率基准" },
+      { key: "couponRate", label: "票面利率" },
+      { key: "ytm", label: "YTM" },
+      { key: "modifiedDuration", label: "修正久期" },
+      { key: "originalTerm", label: "原始期限" },
+      { key: "remainingTerm", label: "剩余期限" },
+      { key: "repricingCycle", label: "重定价周期" },
+      { key: "repricingDate", label: "下一重定价日" },
+    ];
+    return detailScope === "stock"
+      ? bondColumns
+      : [{ key: "tradeDate", label: "交易日期" }, ...bondColumns];
+  }
   return [
     { key: "businessId", label: "业务编号" },
     { key: "counterparty", label: "客户" },
-    { key: "businessType", label: "业务类型" },
-    { key: "sideLabel", label: "资产/负债" },
-    { key: "amount", label: "金额/余额" },
+    { key: "startDate", label: "起始日" },
+    { key: "amount", label: "金额" },
     { key: "rate", label: "利率" },
-    { key: "term", label: "剩余期限" },
+    { key: "rateType", label: "利率类型" },
+    { key: "originalTerm", label: "原始期限" },
+    { key: "remainingTerm", label: "剩余期限" },
+    { key: "repricingTerm", label: "重定价期限" },
+    { key: "repricingDate", label: "下一重定价日" },
   ];
 }
 
@@ -1475,6 +1495,8 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
     : sideLabel === "资产"
       ? ["城投集团", "高端制造", "交通基础设施", "能源平台", "产业基金", "科技园区", "消费龙头", "医药集团"]
       : ["战略客户部", "机构资金部", "同业合作户", "债券承销计划", "集团内部账户", "境外分行资金池", "财政性存款", "大型企业结算户"];
+  const bondIssuerPool = ["国开行", "农业发展银行", "进出口银行", "财政部", "广东省政府", "江苏省政府", "招商局集团", "华能集团"];
+  const rateBenchmarkPool = ["LPR 1Y", "LPR 5Y", "DR007", "SHIBOR 3M", "中债国债收益率", "固定票息"];
   const rowCount = 8 + (signature % 4);
   const rangeStart = dateRange?.[0] || addDays(getDefaultGlobalEndDate(), -180);
   const rangeEnd = dateRange?.[1] || getDefaultGlobalEndDate();
@@ -1493,18 +1515,34 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
     const amount = `${(amountBase + (seed % 85) / 2.7).toFixed(1)}亿元`;
     const rate = `${(1.6 + (seed % 33) / 10).toFixed(2)}%`;
     const rateType = seed % 3 === 0 ? "浮动" : "固定";
-    const term = `${6 + (seed % 30)}个月`;
+    const originalTermMonths = 12 + (seed % 84);
+    const remainingTermMonths = Math.max(1, Math.round(originalTermMonths * (0.24 + (seed % 51) / 100)));
+    const repricingTermMonths = rateType === "浮动" ? [1, 3, 6, 12][seed % 4] : originalTermMonths;
+    const term = `${remainingTermMonths}个月`;
+    const tradeDate = detailScope === "maturity" ? maturityDate : baseStart;
     return {
       businessId,
       counterparty,
       businessType: drilldown.businessType,
       sideLabel,
+      bondCode: `${["2402", "2305", "2208", "2109"][seed % 4]}${String((seed % 9000) + 1000).slice(-4)}.IB`,
+      issuer: bondIssuerPool[index % bondIssuerPool.length],
+      tradeDate,
       startDate: baseStart,
       maturityDate,
       repricingDate,
-      amount: amount.replace("金额/余额", scopeMeta.amountLabel),
+      amount,
+      holdingScale: amount,
       rate,
       rateType,
+      rateBenchmark: rateType === "浮动" ? rateBenchmarkPool[seed % (rateBenchmarkPool.length - 1)] : "固定票息",
+      couponRate: rate,
+      ytm: `${(1.8 + (seed % 42) / 10).toFixed(2)}%`,
+      modifiedDuration: `${(0.6 + (seed % 58) / 10).toFixed(1)}`,
+      originalTerm: originalTermMonths >= 12 ? `${(originalTermMonths / 12).toFixed(originalTermMonths % 12 === 0 ? 0 : 1)}年` : `${originalTermMonths}个月`,
+      remainingTerm: remainingTermMonths >= 12 ? `${(remainingTermMonths / 12).toFixed(remainingTermMonths % 12 === 0 ? 0 : 1)}年` : `${remainingTermMonths}个月`,
+      repricingCycle: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期",
+      repricingTerm: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期",
       term,
     };
   });
@@ -1526,7 +1564,7 @@ function renderBusinessDetailTable(widget, chartContext) {
     `;
   }
 
-  const columns = getBusinessDetailColumns(widget);
+  const columns = getBusinessDetailColumns(widget, drilldown);
   const rows = buildBusinessDetailRows(widget, chartContext, drilldown);
   return `
     <div class="chart-shell chart-shell--data">

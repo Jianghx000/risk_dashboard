@@ -129,6 +129,21 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   for (const title of TEXT.businessChangeTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
+  await page.evaluate(() => {
+    appState.businessDrilldowns = {
+      "80": { businessType: "\u503a\u5238\u6295\u8d44", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 79 },
+      "85": { businessType: "\u503a\u5238\u6295\u8d44", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 89 },
+      "97": { businessType: "\u81ea\u8425\u8d37\u6b3e", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 96 },
+    };
+    render();
+  });
+  await expect(page.locator('[data-widget-seq="80"] thead')).toContainText("\u503a\u5238\u4ee3\u7801");
+  await expect(page.locator('[data-widget-seq="80"] thead')).toContainText("YTM");
+  await expect(page.locator('[data-widget-seq="80"] thead')).toContainText("\u4e0b\u4e00\u91cd\u5b9a\u4ef7\u65e5");
+  await expect(page.locator('[data-widget-seq="80"] thead')).not.toContainText("\u4ea4\u6613\u65e5\u671f");
+  await expect(page.locator('[data-widget-seq="85"] thead')).toContainText("\u4ea4\u6613\u65e5\u671f");
+  await expect(page.locator('[data-widget-seq="97"] thead')).toContainText("\u4e1a\u52a1\u7f16\u53f7");
+  await expect(page.locator('[data-widget-seq="97"] thead')).toContainText("\u4e0b\u4e00\u91cd\u5b9a\u4ef7\u65e5");
 });
 
 test("EVE\u8868\u5df2\u5408\u5e76\u4e3a\u5355\u4e00\u8868\u683c", async ({ page }) => {

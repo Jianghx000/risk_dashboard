@@ -57,6 +57,8 @@ FORBIDDEN_LEGACY_TEXT_SNIPPETS = [
     "\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u672c\u6708\u6309\u65e5\u5c55\u793a",
 ]
 
+ALLOWED_SIMULATION_WIDGET_SEQS = {9, 10, 11, 15, 16, 17, 25, 50, 55, 56}
+
 
 def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8").strip()
@@ -405,6 +407,10 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             if "localFilters" in behavior and not isinstance(behavior.get("localFilters"), list):
                 errors.append(f"widgetBehavior.{seq_text}.localFilters should be a list")
             if "simulationBehavior" in behavior:
+                if seq not in ALLOWED_SIMULATION_WIDGET_SEQS:
+                    errors.append(
+                        f"widgetBehavior.{seq_text}.simulationBehavior is only allowed for configured simulation widgets"
+                    )
                 simulation_behavior = behavior.get("simulationBehavior")
                 if not isinstance(simulation_behavior, dict):
                     errors.append(f"widgetBehavior.{seq_text}.simulationBehavior should be an object")
@@ -429,34 +435,25 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                             if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
                                 errors.append(f"widgetBehavior.{seq_text}.seriesFilters.{key} should be a string list")
 
-        simulation_pages = {
-            page_name: behavior.get("simulationMode")
-            for page_name, behavior in page_behavior.items()
-            if isinstance(behavior, dict) and behavior.get("simulationMode") and behavior.get("simulationMode") != "generic"
-        }
-        for seq, context in widget_context.items():
-            simulation_mode = simulation_pages.get(context["page_name"])
-            if not simulation_mode:
+        for seq in sorted(ALLOWED_SIMULATION_WIDGET_SEQS):
+            context = widget_context.get(seq)
+            if not context:
+                errors.append(f"allowed simulation widget seq is missing from dashboard data: {seq}")
                 continue
             behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
-            component_type = context["component_type"]
-            if "\u8868\u683c" in component_type or behavior.get("tableKind"):
-                continue
-            if "\u5206\u5e03" in component_type or behavior.get("chartKind") == "donut":
-                continue
             simulation_behavior = behavior.get("simulationBehavior")
             if not isinstance(simulation_behavior, dict):
                 errors.append(
-                    f"widgetBehavior.{seq}.simulationBehavior is required for simulation-page widget: {context['title']}"
+                    f"widgetBehavior.{seq}.simulationBehavior is required for configured simulation widget: {context['title']}"
                 )
                 continue
             sensitivity = simulation_behavior.get("sensitivity")
             if not isinstance(sensitivity, (int, float)) or isinstance(sensitivity, bool):
                 errors.append(
-                    f"widgetBehavior.{seq}.simulationBehavior.sensitivity is required for simulation-page widget: "
+                    f"widgetBehavior.{seq}.simulationBehavior.sensitivity is required for configured simulation widget: "
                     f"{context['title']}"
                 )
-            if simulation_mode == "liquidity" and simulation_behavior.get("directionMode") not in allowed_direction_modes:
+            if context["page_name"] == "\u6d41\u52a8\u6027\u98ce\u9669" and simulation_behavior.get("directionMode") not in allowed_direction_modes:
                 errors.append(
                     f"widgetBehavior.{seq}.simulationBehavior.directionMode is required for liquidity widget: "
                     f"{context['title']}"

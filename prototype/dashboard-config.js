@@ -245,9 +245,6 @@ window.dashboardConfig = {
     },
     "流动性风险": {
       "simulationMode": "liquidity"
-    },
-    "汇率风险": {
-      "simulationMode": "fx"
     }
   },
   "blockDisplay": {
@@ -494,15 +491,7 @@ window.dashboardConfig = {
     }
   ],
   "widgetBehavior": {
-    "1": {
-      "simulationBehavior": {
-        "sensitivity": 0.14
-      }
-    },
     "3": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      },
       "seriesFilters": {
         "suppress": [
           "币种"
@@ -511,9 +500,6 @@ window.dashboardConfig = {
     },
     "4": {
       "fullWidth": false,
-      "simulationBehavior": {
-        "sensitivity": 0.14
-      },
       "seriesFilters": {
         "allow": [
           "利率情景",
@@ -526,9 +512,6 @@ window.dashboardConfig = {
     },
     "7": {
       "chartKind": "niiVolatility",
-      "simulationBehavior": {
-        "sensitivity": 0.15
-      },
       "seriesFilters": {
         "allow": [
           "利率情景",
@@ -588,19 +571,13 @@ window.dashboardConfig = {
     },
     "21": {
       "chartKind": "durationGapCombo",
-      "yAxisLabel": "久期",
-      "simulationBehavior": {
-        "sensitivity": 0.18
-      }
+      "yAxisLabel": "久期"
     },
     "24": {
       "chartKind": "businessDurationRepricing",
       "fullWidth": false,
       "maxSeries": 12,
       "yAxisLabel": "久期",
-      "simulationBehavior": {
-        "sensitivity": 0.18
-      },
       "seriesFilters": {
         "suppress": [
           "机构",
@@ -625,19 +602,13 @@ window.dashboardConfig = {
     "27": {
       "chartKind": "durationGapCombo",
       "fullWidth": false,
-      "yAxisLabel": "久期",
-      "simulationBehavior": {
-        "sensitivity": 0.18
-      }
+      "yAxisLabel": "久期"
     },
     "30": {
       "chartKind": "businessDurationRepricing",
       "fullWidth": false,
       "maxSeries": 12,
       "yAxisLabel": "久期",
-      "simulationBehavior": {
-        "sensitivity": 0.18
-      },
       "seriesFilters": {
         "suppress": [
           "机构",
@@ -645,49 +616,17 @@ window.dashboardConfig = {
         ]
       }
     },
-    "34": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
-    "35": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
     "36": {
       "tableKind": "benchmarkCurrencyMatrix"
     },
-    "37": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
-    "38": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
     "42": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "directionMode": "coverage",
-        "sensitivity": 0.11
-      }
+      "frequencyToggle": true
     },
     "43": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
+      "frequencyToggle": true
     },
     "44": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
+      "frequencyToggle": true
     },
     "45": {
       "chartKind": "donut",
@@ -697,30 +636,8 @@ window.dashboardConfig = {
         "二级资产"
       ]
     },
-    "46": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "47": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "48": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
     "49": {
       "chartKind": "liquidityGapTenor",
-      "simulationBehavior": {
-        "directionMode": "gap",
-        "sensitivity": 0.16
-      },
       "inlineFilters": [
         "期限长度"
       ]
@@ -736,11 +653,7 @@ window.dashboardConfig = {
       ]
     },
     "52": {
-      "chartKind": "reserveRatioScaleCombo",
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
+      "chartKind": "reserveRatioScaleCombo"
     },
     "53": {
       "chartKind": "donut",
@@ -752,11 +665,7 @@ window.dashboardConfig = {
     },
     "54": {
       "chartKind": "futureFundingFlow",
-      "fullWidth": true,
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
+      "fullWidth": true
     },
     "55": {
       "simulationBehavior": {
@@ -771,59 +680,8 @@ window.dashboardConfig = {
         "sensitivity": 0.11
       }
     },
-    "57": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "58": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "59": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "60": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "61": {
-      "simulationBehavior": {
-        "directionMode": "coverage",
-        "sensitivity": 0.11
-      }
-    },
-    "62": {
-      "simulationBehavior": {
-        "directionMode": "coverage",
-        "sensitivity": 0.11
-      }
-    },
-    "68": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
-    "69": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
     "70": {
       "tableKind": "fxExposureMatrix"
-    },
-    "71": {
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
     },
     "72": {
       "chartKind": "balanceScaleGrowth"
@@ -848,17 +706,17 @@ window.dashboardConfig = {
       "chartKind": "businessScaleGrowth",
       "maxSeries": 12
     },
+    "85": {
+      "tableKind": "businessDetail",
+      "detailScope": "new",
+      "detailTablePreset": "businessChangeDetail"
+    },
     "89": {
       "tableKind": "businessStructure",
       "drilldownTargetSeq": 85,
       "inlineFilters": [
         "时间区间（起止）"
       ]
-    },
-    "85": {
-      "tableKind": "businessDetail",
-      "detailScope": "new",
-      "detailTablePreset": "businessChangeDetail"
     },
     "90": {
       "chartKind": "balanceScaleGrowth"
@@ -1269,17 +1127,50 @@ window.dashboardConfig = {
   "detailTables": {
     "businessChangeDetail": {
       "columns": [
-        { "key": "businessId", "label": "业务编号" },
-        { "key": "counterparty", "label": "客户" },
-        { "key": "businessType", "label": "业务类型" },
-        { "key": "sideLabel", "label": "资产/负债" },
-        { "key": "startDate", "label": "起始日" },
-        { "key": "maturityDate", "label": "到期日" },
-        { "key": "repricingDate", "label": "下一重定价日" },
-        { "key": "amount", "label": "金额/余额" },
-        { "key": "rate", "label": "利率" },
-        { "key": "rateType", "label": "固浮属性" },
-        { "key": "term", "label": "剩余期限" }
+        {
+          "key": "businessId",
+          "label": "业务编号"
+        },
+        {
+          "key": "counterparty",
+          "label": "客户"
+        },
+        {
+          "key": "businessType",
+          "label": "业务类型"
+        },
+        {
+          "key": "sideLabel",
+          "label": "资产/负债"
+        },
+        {
+          "key": "startDate",
+          "label": "起始日"
+        },
+        {
+          "key": "maturityDate",
+          "label": "到期日"
+        },
+        {
+          "key": "repricingDate",
+          "label": "下一重定价日"
+        },
+        {
+          "key": "amount",
+          "label": "金额/余额"
+        },
+        {
+          "key": "rate",
+          "label": "利率"
+        },
+        {
+          "key": "rateType",
+          "label": "固浮属性"
+        },
+        {
+          "key": "term",
+          "label": "剩余期限"
+        }
       ]
     }
   }
