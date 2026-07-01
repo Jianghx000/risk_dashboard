@@ -51,6 +51,10 @@ const SEMANTIC_COLORS = {
 const SIMULATION_COLOR = VISUAL_RULE_CONFIG.palette?.semantic?.simulationLine || "#2F6FA3";
 const SIMULATION_FILL = VISUAL_RULE_CONFIG.palette?.semantic?.simulationFill || "rgba(47, 111, 163, 0.16)";
 const RATE_TYPE_OPTIONS = ["固定利率", "浮动利率"];
+const FUTURE_MATURITY_MONTH_COUNT = 6;
+const SIMULATION_FUNDING_ROLE_OPTIONS = ["资金来源", "资金运用"];
+const SIMULATION_MODE_NEW_BUSINESS = "newBusiness";
+const SIMULATION_MODE_HEDGE = "hedge";
 const REPRICING_FREQUENCY_OPTIONS = [
   { label: "按月重定价", value: "1" },
   { label: "按季重定价", value: "3" },
@@ -75,6 +79,80 @@ const BUSINESS_SIDE_MAP = {
   表外衍生品应付: "liability",
   表外衍生品应收: "asset",
 };
+const HEDGEABLE_ITEM_OPTIONS = [
+  {
+    id: "HT-LOAN-2026-001",
+    type: "贷款",
+    businessType: "自营贷款",
+    org: "香港分行",
+    currency: "美元",
+    balance: 168.5,
+    rateType: "浮动利率",
+    rateBenchmark: "SOFR 3M",
+    couponRate: "4.38%",
+    repricingCycle: "3M",
+    repricingMonths: "3",
+    originalTerm: "5年",
+    remainingTerm: "3.2年",
+    remainingTermMonths: 38,
+    nextRepricingDate: "2026/08/01",
+  },
+  {
+    id: "HT-BOND-2026-014",
+    type: "债券",
+    businessType: "债券投资",
+    org: "纽约分行",
+    currency: "美元",
+    balance: 92.8,
+    rateType: "固定利率",
+    rateBenchmark: "UST 5Y",
+    couponRate: "3.75%",
+    ytm: "3.92%",
+    modifiedDuration: "4.6",
+    repricingCycle: "到期一次",
+    repricingMonths: "24",
+    originalTerm: "7年",
+    remainingTerm: "4.6年",
+    remainingTermMonths: 55,
+    nextRepricingDate: "2030/02/15",
+  },
+  {
+    id: "HT-LOAN-2026-027",
+    type: "贷款",
+    businessType: "自营贷款",
+    org: "新加坡分行",
+    currency: "新加坡元",
+    balance: 74.2,
+    rateType: "浮动利率",
+    rateBenchmark: "SORA 1M",
+    couponRate: "3.18%",
+    repricingCycle: "1M",
+    repricingMonths: "1",
+    originalTerm: "3年",
+    remainingTerm: "1.7年",
+    remainingTermMonths: 20,
+    nextRepricingDate: "2026/07/28",
+  },
+  {
+    id: "HT-BOND-2026-038",
+    type: "债券",
+    businessType: "债券投资",
+    org: "卢森堡分行",
+    currency: "欧元",
+    balance: 128.6,
+    rateType: "固定利率",
+    rateBenchmark: "EUR Swap 5Y",
+    couponRate: "2.86%",
+    ytm: "3.04%",
+    modifiedDuration: "5.1",
+    repricingCycle: "到期一次",
+    repricingMonths: "24",
+    originalTerm: "10年",
+    remainingTerm: "5.4年",
+    remainingTermMonths: 65,
+    nextRepricingDate: "2031/01/20",
+  },
+];
 const BUSINESS_STRUCTURE_GROUPS = [
   {
     category: "生息资产",
@@ -125,7 +203,9 @@ const appState = {
   globalEndDate: null,
   pageSimulations: {},
   simulationModalPageId: null,
+  simulationDraftMode: SIMULATION_MODE_NEW_BUSINESS,
   simulationDraft: null,
+  hedgeSimulationDraft: null,
   insightWidgetSeq: null,
   businessDrilldowns: {},
 };
@@ -308,7 +388,7 @@ function renderAreaViewGroup(areaGroup, viewGroup, areaState) {
 }
 
 function shouldHideAreaTitle(areaGroup) {
-  return areaGroup?.name === "分行个性化监管指标";
+  return false;
 }
 
 function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
@@ -444,6 +524,7 @@ function renderWidgetCard(areaGroup, widget, areaState) {
       <div class="widget-card__header widget-card__header--clean">
         <div class="widget-card__lead">
           <h4 class="widget-card__title">${getWidgetDisplayTitle(widget)}</h4>
+          ${renderMaturityStructureHeaderTabs(widget)}
           ${widgetHeaderTabs}
         </div>
         <div class="widget-card__actions">
@@ -462,6 +543,34 @@ function renderWidgetStage(widget, chartContext, displayMode) {
     return renderDataView(widget, chartContext);
   }
   return renderChart(widget, chartContext);
+}
+
+function getMaturityStructureActiveScope(widgetSeq = 96) {
+  const selected = (appState.widgetFilters[widgetSeq] || {}).__maturity_structure_scope__;
+  return Array.isArray(selected) && selected[0] === "future" ? "future" : "historical";
+}
+
+function renderMaturityStructureHeaderTabs(widget) {
+  if (!isMaturityStructureWidgetSeq(widget?.seq)) return "";
+  const activeScope = getMaturityStructureActiveScope(widget.seq);
+  const tabs = [
+    { value: "historical", label: "历史实际到期" },
+    { value: "future", label: "未来合同到期" },
+  ];
+  return `
+    <div class="maturity-structure-tabs" role="tablist" aria-label="到期结构页面">
+      ${tabs.map((tab) => `
+        <button
+          class="maturity-structure-tabs__btn ${tab.value === activeScope ? "is-active" : ""}"
+          type="button"
+          role="tab"
+          aria-selected="${tab.value === activeScope}"
+          data-maturity-structure-tab="${widget.seq}"
+          data-maturity-structure-scope="${tab.value}"
+        >${tab.label}</button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderChart(widget, chartContext) {
@@ -483,6 +592,10 @@ function renderChart(widget, chartContext) {
     durationRepricing: renderDurationRepricingChart,
     niiVolatility: renderNiiVolatilityComboChart,
     maturityDistribution: renderMaturityDistributionChart,
+    interbankFundingMaxTenor: renderInterbankFundingMaxTenorChart,
+    interbankFundingTenorBucket: renderInterbankFundingTenorBucketChart,
+    bondInvestmentScaleLimit: renderBondInvestmentScaleLimitChart,
+    bondInvestmentDurationLimit: renderBondInvestmentDurationLimitChart,
   };
   if (behavior.tableKind) return renderTable(widget, chartContext);
   if (chartKind && chartRendererRegistry[chartKind]) return chartRendererRegistry[chartKind](widget, chartContext);
@@ -576,6 +689,7 @@ function getWidgetBehavior(widget) {
 function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq) {
   const visibleFilters = widgetBehavior.localFilters.filter((filter) => {
     if (filter.renderMode === "legend") return false;
+    if (filter.type === "dateRange" && (Number(widgetSeq) === 89 || Number(widgetSeq) === 96)) return false;
     return true;
   });
   if (!visibleFilters.length) return { headerMarkup: "", bodyMarkup: "" };
@@ -1040,8 +1154,12 @@ function renderDurationGapComboDataTable(widget, chartContext) {
 }
 
 function renderBalanceScaleGrowthChart(widget, chartContext) {
-  const frame = createFrame(chartContext.xLabels.length);
+  const useWideFrame = isMaturityTrendWidget(widget);
+  const frame = useWideFrame ? createWideFrame(chartContext.xLabels.length) : createFrame(chartContext.xLabels.length);
+  const viewBoxWidth = useWideFrame ? 1100 : 700;
   const axis = renderAxes(frame, chartContext.xLabels, "规模/增速");
+  const futureStartIndex = getMaturityFutureStartIndex(widget, chartContext.xLabels);
+  const futureOverlay = renderMaturityFutureOverlay(widget, chartContext, frame);
   const metricItems = ["资产规模", "负债规模", "资产增速", "负债增速"];
   const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
   const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
@@ -1061,7 +1179,8 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center - barWidth - barGap / 2;
         const y = frame.bottom - (frame.height * value) / 100;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产规模", metricItems, 0, 0.28)}" stroke-width="1"></rect>`;
+        const isFuture = isMaturityFutureIndex(futureStartIndex, index);
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产规模", metricItems, 0, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
@@ -1070,7 +1189,8 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center + barGap / 2;
         const y = frame.bottom - (frame.height * value) / 100;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债规模", metricItems, 1, 0.28)}" stroke-width="1"></rect>`;
+        const isFuture = isMaturityFutureIndex(futureStartIndex, index);
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债规模", metricItems, 1, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
@@ -1084,22 +1204,17 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
   }));
 
   return `
-    <div class="chart-shell">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <div class="chart-shell ${useWideFrame ? "chart-shell--wide-time-series" : ""}">
+      <svg viewBox="0 0 ${viewBoxWidth} 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${futureOverlay}
         ${assetBars}
         ${liabilityBars}
         ${selectedMetrics.includes("资产增速")
-          ? `
-            <polyline fill="none" stroke="${assetLineColor}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" points="${assetPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${assetPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${assetLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
-          `
+          ? renderFutureAwareLine(assetPoints, assetLineColor, 3.4, futureStartIndex)
           : ""}
         ${selectedMetrics.includes("负债增速")
-          ? `
-            <polyline fill="none" stroke="${liabilityLineColor}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" points="${liabilityPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${liabilityPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${liabilityLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
-          `
+          ? renderFutureAwareLine(liabilityPoints, liabilityLineColor, 3.4, futureStartIndex)
           : ""}
       </svg>
       ${renderSeriesLegend(widget, {
@@ -1160,8 +1275,12 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
     ? selectedBusinesses
     : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS).slice(0, 2);
   const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
-  const frame = createFrame(chartContext.xLabels.length);
+  const useWideFrame = isMaturityTrendWidget(widget);
+  const frame = useWideFrame ? createWideFrame(chartContext.xLabels.length) : createFrame(chartContext.xLabels.length);
+  const viewBoxWidth = useWideFrame ? 1100 : 700;
   const axis = renderAxes(frame, chartContext.xLabels, "规模/增速");
+  const futureStartIndex = getMaturityFutureStartIndex(widget, chartContext.xLabels);
+  const futureOverlay = renderMaturityFutureOverlay(widget, chartContext, frame);
   const step = chartContext.xLabels.length <= 1 ? 0 : frame.width / (chartContext.xLabels.length - 1);
   const groupWidth = Math.max(24, step * 0.72);
   const barWidth = Math.max(6, Math.min(18, groupWidth / Math.max(seriesList.length, 1) - 4));
@@ -1175,7 +1294,8 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
         const x = center + offset - barWidth / 2;
         const height = (frame.height * value) / 100;
         const y = frame.bottom - height;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${getBarFillColor(label, allSeries, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, allSeries, seriesIndex, 0.28)}" stroke-width="1"></rect>`;
+        const isFuture = isMaturityFutureIndex(futureStartIndex, index);
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${getBarFillColor(label, allSeries, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, allSeries, seriesIndex, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("");
     })
     .join("");
@@ -1188,17 +1308,15 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
           x: getFrameXPosition(frame, index, chartContext.xLabels.length),
           y: frame.bottom - (frame.height * (18 + (value % 76))) / 100,
         }));
-      return `
-        <polyline fill="none" stroke="${color}" stroke-width="${seriesIndex === 0 ? 3.8 : 3.1}" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.6" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
-      `;
+      return renderFutureAwareLine(points, color, seriesIndex === 0 ? 3.8 : 3.1, futureStartIndex);
     })
     .join("");
 
   return `
-    <div class="chart-shell">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <div class="chart-shell ${useWideFrame ? "chart-shell--wide-time-series" : ""}">
+      <svg viewBox="0 0 ${viewBoxWidth} 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${futureOverlay}
         ${barMarkup}
         ${lineMarkup}
       </svg>
@@ -1304,27 +1422,59 @@ function renderTable(widget, chartContext) {
 }
 
 function renderBusinessStructureTable(widget, chartContext) {
+  if (isMaturityStructureWidgetSeq(widget.seq)) {
+    return renderMaturityBusinessStructureTables(widget, chartContext);
+  }
   const widgetState = appState.widgetFilters[widget.seq] || {};
-  const timeRangeValues = normalizeBusinessStructureDateRange(widgetState["时间区间（起止）"]);
+  const timeRangeValues = normalizeWidgetBusinessStructureDateRange(widget.seq, widgetState["时间区间（起止）"], null, "时间区间（起止）");
+  return renderBusinessStructureTableSection(widget, chartContext, {
+    timeRangeValues,
+    filterName: "时间区间（起止）",
+    showDateFilter: widget.seq === 89,
+  });
+}
+
+function renderMaturityBusinessStructureTables(widget, chartContext) {
+  const widgetState = appState.widgetFilters[widget.seq] || {};
+  const activeScope = getMaturityStructureActiveScope(widget.seq);
+  const section = activeScope === "future"
+    ? { title: "未来合同到期", scope: "future", filterName: "未来时间区间（起止）" }
+    : { title: "历史实际到期", scope: "historical", filterName: "历史时间区间（起止）" };
+  const timeRangeValues = normalizeWidgetBusinessStructureDateRange(widget.seq, widgetState[section.filterName], null, section.filterName);
+  return renderBusinessStructureTableSection(widget, chartContext, {
+    ...section,
+    title: "",
+    timeRangeValues,
+    showDateFilter: true,
+  });
+}
+
+function renderBusinessStructureTableSection(widget, chartContext, options = {}) {
+  const timeRangeValues = options.timeRangeValues || normalizeWidgetBusinessStructureDateRange(widget.seq, [], null, options.filterName);
   const organizations = getSelectedOrganizations(chartContext);
   const rows = buildBusinessStructureRows(widget, chartContext, timeRangeValues);
   const behavior = getConfiguredWidgetBehavior(widget);
   const drilldownTargetSeq = Number(behavior.drilldownTargetSeq) || null;
   const activeDrilldown = drilldownTargetSeq ? getBusinessDrilldown(drilldownTargetSeq) : null;
-  const metricColumns = ["规模", "固息占比", "加权久期", "平均期限", "平均利率"];
-  const localFilter = (widget.seq === 89 || widget.seq === 96)
+  const metricColumns = getBusinessStructureMetricColumns(widget);
+  const localFilter = options.showDateFilter
     ? `
       <div class="chart-inline-controls">
-        ${renderWidgetDateRangeInlineControl(widget.seq, "时间区间（起止）", "时间区间（起止）", timeRangeValues)}
+        ${renderWidgetDateRangeInlineControl(widget.seq, options.filterName || "时间区间（起止）", "时间区间（起止）", timeRangeValues)}
       </div>
     `
     : "";
   const groupedBody = BUSINESS_STRUCTURE_GROUPS.map((group) => {
     const groupRows = rows.filter((row) => row.category === group.category);
-    return groupRows
+    const totalRow = buildBusinessStructureGroupTotalRow(group, groupRows);
+    const displayRows = totalRow ? [...groupRows, totalRow] : groupRows;
+    return displayRows
       .map((row, index) => `
-        <tr class="${activeDrilldown?.businessType === row.businessType ? "chart-table__row--active" : ""}">
-          ${index === 0 ? `<td rowspan="${groupRows.length}" class="chart-table__group-cell">${group.category}</td>` : ""}
+        <tr class="${[
+          isBusinessStructureRowActive(activeDrilldown, row, options.scope) ? "chart-table__row--active" : "",
+          row.isTotal ? "chart-table__row--total" : "",
+        ].filter(Boolean).join(" ")}">
+          ${index === 0 ? `<td rowspan="${displayRows.length}" class="chart-table__group-cell">${group.category}</td>` : ""}
           <td>${row.businessType}</td>
           ${row.orgValues.map((value) => `
             <td>${value.scale.toFixed(1)}</td>
@@ -1334,22 +1484,26 @@ function renderBusinessStructureTable(widget, chartContext) {
             <td>${value.averageRate}</td>
           `).join("")}
           <td>
-            <button
-              class="link-button chart-table__action-link ${activeDrilldown?.businessType === row.businessType ? "is-active" : ""}"
-              type="button"
-              data-open-business-detail="true"
-              data-target-widget-seq="${drilldownTargetSeq || ""}"
-              data-source-widget-seq="${widget.seq}"
-              data-business-type="${row.businessType}"
-              data-business-category="${row.category}"
-            >${activeDrilldown?.businessType === row.businessType ? "已定位" : "查看明细"}</button>
+            ${row.isTotal
+              ? `<span class="chart-table__muted-action">-</span>`
+              : `<button
+                  class="link-button chart-table__action-link ${isBusinessStructureRowActive(activeDrilldown, row, options.scope) ? "is-active" : ""}"
+                  type="button"
+                  data-open-business-detail="true"
+                  data-target-widget-seq="${drilldownTargetSeq || ""}"
+                  data-source-widget-seq="${widget.seq}"
+                  data-business-type="${row.businessType}"
+                  data-business-category="${row.category}"
+                  data-maturity-table-scope="${options.scope || ""}"
+                >${isBusinessStructureRowActive(activeDrilldown, row, options.scope) ? "已定位" : "查看明细"}</button>`}
           </td>
         </tr>
       `)
       .join("");
   }).join("");
-  return `
-    <div class="chart-shell chart-shell--data">
+  const tableMarkup = `
+    <section class="business-structure-table-block ${options.scope ? `business-structure-table-block--${options.scope}` : ""}">
+      ${options.title ? `<div class="business-structure-table-block__header"><h5>${options.title}</h5></div>` : ""}
       ${localFilter}
       <div class="table-shell">
         <table class="chart-table chart-table--wide">
@@ -1369,8 +1523,66 @@ function renderBusinessStructureTable(widget, chartContext) {
           </tbody>
         </table>
       </div>
+    </section>
+  `;
+  if (options.wrapOnly) return tableMarkup;
+  return `
+    <div class="chart-shell chart-shell--data">
+      ${tableMarkup}
     </div>
   `;
+}
+
+function isBusinessStructureRowActive(activeDrilldown, row, scope = "") {
+  if (row?.isTotal) return false;
+  if (activeDrilldown?.businessType !== row.businessType) return false;
+  if (!scope) return !activeDrilldown?.maturityTableScope;
+  return activeDrilldown?.maturityTableScope === scope;
+}
+
+function getBusinessStructureMetricColumns(widget) {
+  return [
+    "规模",
+    "固息占比",
+    "加权久期",
+    Number(widget?.seq) === 79 ? "平均剩余期限" : "平均期限",
+    "平均利率",
+  ];
+}
+
+function buildBusinessStructureGroupTotalRow(group, groupRows) {
+  if (!["生息资产", "付息负债"].includes(group?.category) || !groupRows.length) return null;
+  const orgCount = Math.max(...groupRows.map((row) => row.orgValues.length));
+  return {
+    category: group.category,
+    businessType: `${group.category}总计`,
+    isTotal: true,
+    orgValues: Array.from({ length: orgCount }, (_, orgIndex) => {
+      const values = groupRows.map((row) => row.orgValues[orgIndex]).filter(Boolean);
+      const scale = values.reduce((sum, value) => sum + Number(value.scale || 0), 0);
+      const weighted = (picker) => {
+        if (!scale) return 0;
+        return values.reduce((sum, value) => sum + picker(value) * Number(value.scale || 0), 0) / scale;
+      };
+      return {
+        scale: Number(scale.toFixed(1)),
+        fixedRate: `${weighted((value) => parsePercentText(value.fixedRate)).toFixed(1)}%`,
+        duration: `${weighted((value) => parseYearText(value.duration)).toFixed(1)}年`,
+        averageTerm: `${weighted((value) => parseYearText(value.averageTerm)).toFixed(1)}年`,
+        averageRate: `${weighted((value) => parsePercentText(value.averageRate)).toFixed(2)}%`,
+      };
+    }),
+  };
+}
+
+function parsePercentText(value) {
+  const parsed = Number(String(value || "").replace("%", ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseYearText(value) {
+  const parsed = Number(String(value || "").replace("年", ""));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) {
@@ -1456,24 +1668,42 @@ function getBusinessDetailColumns(widget, drilldown = null) {
 
 function getBusinessDrilldownDateRange(drilldown) {
   const sourceWidgetState = appState.widgetFilters?.[drilldown?.sourceWidgetSeq] || {};
-  const rawDateRange = sourceWidgetState["时间区间（起止）"];
+  const filterName = isMaturityStructureWidgetSeq(drilldown?.sourceWidgetSeq)
+    ? getMaturityStructureRangeFilterName(drilldown?.maturityTableScope)
+    : "时间区间（起止）";
+  const rawDateRange = sourceWidgetState[filterName];
   if (!Array.isArray(rawDateRange) || !rawDateRange.some(Boolean)) return null;
-  return normalizeBusinessStructureDateRange(rawDateRange);
+  return normalizeWidgetBusinessStructureDateRange(drilldown?.sourceWidgetSeq, rawDateRange, null, filterName);
+}
+
+function getMaturityStructureRangeFilterName(scope) {
+  return scope === "future" ? "未来时间区间（起止）" : "历史时间区间（起止）";
 }
 
 function formatBusinessDetailContext(widget, chartContext, drilldown, scopeMeta) {
   const institutions = summarizeFilterSelection("机构", chartContext.filterState["机构"] || []);
   const currencies = summarizeFilterSelection("币种", chartContext.filterState["币种"] || []);
   const dateRange = getBusinessDrilldownDateRange(drilldown);
+  const maturityScopeLabel = drilldown?.maturityTableScope === "future"
+    ? "（未来合同到期）"
+    : drilldown?.maturityTableScope === "historical"
+      ? "（历史实际到期）"
+      : "";
   const dateText = scopeMeta.dateMode === "range" && Array.isArray(dateRange)
     ? `${dateRange[0]} 至 ${dateRange[1]}`
     : `截至 ${getDefaultGlobalEndDate()}`;
-  return `${scopeMeta.label} > ${drilldown.businessType} | 机构：${institutions} | 币种：${currencies} | ${dateText}`;
+  return `${scopeMeta.label}${maturityScopeLabel} > ${drilldown.businessType} | 机构：${institutions} | 币种：${currencies} | ${dateText}`;
 }
 
 function addDays(dateValue, offsetDays) {
   const baseDate = parseDateValue(dateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
   const nextDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + offsetDays);
+  return formatDateValue(nextDate);
+}
+
+function addMonthsDateValue(dateValue, offsetMonths) {
+  const baseDate = parseDateValue(dateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  const nextDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + offsetMonths, baseDate.getDate());
   return formatDateValue(nextDate);
 }
 
@@ -1615,6 +1845,10 @@ function renderDataView(widget, chartContext) {
     balanceScaleGrowth: renderBalanceScaleGrowthDataTable,
     businessScaleGrowth: renderBusinessScaleGrowthDataTable,
     maturityDistribution: renderMaturityDistributionDataTable,
+    interbankFundingMaxTenor: renderInterbankFundingMaxTenorDataTable,
+    interbankFundingTenorBucket: renderInterbankFundingTenorBucketDataTable,
+    bondInvestmentScaleLimit: renderBondInvestmentScaleLimitDataTable,
+    bondInvestmentDurationLimit: renderBondInvestmentDurationLimitDataTable,
   };
   const tableRendererRegistry = {
     eveCombined: renderEveCombinedTable,
@@ -1672,6 +1906,410 @@ function renderLineDataTable(widget, chartContext) {
       </div>
     </div>
   `;
+}
+
+function renderScaledAxes(frame, xLabels, yLabel, maxValue, xTitle = inferXAxisTitle(xLabels), options = {}) {
+  const ticks = buildAxisTicks(maxValue);
+  const xTickMarkup = xLabels
+    .map((label, index) => {
+      const x = getFrameXPosition(frame, index, xLabels.length);
+      const displayLabel = formatXAxisTickLabel(label, index, xLabels);
+      if (options.rotateX) {
+        return `
+          <line x1="${x}" y1="${frame.bottom}" x2="${x}" y2="${frame.bottom + 6}" stroke="rgba(109,165,215,0.35)" stroke-width="1"></line>
+          <text x="${x}" y="${frame.bottom + 20}" text-anchor="end" transform="rotate(-24 ${x} ${frame.bottom + 20})" class="axis-label axis-label--x">${displayLabel}</text>
+        `;
+      }
+      return `
+        <line x1="${x}" y1="${frame.bottom}" x2="${x}" y2="${frame.bottom + 6}" stroke="rgba(109,165,215,0.35)" stroke-width="1"></line>
+        <text x="${x}" y="${frame.bottom + 22}" text-anchor="middle" class="axis-label axis-label--x">${displayLabel}</text>
+      `;
+    })
+    .join("");
+  const yTickMarkup = ticks
+    .map((tick) => {
+      const y = frame.bottom - (frame.height * tick) / maxValue;
+      return `
+        <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.14)" stroke-width="1"></line>
+        <text x="${frame.left - 14}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${formatAxisTickValue(tick)}</text>
+      `;
+    })
+    .join("");
+  return `
+    <text x="${frame.left - 52}" y="${frame.top - 6}" class="axis-title">${yLabel}</text>
+    <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 46}" text-anchor="middle" class="axis-title">${xTitle}</text>
+    <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
+    <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
+    ${yTickMarkup}
+    ${xTickMarkup}
+  `;
+}
+
+function isMaturityTrendWidget(widget) {
+  return [90, 91].includes(Number(widget?.seq));
+}
+
+function isMaturityStructureWidgetSeq(widgetSeq) {
+  return Number(widgetSeq) === 96;
+}
+
+function buildFutureMaturityMonthlyLabels(monthCount = FUTURE_MATURITY_MONTH_COUNT) {
+  const cutoff = parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  const cursor = new Date(cutoff.getFullYear(), cutoff.getMonth() + 1, 1);
+  return Array.from({ length: monthCount }, (_, index) => {
+    const current = new Date(cursor.getFullYear(), cursor.getMonth() + index, 1);
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    return `${current.getFullYear()}-${month}`;
+  });
+}
+
+function applyMaturityTrendDateRangeToLabels(widget, labels, filterState = {}) {
+  const rangeStart = appState.globalStartDate;
+  const rangeEnd = appState.globalEndDate;
+  const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
+  const historicalLabels = datedEntries
+    .filter((entry) => isTimelineEntryWithinRange(entry, rangeStart, rangeEnd))
+    .map((entry) => entry.label);
+  return uniqueList([...(historicalLabels.length ? historicalLabels : [datedEntries[0]?.label].filter(Boolean)), ...buildFutureMaturityMonthlyLabels()]);
+}
+
+function getMaturityFutureStartIndex(widget, labels = []) {
+  if (!isMaturityTrendWidget(widget)) return -1;
+  const cutoff = getDefaultGlobalEndDate();
+  const entries = buildMonthlyTimelineEntries(labels);
+  return entries.findIndex((entry) => entry.rangeStart && entry.rangeStart > cutoff);
+}
+
+function isMaturityFutureIndex(futureStartIndex, index) {
+  return futureStartIndex >= 0 && index >= futureStartIndex;
+}
+
+function renderMaturityFutureOverlay(widget, chartContext, frame) {
+  const futureStartIndex = getMaturityFutureStartIndex(widget, chartContext.xLabels);
+  if (futureStartIndex < 0) return "";
+  const step = getFrameMinStep(frame, chartContext.xLabels.length);
+  const boundaryX = Math.max(frame.left, getFrameXPosition(frame, futureStartIndex, chartContext.xLabels.length) - step / 2);
+  const width = Math.max(0, frame.right - boundaryX);
+  return `
+    <rect class="maturity-future-band" x="${boundaryX}" y="${frame.top}" width="${width}" height="${frame.height}" rx="12"></rect>
+    <line class="maturity-future-boundary" x1="${boundaryX}" y1="${frame.top}" x2="${boundaryX}" y2="${frame.bottom}" stroke-width="1.6" stroke-dasharray="6 5"></line>
+    <text class="axis-title axis-title--minor maturity-future-label" x="${boundaryX + 10}" y="${frame.top + 16}">未来合同到期</text>
+  `;
+}
+
+function renderFutureAwareLine(points, color, strokeWidth, futureStartIndex) {
+  if (!points.length) return "";
+  if (futureStartIndex <= 0 || futureStartIndex >= points.length) {
+    return `
+      <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+    `;
+  }
+  const historicalPoints = points.slice(0, futureStartIndex);
+  const futurePoints = points.slice(futureStartIndex - 1);
+  return `
+    <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${historicalPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+    <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 6" opacity="0.72" points="${futurePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+    ${points.map((point, index) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8" opacity="${isMaturityFutureIndex(futureStartIndex, index) ? "0.68" : "1"}"></circle>`).join("")}
+  `;
+}
+
+function buildLimitedLineSeries(widget, chartContext, config) {
+  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : chartContext.seriesList;
+  const selectedSeries = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 1);
+  return selectedSeries.map((label, seriesIndex) => {
+    const allIndex = Math.max(0, allSeries.indexOf(label));
+    const values = buildMetricValues(widget.seq + allIndex * 19, chartContext.xLabels.length, chartContext.signature + allIndex * 37)
+      .map((value, pointIndex) => {
+        const wave = ((value + pointIndex * 7 + allIndex * 11) % 100) / 100;
+        return Number((config.minValue + wave * (config.maxValue - config.minValue)).toFixed(config.decimals || 1));
+      });
+    const limit = Number((config.limitBase + (allIndex % 3) * config.limitStep).toFixed(config.decimals || 1));
+    return {
+      label,
+      values,
+      limit,
+      color: getPaletteColor(label, allSeries, allIndex, "line"),
+    };
+  });
+}
+
+function renderLimitedLineMetricChart(widget, chartContext, config) {
+  const seriesData = buildLimitedLineSeries(widget, chartContext, config);
+  const frame = createFrame(chartContext.xLabels.length);
+  const maxValue = Math.ceil(Math.max(config.axisMin || 0, ...seriesData.flatMap((series) => [...series.values, series.limit])) / config.roundTo) * config.roundTo;
+  const axis = renderScaledAxes(frame, chartContext.xLabels, config.yLabel, maxValue);
+  const limitLines = seriesData.slice(0, 4).map((series, index) => {
+    const y = frame.bottom - (frame.height * series.limit) / maxValue;
+    const label = `${series.label.split(" / ")[0]}限额 ${formatAxisTickValue(series.limit)}${config.unit || ""}`;
+    return `
+      <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="${hexToRgba(series.color, 0.62)}" stroke-width="2" stroke-dasharray="8 6"></line>
+      <text x="${frame.left + 8}" y="${Math.max(frame.top + 14, y - 8 - index * 12)}" class="axis-title axis-title--minor" fill="${series.color}">${label}</text>
+    `;
+  }).join("");
+  const lines = seriesData.map((series) => {
+    const points = series.values.map((value, index) => ({
+      x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+      y: frame.bottom - (frame.height * value) / maxValue,
+    }));
+    return `
+      <polyline fill="none" stroke="${series.color}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.6" fill="${series.color}" stroke="#ffffff" stroke-width="1.7"></circle>`).join("")}
+    `;
+  }).join("");
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${limitLines}
+        ${lines}
+      </svg>
+      ${renderSeriesLegend(widget, chartContext)}
+    </div>
+  `;
+}
+
+function renderLimitedLineMetricDataTable(widget, chartContext, config) {
+  const seriesData = buildLimitedLineSeries(widget, chartContext, config);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide chart-table--matrix">
+          <thead>
+            <tr>
+              <th rowspan="2">${inferXAxisTitle(chartContext.xLabels)}</th>
+              ${seriesData.map((series) => `<th colspan="2">${series.label}</th>`).join("")}
+            </tr>
+            <tr>
+              ${seriesData.map(() => `<th>${config.valueLabel}</th><th>限额</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${chartContext.xLabels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                ${seriesData.map((series) => `<td>${series.values[index].toFixed(config.decimals || 1)}</td><td>${series.limit.toFixed(config.decimals || 1)}</td>`).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderInterbankFundingMaxTenorChart(widget, chartContext) {
+  return renderLimitedLineMetricChart(widget, chartContext, {
+    yLabel: "期限（天）",
+    valueLabel: "最长期限",
+    minValue: 120,
+    maxValue: 330,
+    limitBase: 360,
+    limitStep: -30,
+    roundTo: 60,
+    axisMin: 420,
+    unit: "天",
+    decimals: 0,
+  });
+}
+
+function renderInterbankFundingMaxTenorDataTable(widget, chartContext) {
+  return renderLimitedLineMetricDataTable(widget, chartContext, {
+    valueLabel: "最长期限",
+    minValue: 120,
+    maxValue: 330,
+    limitBase: 360,
+    limitStep: -30,
+    roundTo: 60,
+    decimals: 0,
+  });
+}
+
+function buildInterbankFundingBucketRows(widget, chartContext) {
+  const buckets = ["1M以内", "1-3M", "3-6M", "6-12M", "1年以上"];
+  const rawValues = buildBarValues(widget.seq, buckets.length, chartContext.signature).map((value, index) => 12 + (value % (index === 0 ? 24 : 34)));
+  const total = rawValues.reduce((sum, value) => sum + value, 0);
+  return buckets.map((bucket, index) => ({
+    bucket,
+    value: Number(((rawValues[index] / total) * 100).toFixed(1)),
+  }));
+}
+
+function renderInterbankFundingTenorBucketChart(widget, chartContext) {
+  const rows = buildInterbankFundingBucketRows(widget, chartContext);
+  const labels = rows.map((row) => row.bucket);
+  const frame = createFrame(labels.length);
+  const maxValue = Math.max(40, Math.ceil(Math.max(...rows.map((row) => row.value)) / 10) * 10);
+  const axis = renderScaledAxes(frame, labels, "规模占比(%)", maxValue, "原始期限 bucket");
+  const barWidth = Math.max(34, getFrameMinStep(frame, labels.length) * 0.34);
+  const bars = rows.map((row, index) => {
+    const x = getFrameXPosition(frame, index, labels.length) - barWidth / 2;
+    const height = (frame.height * row.value) / maxValue;
+    const y = frame.bottom - height;
+    return `
+      <rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="9" fill="${getBarFillColor(row.bucket, labels, index, 0.86)}" stroke="${getBarStrokeColor(row.bucket, labels, index, 0.28)}" stroke-width="1.2"></rect>
+      <text x="${x + barWidth / 2}" y="${Math.max(frame.top + 14, y - 8)}" text-anchor="middle" class="axis-title axis-title--minor">${row.value.toFixed(1)}%</text>
+    `;
+  }).join("");
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${bars}
+      </svg>
+    </div>
+  `;
+}
+
+function renderInterbankFundingTenorBucketDataTable(widget, chartContext) {
+  const rows = buildInterbankFundingBucketRows(widget, chartContext);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table">
+          <thead><tr><th>原始期限 bucket</th><th>同业融入规模占比</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `<tr><td>${row.bucket}</td><td>${row.value.toFixed(1)}%</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function buildBondInvestmentScaleTimeline(widget, chartContext) {
+  const orgs = getSelectedOrganizations(chartContext);
+  const currencies = getSelectedCurrencies(chartContext);
+  const signature = createSignature(widget.seq, {
+    机构: orgs,
+    币种: currencies,
+  });
+  const scopeWeight = Math.max(1, orgs.length * Math.max(1, currencies.length));
+  const bondLimit = Number((320 + Math.min(scopeWeight, 12) * 18).toFixed(1));
+  const corporateBondLimit = Number((120 + Math.min(scopeWeight, 12) * 8).toFixed(1));
+  const rows = chartContext.xLabels.map((label, index) => {
+    const trend = index * (2.6 + (signature % 5) * 0.15);
+    const wave = ((signature + index * 37) % 52) - 20;
+    const bondScale = Number((160 + scopeWeight * 6 + trend + wave).toFixed(1));
+    const corporateWave = ((signature + index * 23 + 17) % 36) - 12;
+    const corporateBondScale = Number((46 + scopeWeight * 2.8 + trend * 0.32 + corporateWave).toFixed(1));
+    return {
+      label,
+      bondScale: Math.max(0, bondScale),
+      corporateBondScale: Math.max(0, corporateBondScale),
+      bondLimit,
+      corporateBondLimit,
+    };
+  });
+  return {
+    scopeLabel: `${summarizeFilterSelection("机构", orgs)} / ${summarizeFilterSelection("币种", currencies)}`,
+    rows,
+  };
+}
+
+function renderBondInvestmentScaleLimitChart(widget, chartContext) {
+  const { rows } = buildBondInvestmentScaleTimeline(widget, chartContext);
+  const labels = chartContext.xLabels;
+  const frame = createFrame(labels.length);
+  const maxValue = Math.ceil(Math.max(...rows.flatMap((row) => [row.bondScale, row.corporateBondScale, row.bondLimit, row.corporateBondLimit]), 200) / 100) * 100;
+  const axis = renderScaledAxes(frame, labels, "规模（亿元）", maxValue, inferXAxisTitle(labels));
+  const step = getFrameMinStep(frame, labels.length);
+  const barWidth = Math.max(10, Math.min(20, step * 0.22));
+  const bondColor = getPaletteColor("债券投资规模", ["债券投资规模", "非金融企业债投资规模"], 0, "bar");
+  const corpColor = getPaletteColor("非金融企业债投资规模", ["债券投资规模", "非金融企业债投资规模"], 1, "bar");
+  const bars = rows.map((row, index) => {
+    const center = getFrameXPosition(frame, index, labels.length);
+    const renderBar = (value, offset, color) => {
+      const height = (frame.height * value) / maxValue;
+      const x = center + offset - barWidth / 2;
+      const y = frame.bottom - height;
+      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${color}" opacity="0.86"></rect>`;
+    };
+    return `
+      ${renderBar(row.bondScale, -barWidth * 0.65, bondColor)}
+      ${renderBar(row.corporateBondScale, barWidth * 0.65, corpColor)}
+    `;
+  }).join("");
+  const firstRow = rows[0] || { bondLimit: 0, corporateBondLimit: 0 };
+  const bondLimitY = frame.bottom - (frame.height * firstRow.bondLimit) / maxValue;
+  const corpLimitY = frame.bottom - (frame.height * firstRow.corporateBondLimit) / maxValue;
+  const limitLines = `
+    <line x1="${frame.left}" y1="${bondLimitY}" x2="${frame.right}" y2="${bondLimitY}" stroke="${hexToRgba(bondColor, 0.78)}" stroke-width="2" stroke-dasharray="8 6"></line>
+    <text x="${frame.left + 8}" y="${Math.max(frame.top + 14, bondLimitY - 8)}" class="axis-title axis-title--minor" fill="${bondColor}">债券投资限额 ${firstRow.bondLimit.toFixed(1)}</text>
+    <line x1="${frame.left}" y1="${corpLimitY}" x2="${frame.right}" y2="${corpLimitY}" stroke="${hexToRgba(corpColor, 0.78)}" stroke-width="2" stroke-dasharray="5 5"></line>
+    <text x="${frame.left + 8}" y="${Math.max(frame.top + 28, corpLimitY - 8)}" class="axis-title axis-title--minor" fill="${corpColor}">非金融企业债限额 ${firstRow.corporateBondLimit.toFixed(1)}</text>
+  `;
+  const legendItems = [
+    { label: "债券投资规模", color: bondColor },
+    { label: "非金融企业债投资规模", color: corpColor },
+    { label: "债券投资限额", color: hexToRgba(bondColor, 0.78) },
+    { label: "非金融企业债限额", color: hexToRgba(corpColor, 0.78) },
+  ];
+  return `
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${limitLines}
+        ${bars}
+      </svg>
+      ${renderSeriesLegend(widget, { ...chartContext, allSeriesList: legendItems.map((item) => item.label), seriesList: legendItems.map((item) => item.label), legendItems }, "__legend_bond_scale__")}
+    </div>
+  `;
+}
+
+function renderBondInvestmentScaleLimitDataTable(widget, chartContext) {
+  const { rows, scopeLabel } = buildBondInvestmentScaleTimeline(widget, chartContext);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th><th>筛选口径</th><th>债券投资规模</th><th>债券投资限额</th><th>非金融企业债投资规模</th><th>非金融企业债限额</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${row.label}</td>
+                <td>${scopeLabel}</td>
+                <td>${row.bondScale.toFixed(1)}</td>
+                <td>${row.bondLimit.toFixed(1)}</td>
+                <td>${row.corporateBondScale.toFixed(1)}</td>
+                <td>${row.corporateBondLimit.toFixed(1)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderBondInvestmentDurationLimitChart(widget, chartContext) {
+  return renderLimitedLineMetricChart(widget, chartContext, {
+    yLabel: "久期",
+    valueLabel: "债券投资久期",
+    minValue: 2.4,
+    maxValue: 5.6,
+    limitBase: 5.8,
+    limitStep: -0.25,
+    roundTo: 1,
+    axisMin: 7,
+    decimals: 1,
+  });
+}
+
+function renderBondInvestmentDurationLimitDataTable(widget, chartContext) {
+  return renderLimitedLineMetricDataTable(widget, chartContext, {
+    valueLabel: "债券投资久期",
+    minValue: 2.4,
+    maxValue: 5.6,
+    limitBase: 5.8,
+    limitStep: -0.25,
+    roundTo: 1,
+    decimals: 1,
+  });
 }
 
 function buildLiquidityGapTenorSeries(widget, chartContext) {
@@ -3051,7 +3689,12 @@ function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedV
 }
 
 function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, selectedValues) {
-  const [startDate, endDate] = normalizeBusinessStructureDateRange(selectedValues);
+  const [startDate, endDate] = normalizeWidgetBusinessStructureDateRange(widgetSeq, selectedValues, null, filterName);
+  const rangeMode = isMaturityStructureWidgetSeq(widgetSeq) ? getMaturityStructureRangeMode(filterName, selectedValues) : "historical";
+  const isFutureRange = rangeMode === "future";
+  const allowsFuture = isMaturityStructureWidgetSeq(widgetSeq) && isFutureRange;
+  const minDate = isFutureRange ? addDays(getDefaultGlobalEndDate(), 1) : "";
+  const maxDate = allowsFuture ? addDays(getDefaultGlobalEndDate(), 366) : getDefaultGlobalEndDate();
   return `
     <div class="chart-inline-control chart-inline-control--daterange">
       <span class="chart-inline-control__label">${filterLabel}</span>
@@ -3062,7 +3705,8 @@ function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, 
             class="inline-date-range__input"
             type="date"
             value="${startDate}"
-            max="${endDate}"
+            min="${minDate}"
+            max="${allowsFuture ? maxDate : endDate}"
             data-inline-date-filter="true"
             data-widget-seq="${widgetSeq}"
             data-filter-name="${filterName}"
@@ -3076,7 +3720,7 @@ function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, 
             type="date"
             value="${endDate}"
             min="${startDate}"
-            max="${getDefaultGlobalEndDate()}"
+            max="${maxDate}"
             data-inline-date-filter="true"
             data-widget-seq="${widgetSeq}"
             data-filter-name="${filterName}"
@@ -3215,13 +3859,79 @@ function isDateValue(value) {
   return Boolean(parseDateValue(value));
 }
 
-function normalizeBusinessStructureDateRange(values = []) {
+function getDefaultFutureBusinessStructureDateRange(referenceDateValue = getDefaultGlobalEndDate()) {
+  const startDate = addDays(referenceDateValue, 1);
+  return [startDate, addMonthsDateValue(startDate, FUTURE_MATURITY_MONTH_COUNT)];
+}
+
+function isFutureBusinessDate(dateValue) {
+  return isDateValue(dateValue) && dateValue > getDefaultGlobalEndDate();
+}
+
+function normalizeBusinessStructureDateRange(values = [], options = {}) {
+  const allowFuture = Boolean(options.allowFuture);
+  const preventCrossBoundary = Boolean(options.preventCrossBoundary);
+  const changedIndex = options.changedIndex == null ? null : Number(options.changedIndex);
   const [defaultStart, defaultEnd] = getDefaultBusinessStructureDateRange();
   let startDate = Array.isArray(values) && isDateValue(values[0]) ? values[0] : defaultStart;
   let endDate = Array.isArray(values) && isDateValue(values[1]) ? values[1] : defaultEnd;
-  if (endDate > defaultEnd) endDate = defaultEnd;
-  if (startDate > endDate) startDate = endDate;
+  if (!allowFuture && endDate > defaultEnd) endDate = defaultEnd;
+  if (allowFuture && preventCrossBoundary && isDateValue(startDate) && isDateValue(endDate)) {
+    const startIsFuture = isFutureBusinessDate(startDate);
+    const endIsFuture = isFutureBusinessDate(endDate);
+    if (startIsFuture !== endIsFuture) {
+      if (changedIndex === 0) {
+        endDate = startDate;
+      } else if (changedIndex === 1) {
+        if (endIsFuture) {
+          startDate = getMonthStartDateValue(endDate);
+          if (!isFutureBusinessDate(startDate)) startDate = addDays(defaultEnd, 1);
+        } else {
+          startDate = endDate;
+        }
+      } else if (endIsFuture) {
+        startDate = getMonthStartDateValue(endDate);
+        if (!isFutureBusinessDate(startDate)) startDate = addDays(defaultEnd, 1);
+      } else {
+        endDate = defaultEnd;
+      }
+    }
+  }
+  if (startDate > endDate) {
+    if (allowFuture && preventCrossBoundary && changedIndex === 0) {
+      endDate = startDate;
+    } else {
+      startDate = endDate;
+    }
+  }
   return [startDate, endDate];
+}
+
+function getMaturityStructureRangeMode(filterName, values = []) {
+  if (String(filterName || "").includes("未来")) return "future";
+  if (String(filterName || "").includes("历史")) return "historical";
+  return Array.isArray(values) && values.some((value) => isFutureBusinessDate(value)) ? "future" : "historical";
+}
+
+function normalizeWidgetBusinessStructureDateRange(widgetSeq, values = [], changedIndex = null, filterName = "时间区间（起止）") {
+  if (isMaturityStructureWidgetSeq(widgetSeq)) {
+    const rangeMode = getMaturityStructureRangeMode(filterName, values);
+    const defaultRange = rangeMode === "future" ? getDefaultFutureBusinessStructureDateRange() : getDefaultBusinessStructureDateRange();
+    const normalizedValues = Array.isArray(values) && values.length ? values : defaultRange;
+    const normalizedRange = normalizeBusinessStructureDateRange(normalizedValues, {
+      allowFuture: true,
+      preventCrossBoundary: true,
+      changedIndex,
+    });
+    if (rangeMode === "future" && !normalizedRange.every(isFutureBusinessDate)) {
+      return getDefaultFutureBusinessStructureDateRange();
+    }
+    if (rangeMode === "historical" && normalizedRange.some(isFutureBusinessDate)) {
+      return getDefaultBusinessStructureDateRange();
+    }
+    return normalizedRange;
+  }
+  return normalizeBusinessStructureDateRange(values);
 }
 
 function getGlobalTimeBounds() {
@@ -3246,6 +3956,9 @@ function getGlobalTimeBounds() {
 }
 
 function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
+  if (isMaturityTrendWidget(widget)) {
+    return applyMaturityTrendDateRangeToLabels(widget, labels, filterState);
+  }
   const rangeStart = appState.globalStartDate;
   const rangeEnd = appState.globalEndDate;
   if (!rangeStart && !rangeEnd) return labels;
@@ -3338,6 +4051,21 @@ function getManagementLimitConfig(widget) {
 function getSelectedOrganizations(chartContext) {
   const selected = (chartContext?.filterState?.机构 || DEFAULT_FILTER_VALUES.机构 || []).filter(Boolean);
   return selected.length ? selected : (FILTER_OPTIONS.机构 || []).slice(0, 1);
+}
+
+function getSelectedCurrencies(chartContext) {
+  const selected = (chartContext?.filterState?.币种 || DEFAULT_FILTER_VALUES.币种 || []).filter(Boolean);
+  return selected.length ? selected : (FILTER_OPTIONS.币种 || []).slice(0, 1);
+}
+
+function getSelectedOrgCurrencyPairs(chartContext, maxPairs = 8) {
+  const orgs = getSelectedOrganizations(chartContext);
+  const currencies = getSelectedCurrencies(chartContext);
+  return cartesianProduct([orgs, currencies]).slice(0, maxPairs).map((pair) => ({
+    org: pair[0],
+    currency: pair[1],
+    label: `${shortenOrgLabel(pair[0])} / ${pair[1]}`,
+  }));
 }
 
 function shortenOrgLabel(name) {
@@ -3630,9 +4358,7 @@ function ensureWidgetFilterState(widget, widgetBehavior = getWidgetBehavior(widg
     if (!filter?.name) return;
     const currentValues = appState.widgetFilters[widget.seq][filter.name];
     if (filter.type === "dateRange") {
-      if (!Array.isArray(currentValues) || currentValues.length !== 2 || !currentValues.every(isDateValue)) {
-        appState.widgetFilters[widget.seq][filter.name] = normalizeBusinessStructureDateRange(currentValues);
-      }
+      appState.widgetFilters[widget.seq][filter.name] = normalizeWidgetBusinessStructureDateRange(widget.seq, currentValues, null, filter.name);
       return;
     }
     if (Array.isArray(currentValues) && currentValues.length) return;
@@ -4147,13 +4873,49 @@ function getSimulationMode(page = getCurrentPage()) {
   return getPageBehavior(page).simulationMode || "generic";
 }
 
-function getDefaultSimulationDate() {
-  return appState.globalEndDate || getGlobalTimeBounds().max || formatDateValue(new Date());
+function canRenderHedgeSimulation(page = getCurrentPage()) {
+  return getSimulationMode(page) === "interest";
+}
+
+function getSimulationDraftMode(page = getCurrentPage()) {
+  if (!canRenderHedgeSimulation(page)) return SIMULATION_MODE_NEW_BUSINESS;
+  return appState.simulationDraftMode === SIMULATION_MODE_HEDGE ? SIMULATION_MODE_HEDGE : SIMULATION_MODE_NEW_BUSINESS;
+}
+
+function getSimulationModeLabel(mode = SIMULATION_MODE_NEW_BUSINESS) {
+  return mode === SIMULATION_MODE_HEDGE ? "套期交易模拟测算" : "新业务模拟测算";
+}
+
+function getDefaultSimulationDraftMode(page, simulation) {
+  if (canRenderHedgeSimulation(page) && simulation?.simulationType === SIMULATION_MODE_HEDGE) return SIMULATION_MODE_HEDGE;
+  return SIMULATION_MODE_NEW_BUSINESS;
+}
+
+function closeSimulationModal() {
+  appState.simulationModalPageId = null;
+  appState.simulationDraftMode = SIMULATION_MODE_NEW_BUSINESS;
+  appState.simulationDraft = null;
+  appState.hedgeSimulationDraft = null;
+}
+
+function openSimulationModal(pageId) {
+  const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
+  const simulation = getPageSimulation(pageId);
+  appState.simulationModalPageId = pageId;
+  appState.simulationDraftMode = getDefaultSimulationDraftMode(page, simulation);
+  appState.simulationDraft = createSimulationDraftFromScenario(
+    page,
+    simulation?.simulationType === SIMULATION_MODE_NEW_BUSINESS ? simulation : null
+  );
+  appState.hedgeSimulationDraft = createHedgeSimulationDraftFromScenario(
+    page,
+    simulation?.simulationType === SIMULATION_MODE_HEDGE ? simulation : null
+  );
 }
 
 function getSimulationFieldDefs(page = getCurrentPage()) {
   const commonFields = [
-    { name: "businessDate", label: "业务发生日期", type: "date" },
+    { name: "fundingRole", label: "资金方向", type: "select", options: SIMULATION_FUNDING_ROLE_OPTIONS },
     { name: "org", label: "机构", type: "select", options: FILTER_OPTIONS["机构"] || ["法人汇总"] },
     { name: "currency", label: "币种", type: "select", options: FILTER_OPTIONS["币种"] || ["全折人民币"] },
     { name: "businessType", label: "业务类型", type: "select", options: BUSINESS_DURATION_OPTIONS },
@@ -4170,11 +4932,40 @@ function getSimulationFieldDefs(page = getCurrentPage()) {
   return commonFields;
 }
 
-function createDefaultSimulationEntry(page = getCurrentPage()) {
+function getDefaultSimulationBusinessType(fundingRole) {
+  if (fundingRole === "资金来源") return "定期存款";
+  if (fundingRole === "资金运用") return "自营贷款";
+  return BUSINESS_DURATION_OPTIONS[0] || "";
+}
+
+function getDefaultSimulationFundingRole(entryIndex = 0) {
+  return SIMULATION_FUNDING_ROLE_OPTIONS[entryIndex % SIMULATION_FUNDING_ROLE_OPTIONS.length] || SIMULATION_FUNDING_ROLE_OPTIONS[0];
+}
+
+function getSimulationFundingRoleByBusinessType(businessType) {
+  return BUSINESS_SIDE_MAP[businessType] === "liability" ? "资金来源" : "资金运用";
+}
+
+function normalizeSimulationEntryRole(entry, entryIndex = 0) {
+  const fallbackRole = entry?.businessType
+    ? getSimulationFundingRoleByBusinessType(entry.businessType)
+    : getDefaultSimulationFundingRole(entryIndex);
+  const fundingRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(entry?.fundingRole) ? entry.fundingRole : fallbackRole;
+  return {
+    ...entry,
+    fundingRole,
+  };
+}
+
+function createDefaultSimulationEntry(page = getCurrentPage(), entryIndex = 0, fundingRoleOverride = "") {
   const fieldDefs = getSimulationFieldDefs(page);
   const entry = {};
+  const fundingRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(fundingRoleOverride)
+    ? fundingRoleOverride
+    : getDefaultSimulationFundingRole(entryIndex);
   fieldDefs.forEach((field) => {
-    if (field.type === "date") entry[field.name] = getDefaultSimulationDate();
+    if (field.name === "fundingRole") entry[field.name] = fundingRole;
+    else if (field.name === "businessType") entry[field.name] = getDefaultSimulationBusinessType(fundingRole);
     else if (field.type === "number") entry[field.name] = field.name === "scale" ? "50" : "12";
     else if (field.options?.length) {
       const firstOption = field.options[0];
@@ -4185,7 +4976,7 @@ function createDefaultSimulationEntry(page = getCurrentPage()) {
 }
 
 function createDefaultSimulationDraft(page = getCurrentPage()) {
-  return { entries: [createDefaultSimulationEntry(page)] };
+  return { entries: createMinimumSimulationEntries(page) };
 }
 
 function getSimulationEntries(simulation) {
@@ -4196,20 +4987,62 @@ function getSimulationEntries(simulation) {
 
 function getSimulationDraftEntries(draft, page = getCurrentPage()) {
   const entries = getSimulationEntries(draft);
-  return entries.length ? entries : [createDefaultSimulationEntry(page)];
+  return ensureMinimumSimulationEntries(page, entries.length ? entries : []);
 }
 
 function createSimulationDraftFromScenario(page, scenario) {
-  const fallbackEntry = createDefaultSimulationEntry(page);
-  const entries = getSimulationEntries(scenario);
+  const entries = ensureMinimumSimulationEntries(page, getSimulationEntries(scenario));
   return {
-    entries: (entries.length ? entries : [fallbackEntry]).map((entry) => ({
-      ...fallbackEntry,
-      ...entry,
-      scale: String(entry?.scale ?? fallbackEntry.scale),
-      termMonths: String(entry?.termMonths ?? fallbackEntry.termMonths),
-    })),
+    entries: entries.map((entry, index) => {
+      const fallbackEntry = createDefaultSimulationEntry(page, index, entry?.fundingRole);
+      return {
+        ...fallbackEntry,
+        ...entry,
+        fundingRole: entry?.fundingRole || fallbackEntry.fundingRole,
+        businessType: entry?.businessType || fallbackEntry.businessType,
+        scale: String(entry?.scale ?? fallbackEntry.scale),
+        termMonths: String(entry?.termMonths ?? fallbackEntry.termMonths),
+      };
+    }),
   };
+}
+
+function createMinimumSimulationEntries(page = getCurrentPage()) {
+  return SIMULATION_FUNDING_ROLE_OPTIONS.map((fundingRole, index) => createDefaultSimulationEntry(page, index, fundingRole));
+}
+
+function ensureMinimumSimulationEntries(page = getCurrentPage(), entries = []) {
+  const normalizedEntries = (Array.isArray(entries) ? entries.filter(Boolean) : [])
+    .map((entry, index) => normalizeSimulationEntryRole(entry, index));
+  const nextEntries = [...normalizedEntries];
+  SIMULATION_FUNDING_ROLE_OPTIONS.forEach((fundingRole) => {
+    if (!nextEntries.some((entry) => entry.fundingRole === fundingRole)) {
+      nextEntries.push(createDefaultSimulationEntry(page, nextEntries.length, fundingRole));
+    }
+  });
+  return nextEntries;
+}
+
+function getSimulationVisibleFieldDefs(page = getCurrentPage()) {
+  return getSimulationFieldDefs(page).filter((field) => field.name !== "fundingRole");
+}
+
+function updateSimulationEntryField(page, entries, entryIndex, fieldName, fieldValue) {
+  const nextEntries = ensureMinimumSimulationEntries(page, entries).map((entry) => ({ ...entry }));
+  const previousEntry = nextEntries[entryIndex] || createDefaultSimulationEntry(page, entryIndex);
+  const nextEntry = {
+    ...previousEntry,
+    [fieldName]: fieldValue,
+  };
+  if (fieldName === "fundingRole") {
+    const previousDefaultBusinessType = getDefaultSimulationBusinessType(previousEntry.fundingRole);
+    const nextDefaultBusinessType = getDefaultSimulationBusinessType(fieldValue);
+    if (!nextEntry.businessType || nextEntry.businessType === previousDefaultBusinessType) {
+      nextEntry.businessType = nextDefaultBusinessType;
+    }
+  }
+  nextEntries[entryIndex] = nextEntry;
+  return nextEntries;
 }
 
 function renderSimulationField(field, draft, entryIndex) {
@@ -4238,7 +5071,7 @@ function renderSimulationField(field, draft, entryIndex) {
 
 function normalizeSimulationRecord(page, draft) {
   const normalized = { ...createDefaultSimulationEntry(page), ...draft };
-  normalized.businessDate = String(normalized.businessDate || getDefaultSimulationDate());
+  normalized.fundingRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(normalized.fundingRole) ? normalized.fundingRole : SIMULATION_FUNDING_ROLE_OPTIONS[0];
   normalized.scale = Math.max(1, Number(normalized.scale || 0));
   normalized.termMonths = Math.max(1, Number(normalized.termMonths || 0));
   if (getSimulationMode(page) === "interest") normalized.repricingMonths = String(normalized.repricingMonths || "3");
@@ -4263,26 +5096,117 @@ function normalizeSimulationScenario(page, draft) {
   const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
   const weightedTerm = entries.reduce((sum, entry) => sum + Number(entry.termMonths || 0) * Number(entry.scale || 0), 0);
   return {
+    simulationType: SIMULATION_MODE_NEW_BUSINESS,
     entries,
-    businessDate: getSharedSimulationValue(entries, "businessDate", "多日期"),
     org: getSharedSimulationValue(entries, "org", "多机构"),
     currency: getSharedSimulationValue(entries, "currency", "多币种"),
+    fundingRole: getSharedSimulationValue(entries, "fundingRole", "来源/运用组合"),
     businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
     scale: Number(totalScale.toFixed(1)),
     termMonths: totalScale ? Number((weightedTerm / totalScale).toFixed(1)) : 1,
   };
 }
 
+function createDefaultHedgeSimulationDraft() {
+  return {
+    query: "",
+    selectedItemId: "",
+    hedgeAmount: "50",
+    hedgeTermMonths: "12",
+  };
+}
+
+function createHedgeSimulationDraftFromScenario(page, scenario) {
+  if (scenario?.simulationType !== SIMULATION_MODE_HEDGE) return createDefaultHedgeSimulationDraft(page);
+  return {
+    query: scenario.hedgeItemId || "",
+    selectedItemId: scenario.hedgeItemId || "",
+    hedgeAmount: String(scenario.hedgeAmount ?? scenario.scale ?? "50"),
+    hedgeTermMonths: String(scenario.hedgeTermMonths ?? scenario.termMonths ?? "12"),
+  };
+}
+
+function getHedgeSearchResults(draft = appState.hedgeSimulationDraft) {
+  const query = String(draft?.query || "").trim().toLowerCase();
+  if (!query) return HEDGEABLE_ITEM_OPTIONS.slice(0, 4);
+  return HEDGEABLE_ITEM_OPTIONS.filter((item) =>
+    [item.id, item.type, item.businessType, item.org, item.currency, item.rateBenchmark]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  );
+}
+
+function getSelectedHedgeItem(draft = appState.hedgeSimulationDraft) {
+  return HEDGEABLE_ITEM_OPTIONS.find((item) => item.id === draft?.selectedItemId) || null;
+}
+
+function getHedgeDraft(page = getCurrentPage()) {
+  if (!appState.hedgeSimulationDraft) appState.hedgeSimulationDraft = createDefaultHedgeSimulationDraft(page);
+  return appState.hedgeSimulationDraft;
+}
+
+function normalizeHedgeSimulationScenario(page, draft = createDefaultHedgeSimulationDraft(page)) {
+  const selectedItem = getSelectedHedgeItem(draft) || getHedgeSearchResults(draft)[0] || HEDGEABLE_ITEM_OPTIONS[0];
+  const hedgeAmount = clampNumber(Number(draft.hedgeAmount || 0), 1, selectedItem.balance);
+  const hedgeTermMonths = clampNumber(Number(draft.hedgeTermMonths || selectedItem.remainingTermMonths || 12), 1, 360);
+  const hedgeCoverageRatio = Number((hedgeAmount / Math.max(1, Number(selectedItem.balance || 1))).toFixed(4));
+  const entry = {
+    simulationType: SIMULATION_MODE_HEDGE,
+    hedgeItemId: selectedItem.id,
+    hedgeItemType: selectedItem.type,
+    hedgeCoverageRatio,
+    fundingRole: getSimulationFundingRoleByBusinessType(selectedItem.businessType),
+    org: selectedItem.org,
+    currency: selectedItem.currency,
+    businessType: selectedItem.businessType,
+    scale: hedgeAmount,
+    termMonths: hedgeTermMonths,
+    repricingMonths: selectedItem.repricingMonths || "3",
+    rateType: selectedItem.rateType || "浮动利率",
+  };
+  return {
+    simulationType: SIMULATION_MODE_HEDGE,
+    hedgeItemId: selectedItem.id,
+    hedgeItemType: selectedItem.type,
+    hedgeAmount,
+    hedgeTermMonths,
+    hedgeCoverageRatio,
+    hedgedItem: selectedItem,
+    entries: [entry],
+    org: selectedItem.org,
+    currency: selectedItem.currency,
+    businessType: selectedItem.businessType,
+    scale: hedgeAmount,
+    termMonths: hedgeTermMonths,
+  };
+}
+
 function renderSimulationSummary(pageId = getCurrentPage()?.id) {
   const simulation = getPageSimulation(pageId);
   if (!simulation) return "";
+  if (simulation.simulationType === SIMULATION_MODE_HEDGE) {
+    const hedgedItem = simulation.hedgedItem || HEDGEABLE_ITEM_OPTIONS.find((item) => item.id === simulation.hedgeItemId);
+    return `
+      <div class="simulation-summary">
+        <span class="simulation-summary__item">套期交易模拟测算</span>
+        <span class="simulation-summary__item">被套期项目：${simulation.hedgeItemId || "-"}</span>
+        <span class="simulation-summary__item">类型：${hedgedItem?.type || "-"}</span>
+        <span class="simulation-summary__item">币种：${simulation.currency || hedgedItem?.currency || "-"}</span>
+        <span class="simulation-summary__item">套期金额：${Number(simulation.hedgeAmount || simulation.scale || 0).toFixed(1)}亿元</span>
+        <span class="simulation-summary__item">套期期限：${Number(simulation.hedgeTermMonths || simulation.termMonths || 0).toFixed(0)}个月</span>
+        <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}">调整模拟测算</button>
+        <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
+      </div>
+    `;
+  }
   const entries = getSimulationEntries(simulation);
   const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
   return `
     <div class="simulation-summary">
-      <span class="simulation-summary__item">模拟业务：${entries.length}笔</span>
+      <span class="simulation-summary__item">新业务模拟测算：${entries.length}笔</span>
       <span class="simulation-summary__item">机构：${summarizeSimulationValues(entries, "org")}</span>
       <span class="simulation-summary__item">币种：${summarizeSimulationValues(entries, "currency")}</span>
+      <span class="simulation-summary__item">资金方向：${summarizeSimulationValues(entries, "fundingRole")}</span>
       <span class="simulation-summary__item">业务类型：${summarizeSimulationValues(entries, "businessType")}</span>
       <span class="simulation-summary__item">规模合计：${Number(totalScale.toFixed(1))}亿元</span>
       <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}">调整模拟测算</button>
@@ -4291,17 +5215,169 @@ function renderSimulationSummary(pageId = getCurrentPage()?.id) {
   `;
 }
 
-function renderSimulationEntryForm(page, entry, entryIndex, entryCount) {
+function renderSimulationEntryForm(page, entry, entryIndex, roleEntryIndex, roleEntryCount) {
   return `
     <section class="simulation-entry" data-simulation-entry="${entryIndex}">
       <div class="simulation-entry__header">
-        <h4 class="simulation-entry__title">业务 ${entryIndex + 1}</h4>
-        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-simulation-entry="${entryIndex}">删除</button>` : ""}
+        <h4 class="simulation-entry__title">业务 ${roleEntryIndex + 1}</h4>
+        ${roleEntryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-simulation-entry="${entryIndex}">删除</button>` : ""}
       </div>
       <div class="simulation-form simulation-form--entry">
-        ${getSimulationFieldDefs(page).map((field) => renderSimulationField(field, entry, entryIndex)).join("")}
+        ${getSimulationVisibleFieldDefs(page).map((field) => renderSimulationField(field, entry, entryIndex)).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderSimulationRoleSection(page, entries, fundingRole) {
+  const roleEntries = entries
+    .map((entry, entryIndex) => ({ entry, entryIndex }))
+    .filter((item) => item.entry.fundingRole === fundingRole);
+  const roleScale = roleEntries.reduce((sum, item) => sum + Number(item.entry.scale || 0), 0);
+  const roleClass = fundingRole === "资金来源" ? "source" : "use";
+  return `
+    <section class="simulation-role-section simulation-role-section--${roleClass}">
+      <div class="simulation-role-section__header">
+        <div>
+          <h4 class="simulation-role-section__title">${fundingRole}</h4>
+          <div class="simulation-role-section__meta">共 ${roleEntries.length} 笔 / 合计 ${Number(roleScale.toFixed(1))} 亿元</div>
+        </div>
+      </div>
+      <div class="simulation-role-section__body">
+        ${roleEntries.map((item, roleEntryIndex) =>
+          renderSimulationEntryForm(page, item.entry, item.entryIndex, roleEntryIndex, roleEntries.length)
+        ).join("")}
+      </div>
+      <div class="simulation-role-section__actions">
+        <button class="toolbar-action" type="button" data-add-simulation-entry="${page.id}" data-simulation-entry-role="${fundingRole}">新增${fundingRole}业务</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderSimulationModeTabs(page, activeMode) {
+  if (!canRenderHedgeSimulation(page)) return "";
+  const tabs = [
+    { mode: SIMULATION_MODE_NEW_BUSINESS, label: "新业务模拟测算" },
+    { mode: SIMULATION_MODE_HEDGE, label: "套期交易模拟测算" },
+  ];
+  return `
+    <div class="simulation-mode-tabs" role="tablist" aria-label="模拟测算类型">
+      ${tabs.map((tab) => `
+        <button
+          class="simulation-mode-tab ${tab.mode === activeMode ? "is-active" : ""}"
+          type="button"
+          role="tab"
+          aria-selected="${tab.mode === activeMode ? "true" : "false"}"
+          data-simulation-mode-tab="${tab.mode}"
+        >
+          ${tab.label}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderNewBusinessSimulationPanel(page) {
+  const draft = appState.simulationDraft || createDefaultSimulationDraft(page);
+  const entries = getSimulationDraftEntries(draft, page);
+  return `
+    <div class="simulation-entry-list">
+      ${SIMULATION_FUNDING_ROLE_OPTIONS.map((fundingRole) => renderSimulationRoleSection(page, entries, fundingRole)).join("")}
+    </div>
+  `;
+}
+
+function renderHedgeItemInfo(item) {
+  if (!item) {
+    return `
+      <div class="hedge-selected-card hedge-selected-card--empty">
+        <div class="hedge-selected-card__title">请选择被套期项目</div>
+        <p>输入项目编号、类型、机构、币种或利率基准后，在下方结果中点击编号即可带出基础信息。</p>
+      </div>
+    `;
+  }
+  const rows = [
+    ["类型", item.type],
+    ["业务类型", item.businessType],
+    ["机构", item.org],
+    ["币种", item.currency],
+    ["余额", `${Number(item.balance).toFixed(1)}亿元`],
+    ["利率类型", item.rateType],
+    ["利率基准", item.rateBenchmark],
+    ["票面/执行利率", item.couponRate],
+    ["YTM", item.ytm],
+    ["修正久期", item.modifiedDuration],
+    ["重定价周期", item.repricingCycle],
+    ["原始期限", item.originalTerm],
+    ["剩余期限", item.remainingTerm],
+    ["下一重定价日", item.nextRepricingDate],
+  ].filter((row) => row[1]);
+  return `
+    <div class="hedge-selected-card">
+      <div class="hedge-selected-card__title">${item.id}</div>
+      <div class="hedge-info-grid">
+        ${rows.map(([label, value]) => `
+          <div class="hedge-info-grid__item">
+            <span>${label}</span>
+            <strong>${value}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderHedgeSearchResults(draft, selectedItem) {
+  const results = getHedgeSearchResults(draft);
+  return `
+    <div class="hedge-search-results">
+      <div class="hedge-search-results__header">
+        <span>可选被套期项目</span>
+        <span>共 ${results.length} 条</span>
+      </div>
+      <div class="hedge-search-results__list">
+        ${results.map((item) => `
+          <button
+            class="hedge-search-result ${selectedItem?.id === item.id ? "is-selected" : ""}"
+            type="button"
+            data-select-hedge-item="${item.id}"
+          >
+            <span class="hedge-search-result__id">${item.id}</span>
+            <span>${item.type} / ${item.currency} / ${item.rateBenchmark}</span>
+            <strong>${Number(item.balance).toFixed(1)}亿元</strong>
+          </button>
+        `).join("") || `<div class="hedge-search-results__empty">未匹配到项目，请调整编号或关键词。</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderHedgeSimulationPanel(page) {
+  const draft = getHedgeDraft(page);
+  const selectedItem = getSelectedHedgeItem(draft);
+  const maxAmount = selectedItem?.balance || HEDGEABLE_ITEM_OPTIONS[0]?.balance || 1;
+  return `
+    <div class="hedge-simulation-panel">
+      <div class="hedge-simulation-grid">
+        <div class="hedge-input-card">
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">被套期项目编号</span>
+            <input class="simulation-form__control" data-hedge-simulation-field="query" type="search" value="${draft.query || ""}" placeholder="输入项目编号或关键词" />
+          </label>
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">本次套期金额（亿元）</span>
+            <input class="simulation-form__control" data-hedge-simulation-field="hedgeAmount" type="number" min="1" max="${maxAmount}" step="1" value="${draft.hedgeAmount || ""}" />
+          </label>
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">套期期限（月）</span>
+            <input class="simulation-form__control" data-hedge-simulation-field="hedgeTermMonths" type="number" min="1" max="360" step="1" value="${draft.hedgeTermMonths || selectedItem?.remainingTermMonths || 12}" />
+          </label>
+        </div>
+        ${renderHedgeItemInfo(selectedItem)}
+      </div>
+      ${renderHedgeSearchResults(draft, selectedItem)}
+    </div>
   `;
 }
 
@@ -4313,27 +5389,24 @@ function renderSimulationModal() {
     simulationModalEl.setAttribute("aria-hidden", "true");
     return;
   }
-  const draft = appState.simulationDraft || createDefaultSimulationDraft(page);
-  const entries = getSimulationDraftEntries(draft, page);
+  const activeMode = getSimulationDraftMode(page);
+  const activeModeLabel = getSimulationModeLabel(activeMode);
+  const applyDisabled = activeMode === SIMULATION_MODE_HEDGE && !getSelectedHedgeItem(getHedgeDraft(page)) ? " disabled" : "";
   simulationModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="simulationModal"></div>
     <section class="overlay-panel overlay-panel--wide" role="dialog" aria-modal="true" aria-labelledby="simulationModalTitle">
       <div class="overlay-panel__header">
         <div>
-          <div class="overlay-panel__eyebrow">模拟测算</div>
+          <div class="overlay-panel__eyebrow">${activeModeLabel}</div>
           <h3 id="simulationModalTitle">${page.name}模拟测算</h3>
         </div>
         <button class="overlay-panel__close" type="button" data-close-overlay="simulationModal">关闭</button>
       </div>
-      <div class="simulation-entry-list">
-        ${entries.map((entry, entryIndex) => renderSimulationEntryForm(page, entry, entryIndex, entries.length)).join("")}
-      </div>
-      <div class="simulation-entry-actions">
-        <button class="toolbar-action" type="button" data-add-simulation-entry="${page.id}">新增业务</button>
-      </div>
+      ${renderSimulationModeTabs(page, activeMode)}
+      ${activeMode === SIMULATION_MODE_HEDGE ? renderHedgeSimulationPanel(page) : renderNewBusinessSimulationPanel(page)}
       <div class="overlay-panel__footer">
         <button class="toolbar-action" type="button" data-close-overlay="simulationModal">取消</button>
-        <button class="toolbar-action toolbar-action--primary" type="button" data-apply-simulation="${page.id}">应用测算</button>
+        <button class="toolbar-action toolbar-action--primary" type="button" data-apply-simulation="${page.id}"${applyDisabled}>应用测算</button>
       </div>
     </section>
   `;
@@ -4406,13 +5479,20 @@ function renderInsightModal() {
 }
 
 function getSimulationProfile(page, simulation) {
-  const side = BUSINESS_SIDE_MAP[simulation.businessType] || "asset";
+  const side = simulation.fundingRole === "资金来源"
+    ? "liability"
+    : simulation.fundingRole === "资金运用"
+      ? "asset"
+      : BUSINESS_SIDE_MAP[simulation.businessType] || "asset";
   const scaleWeight = Math.min(1.4, Number(simulation.scale || 0) / 120);
   const tenorWeight = Math.min(1.2, Number(simulation.termMonths || 0) / 24);
   const fxWeight = getSimulationMode(page) === "fx" && !["人民币", "全折人民币"].includes(simulation.currency) ? 1.18 : 1;
+  const hedgeWeight = simulation.simulationType === SIMULATION_MODE_HEDGE
+    ? clampNumber(Number(simulation.hedgeCoverageRatio || 0.35), 0.08, 1)
+    : 1;
   return {
     side,
-    impactScore: Number((0.08 + scaleWeight * 0.11 + tenorWeight * 0.07) * fxWeight).toFixed(3),
+    impactScore: Number((0.08 + scaleWeight * 0.11 + tenorWeight * 0.07) * fxWeight * hedgeWeight).toFixed(3),
   };
 }
 
@@ -4446,6 +5526,10 @@ function getSingleSimulationAdjustmentRatio(widget, chartContext, simulation, se
     if (isLiabilitySeries) direction *= -1;
     if (isGapSeries) direction *= profile.side === "asset" ? (modeRule.gapAssetDirection ?? 0.92) : (modeRule.gapLiabilityDirection ?? -0.68);
     if (simulation.rateType === "浮动利率") sensitivity *= Number(simulationDefaults.floatingRateMultiplier) || 0.74;
+    if (simulation.simulationType === SIMULATION_MODE_HEDGE) {
+      direction *= -1;
+      sensitivity *= Number(simulationDefaults.hedgeSensitivityMultiplier) || 0.68;
+    }
   } else if (simulationMode === "liquidity") {
     const directionMode = simulationBehavior.directionMode || "default";
     const modeRule = simulationModes.liquidity?.[directionMode] || simulationModes.liquidity?.default || {};
@@ -4522,19 +5606,118 @@ function buildFundingFlowCompositeState(widget, chartContext) {
   const historyInflow = buildMetricValues(widget.seq + 5, historyLabels.length, chartContext.signature).map((value) => 38 + (value % 34));
   const historyOutflow = buildMetricValues(widget.seq + 11, historyLabels.length, chartContext.signature + 13).map((value) => 34 + (value % 38));
   const baseDate = getWidgetObservationDate(widget);
-  const futureLabels = Array.from({ length: 30 }, (_, index) => {
+  const futureDates = Array.from({ length: 30 }, (_, index) => {
     const date = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + index + 1);
-    return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}`;
+    return {
+      date,
+      label: `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}`,
+      fullDate: formatDateValue(date),
+    };
   });
-  const dailyNet = futureLabels.map((_, index) => ((index % 3 === 0 ? 1 : -1) * (12 + (index * 7) % 24)));
+  const futureLabels = futureDates.map((item) => item.label);
+  const businessMatrix = buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates);
+  const dailyNet = businessMatrix.rows.map((row) => Number(row.values.reduce((sum, value) => sum + value, 0).toFixed(1)));
   const cumulativeNet = dailyNet.reduce((acc, value) => {
-    acc.push((acc[acc.length - 1] || 0) + value);
+    acc.push(Number(((acc[acc.length - 1] || 0) + value).toFixed(1)));
     return acc;
   }, []);
   return {
     history: { labels: historyLabels, inflow: historyInflow, outflow: historyOutflow },
-    future: { labels: futureLabels, dailyNet, cumulativeNet },
+    future: {
+      dates: futureDates,
+      labels: futureLabels,
+      businessMatrix,
+      dailyNet,
+      cumulativeNet,
+      detailRows: buildFutureFundingFlowDetailRows(widget, chartContext, businessMatrix, dailyNet, cumulativeNet),
+    },
   };
+}
+
+function getFutureFundingFlowBusinessSelection(chartContext) {
+  const selected = (chartContext.filterState["业务类型"] || []).filter(Boolean);
+  const all = getMaturityDistributionSeries().map((item) => item.name);
+  return selected.length ? selected : all;
+}
+
+function buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates) {
+  const selectedNames = getFutureFundingFlowBusinessSelection(chartContext);
+  const series = getMaturityDistributionSeries().filter((item) => selectedNames.includes(item.name));
+  const profile = [58, 46, 34, 28, 24, 20, 18, 22, 30, 26, 19, 24, 28, 18, 22, 35, 42, 30, 26, 20, 18, 24, 31, 27, 21, 19, 25, 34, 29, 22];
+  return {
+    series,
+    rows: futureDates.map((dateItem, dateIndex) => ({
+      date: dateItem.fullDate,
+      label: dateItem.label,
+      values: series.map((item, seriesIndex) => {
+        const base = profile[dateIndex % profile.length] * (0.34 + ((widget.seq + chartContext.signature + seriesIndex * 7) % 13) / 26);
+        const wave = (((dateIndex + 2) * (seriesIndex + 5) + chartContext.signature) % 11) - 5;
+        return Number(((base + wave) * item.direction).toFixed(1));
+      }),
+    })),
+  };
+}
+
+function buildFutureFundingFlowDetailRows(widget, chartContext, matrix, dailyNet, cumulativeNet) {
+  const counterparties = ["战略客户部", "机构资金部", "同业合作户", "集团内部账户", "境外分行资金池", "财政性存款", "大型企业结算户", "债券承销计划"];
+  return matrix.rows.flatMap((row, dateIndex) =>
+    matrix.series.map((series, seriesIndex) => {
+      const value = row.values[seriesIndex] || 0;
+      const seed = chartContext.signature + widget.seq * 19 + dateIndex * 37 + seriesIndex * 53;
+      return {
+        date: row.date,
+        businessId: `CF-${String((seed % 900000) + 100000).slice(-6)}`,
+        businessType: series.name,
+        counterparty: counterparties[(dateIndex + seriesIndex) % counterparties.length],
+        direction: value >= 0 ? "资金流入" : "资金流出",
+        amount: Number(Math.abs(value).toFixed(1)),
+        dailyNet: Number(dailyNet[dateIndex].toFixed(1)),
+        cumulativeNet: Number(cumulativeNet[dateIndex].toFixed(1)),
+      };
+    })
+  );
+}
+
+function renderFutureFundingFlowDetailTable(rows, compact = true) {
+  const visibleRows = compact ? rows.slice(0, 8) : rows;
+  return `
+    <div class="funding-flow-detail">
+      <div class="funding-flow-detail__header">
+        <span>业务明细</span>
+        <span>共 ${rows.length} 笔</span>
+      </div>
+      <div class="table-shell funding-flow-detail__table">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>业务编号</th>
+              <th>业务类型</th>
+              <th>交易对手</th>
+              <th>资金方向</th>
+              <th>金额</th>
+              <th>当日净额</th>
+              <th>累计净额</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visibleRows.map((row) => `
+              <tr>
+                <td>${row.date}</td>
+                <td>${row.businessId}</td>
+                <td>${row.businessType}</td>
+                <td>${row.counterparty}</td>
+                <td>${row.direction}</td>
+                <td>${row.amount.toFixed(1)}</td>
+                <td>${row.dailyNet.toFixed(1)}</td>
+                <td>${row.cumulativeNet.toFixed(1)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 function renderFundingFlowLegend(widgetSeq, legendKey, items) {
@@ -4599,45 +5782,103 @@ function renderFundingFlowScaleChart(widget, chartContext) {
 
 function renderFutureFundingFlowChart(widget, chartContext) {
   const flowState = buildFundingFlowCompositeState(widget, chartContext);
-  const context = { ...chartContext, xLabels: flowState.future.labels, yLabel: "净额 / 累计净额" };
-  const frame = createFrame(flowState.future.labels.length);
-  const axis = renderAxes(frame, context.xLabels, context.yLabel);
-  const barWidth = Math.max(10, getFrameMinStep(frame, flowState.future.labels.length) * 0.38);
+  const matrix = flowState.future.businessMatrix;
+  const allBusinessTypes = getMaturityDistributionSeries().map((item) => item.name);
+  const selectedNames = matrix.series.map((item) => item.name);
+  const frame = { left: 88, right: 660, top: 24, bottom: 216, width: 572, height: 192 };
+  const businessMaxAbs = Math.max(
+    80,
+    ...matrix.rows.map((row) => Math.max(
+      Math.abs(row.values.filter((value) => value > 0).reduce((sum, value) => sum + value, 0)),
+      Math.abs(row.values.filter((value) => value < 0).reduce((sum, value) => sum + value, 0))
+    ))
+  );
+  const lineMaxAbs = Math.max(
+    20,
+    ...flowState.future.dailyNet.map((value) => Math.abs(value)),
+    ...flowState.future.cumulativeNet.map((value) => Math.abs(value))
+  );
+  const roundedBusinessMax = Math.ceil(businessMaxAbs / 50) * 50;
+  const roundedLineMax = Math.ceil(lineMaxAbs / 50) * 50;
+  const businessScale = (frame.height / 2 - 10) / roundedBusinessMax;
+  const lineScale = (frame.height / 2 - 10) / roundedLineMax;
+  const zeroY = frame.top + frame.height / 2;
+  const toBusinessY = (value) => zeroY - value * businessScale;
+  const toLineY = (value) => zeroY - value * lineScale;
   const legendItems = [
-    { label: "当日净额", color: getBarFillColor("当日净额", ["当日净额"], 0, 0.84) },
+    { label: "当日净额", color: SEMANTIC_COLORS.fundingInflow },
     { label: "累计净额", color: SEMANTIC_COLORS.fundingCumulative },
   ];
   const selectedItems = getLegendSelection(widget.seq, "__legend_funding_future__", legendItems.map((item) => item.label));
-  const bars = flowState.future.dailyNet.map((value, index) => {
-    const baseY = frame.bottom - (frame.height * 20) / 100;
-    const height = Math.abs(value) * 2.6;
-    const x = getFrameXPosition(frame, index, flowState.future.labels.length) - barWidth / 2;
-    const y = value >= 0 ? baseY - height : baseY;
-    const fill = value >= 0
-      ? hexToRgba(SEMANTIC_COLORS.fundingDailyNetPositive, 0.82)
-      : hexToRgba(SEMANTIC_COLORS.fundingDailyNetNegative, 0.82);
-    const stroke = value >= 0
-      ? hexToRgba(SEMANTIC_COLORS.fundingDailyNetPositive, 0.32)
-      : hexToRgba(SEMANTIC_COLORS.fundingDailyNetNegative, 0.32);
-    return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1"></rect>`;
+  const businessTicks = [-roundedBusinessMax, -roundedBusinessMax / 2, 0, roundedBusinessMax / 2, roundedBusinessMax];
+  const lineTicks = [-roundedLineMax, -roundedLineMax / 2, 0, roundedLineMax / 2, roundedLineMax];
+  const step = frame.width / matrix.rows.length;
+  const barWidth = Math.max(7, Math.min(16, step * 0.44));
+  const axis = `
+    <text x="${frame.left - 60}" y="${frame.top - 6}" class="axis-title">分业务规模(亿元)</text>
+    <text x="${frame.right + 2}" y="${frame.top - 6}" class="axis-title">净额(亿元)</text>
+    <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 46}" text-anchor="middle" class="axis-title">未来30日</text>
+    <line x1="${frame.left}" y1="${zeroY}" x2="${frame.right}" y2="${zeroY}" stroke="rgba(109,165,215,0.42)" stroke-width="1.3"></line>
+    <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.2"></line>
+    <line x1="${frame.right}" y1="${frame.top}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.26)" stroke-width="1.1"></line>
+    ${businessTicks.map((tick) => {
+      const y = toBusinessY(tick);
+      return `
+        <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.12)" stroke-width="1"></line>
+        <text x="${frame.left - 14}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${formatAxisTickValue(tick)}</text>
+      `;
+    }).join("")}
+    ${lineTicks.map((tick) => {
+      const y = toLineY(tick);
+      return `<text x="${frame.right + 14}" y="${y + 4}" text-anchor="start" class="axis-label axis-label--y">${formatAxisTickValue(tick)}</text>`;
+    }).join("")}
+    ${flowState.future.labels.map((label, index) => {
+      if (index % 5 !== 0 && index !== flowState.future.labels.length - 1) return "";
+      const x = getFrameXPosition(frame, index, flowState.future.labels.length);
+      return `
+        <line x1="${x}" y1="${zeroY}" x2="${x}" y2="${zeroY + 5}" stroke="rgba(109,165,215,0.26)" stroke-width="1"></line>
+        <text x="${x}" y="${frame.bottom + 18}" text-anchor="middle" class="axis-label axis-label--x">${label}</text>
+      `;
+    }).join("")}
+  `;
+  const barsMarkup = matrix.rows.map((row, rowIndex) => {
+    const x = frame.left + step * rowIndex + (step - barWidth) / 2;
+    let positiveOffset = 0;
+    let negativeOffset = 0;
+    return row.values.map((value, valueIndex) => {
+      const height = Math.abs(value) * businessScale;
+      const color = getPaletteColor(matrix.series[valueIndex].name, allBusinessTypes, allBusinessTypes.indexOf(matrix.series[valueIndex].name), "bar");
+      if (value >= 0) {
+        const y = zeroY - positiveOffset - height;
+        positiveOffset += height;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.84"></rect>`;
+      }
+      const y = zeroY + negativeOffset;
+      negativeOffset += height;
+      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.64"></rect>`;
+    }).join("");
   }).join("");
-  const cumulativePoints = flowState.future.cumulativeNet.map((value, index) => {
-    const normalized = clampNumber(45 + value * 0.6, 2, 98);
-    return { x: getFrameXPosition(frame, index, flowState.future.labels.length), y: frame.bottom - (frame.height * normalized) / 100 };
-  });
+  const renderLine = (label, values, color, strokeWidth = 3.2) => {
+    if (!selectedItems.includes(label)) return "";
+    const points = values.map((value, index) => ({
+      x: getFrameXPosition(frame, index, flowState.future.labels.length),
+      y: toLineY(value),
+    }));
+    return `
+      <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.4" fill="${color}" stroke="#ffffff" stroke-width="1.6"></circle>`).join("")}
+    `;
+  };
   return `
-    <div class="chart-shell">
+    <div class="chart-shell chart-shell--funding-flow">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
-        ${selectedItems.includes("当日净额") ? bars : ""}
-        ${selectedItems.includes("累计净额")
-          ? `
-            <polyline fill="none" stroke="${SEMANTIC_COLORS.fundingCumulative}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${cumulativePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${cumulativePoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${SEMANTIC_COLORS.fundingCumulative}" stroke="#ffffff" stroke-width="2"></circle>`).join("")}
-          `
-          : ""}
+        ${barsMarkup}
+        ${renderLine("当日净额", flowState.future.dailyNet, SEMANTIC_COLORS.fundingInflow, 3)}
+        ${renderLine("累计净额", flowState.future.cumulativeNet, SEMANTIC_COLORS.fundingCumulative, 3.4)}
       </svg>
       ${renderFundingFlowLegend(widget.seq, "__legend_funding_future__", legendItems)}
+      ${renderMaturityDistributionLegend(widget, selectedNames)}
     </div>
   `;
 }
@@ -4674,26 +5915,7 @@ function renderFutureFundingFlowDataView(widget, chartContext) {
   const flowState = buildFundingFlowCompositeState(widget, chartContext);
   return `
     <div class="chart-shell chart-shell--data">
-      <div class="table-shell">
-        <table class="chart-table">
-          <thead>
-            <tr>
-              <th>统计日期</th>
-              <th>当日净额</th>
-              <th>累计净额</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${flowState.future.labels.map((label, index) => `
-              <tr>
-                <td>${label}</td>
-                <td>${flowState.future.dailyNet[index].toFixed(1)}</td>
-                <td>${flowState.future.cumulativeNet[index].toFixed(1)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
+      ${renderFutureFundingFlowDetailTable(flowState.future.detailRows, false)}
     </div>
   `;
 }
@@ -4715,9 +5937,7 @@ blockPillsEl.addEventListener("click", (event) => {
   const openSimulationButton = event.target.closest("[data-open-simulation]");
   if (openSimulationButton) {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
-    const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
-    appState.simulationModalPageId = pageId;
-    appState.simulationDraft = createSimulationDraftFromScenario(page, getPageSimulation(pageId));
+    openSimulationModal(pageId);
     render();
     return;
   }
@@ -4764,9 +5984,21 @@ dashboardViewEl.addEventListener("click", (event) => {
     return;
   }
 
+  const maturityStructureTab = event.target.closest("[data-maturity-structure-tab]");
+  if (maturityStructureTab) {
+    const { maturityStructureTab: widgetSeq, maturityStructureScope } = maturityStructureTab.dataset;
+    const widgetState = appState.widgetFilters[widgetSeq] || {};
+    appState.widgetFilters[widgetSeq] = {
+      ...widgetState,
+      __maturity_structure_scope__: [maturityStructureScope === "future" ? "future" : "historical"],
+    };
+    render();
+    return;
+  }
+
   const openBusinessDetailButton = event.target.closest("[data-open-business-detail]");
   if (openBusinessDetailButton) {
-    const { targetWidgetSeq, sourceWidgetSeq, businessType, businessCategory } = openBusinessDetailButton.dataset;
+    const { targetWidgetSeq, sourceWidgetSeq, businessType, businessCategory, maturityTableScope } = openBusinessDetailButton.dataset;
     if (!targetWidgetSeq || !businessType) return;
     appState.businessDrilldowns = {
       ...appState.businessDrilldowns,
@@ -4774,6 +6006,7 @@ dashboardViewEl.addEventListener("click", (event) => {
         businessType,
         category: businessCategory,
         sourceWidgetSeq: Number(sourceWidgetSeq),
+        maturityTableScope: maturityTableScope || "",
       },
     };
     render();
@@ -4795,9 +6028,7 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openSimulationButton = event.target.closest("[data-open-simulation]");
   if (openSimulationButton) {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
-    const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
-    appState.simulationModalPageId = pageId;
-    appState.simulationDraft = createSimulationDraftFromScenario(page, getPageSimulation(pageId));
+    openSimulationModal(pageId);
     render();
     return;
   }
@@ -4893,56 +6124,97 @@ dashboardViewEl.addEventListener("change", (event) => {
   if (!dateField) return;
   const { widgetSeq, filterName, rangeIndex } = dateField.dataset;
   const widgetState = appState.widgetFilters[widgetSeq] || {};
-  const nextRange = normalizeBusinessStructureDateRange(widgetState[filterName]);
+  const nextRange = normalizeWidgetBusinessStructureDateRange(widgetSeq, widgetState[filterName], null, filterName);
   nextRange[Number(rangeIndex)] = dateField.value || nextRange[Number(rangeIndex)];
   if (rangeIndex === "0" && nextRange[0] > nextRange[1]) nextRange[1] = nextRange[0];
   if (rangeIndex === "1" && nextRange[1] < nextRange[0]) nextRange[0] = nextRange[1];
   appState.widgetFilters[widgetSeq] = {
     ...widgetState,
-    [filterName]: normalizeBusinessStructureDateRange(nextRange),
+    [filterName]: normalizeWidgetBusinessStructureDateRange(widgetSeq, nextRange, Number(rangeIndex), filterName),
   };
   render();
 });
 
 simulationModalEl.addEventListener("input", (event) => {
   const field = event.target.closest("[data-simulation-field]");
-  if (!field) return;
-  const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
-  const entries = getSimulationDraftEntries(appState.simulationDraft, page).map((entry) => ({ ...entry }));
-  const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
-  entries[entryIndex] = {
-    ...(entries[entryIndex] || createDefaultSimulationEntry(page)),
-    [field.dataset.simulationField]: field.value,
+  if (field) {
+    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
+    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
+    const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
+    appState.simulationDraft = {
+      entries: updateSimulationEntryField(page, entries, entryIndex, field.dataset.simulationField, field.value),
+    };
+    return;
+  }
+  const hedgeField = event.target.closest("[data-hedge-simulation-field]");
+  if (!hedgeField) return;
+  appState.hedgeSimulationDraft = {
+    ...getHedgeDraft(),
+    [hedgeField.dataset.hedgeSimulationField]: hedgeField.value,
   };
-  appState.simulationDraft = { entries };
+  if (hedgeField.dataset.hedgeSimulationField === "query") {
+    window.setTimeout(renderSimulationModal, 0);
+  }
 });
 
 simulationModalEl.addEventListener("change", (event) => {
   const field = event.target.closest("[data-simulation-field]");
-  if (!field) return;
-  const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
-  const entries = getSimulationDraftEntries(appState.simulationDraft, page).map((entry) => ({ ...entry }));
-  const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
-  entries[entryIndex] = {
-    ...(entries[entryIndex] || createDefaultSimulationEntry(page)),
-    [field.dataset.simulationField]: field.value,
+  if (field) {
+    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
+    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
+    const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
+    appState.simulationDraft = {
+      entries: updateSimulationEntryField(page, entries, entryIndex, field.dataset.simulationField, field.value),
+    };
+    if (["fundingRole", "scale"].includes(field.dataset.simulationField)) window.setTimeout(renderSimulationModal, 0);
+    return;
+  }
+  const hedgeField = event.target.closest("[data-hedge-simulation-field]");
+  if (!hedgeField) return;
+  appState.hedgeSimulationDraft = {
+    ...getHedgeDraft(),
+    [hedgeField.dataset.hedgeSimulationField]: hedgeField.value,
   };
-  appState.simulationDraft = { entries };
+  if (hedgeField.dataset.hedgeSimulationField === "query") {
+    window.setTimeout(renderSimulationModal, 0);
+  }
 });
 
 simulationModalEl.addEventListener("click", (event) => {
   const closeButton = event.target.closest("[data-close-overlay='simulationModal']");
   if (closeButton) {
-    appState.simulationModalPageId = null;
-    appState.simulationDraft = null;
+    closeSimulationModal();
     render();
+    return;
+  }
+  const modeTab = event.target.closest("[data-simulation-mode-tab]");
+  if (modeTab) {
+    appState.simulationDraftMode = modeTab.dataset.simulationModeTab;
+    renderSimulationModal();
+    return;
+  }
+  const selectHedgeItemButton = event.target.closest("[data-select-hedge-item]");
+  if (selectHedgeItemButton) {
+    const selectedItem = HEDGEABLE_ITEM_OPTIONS.find((item) => item.id === selectHedgeItemButton.dataset.selectHedgeItem);
+    if (!selectedItem) return;
+    const draft = getHedgeDraft();
+    const hedgeAmount = clampNumber(Number(draft.hedgeAmount || Math.min(50, selectedItem.balance)), 1, selectedItem.balance);
+    appState.hedgeSimulationDraft = {
+      ...draft,
+      query: selectedItem.id,
+      selectedItemId: selectedItem.id,
+      hedgeAmount: String(hedgeAmount),
+      hedgeTermMonths: String(draft.hedgeTermMonths || selectedItem.remainingTermMonths || 12),
+    };
+    renderSimulationModal();
     return;
   }
   const addEntryButton = event.target.closest("[data-add-simulation-entry]");
   if (addEntryButton) {
     const page = data.pages.find((item) => item.id === addEntryButton.dataset.addSimulationEntry) || getCurrentPage();
     const entries = getSimulationDraftEntries(appState.simulationDraft, page);
-    appState.simulationDraft = { entries: [...entries, createDefaultSimulationEntry(page)] };
+    const fundingRole = addEntryButton.dataset.simulationEntryRole || getDefaultSimulationFundingRole(entries.length);
+    appState.simulationDraft = { entries: [...entries, createDefaultSimulationEntry(page, entries.length, fundingRole)] };
     renderSimulationModal();
     return;
   }
@@ -4951,16 +6223,17 @@ simulationModalEl.addEventListener("click", (event) => {
     const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
     const removeIndex = Number(removeEntryButton.dataset.removeSimulationEntry);
     const entries = getSimulationDraftEntries(appState.simulationDraft, page).filter((_, index) => index !== removeIndex);
-    appState.simulationDraft = { entries: entries.length ? entries : [createDefaultSimulationEntry(page)] };
+    appState.simulationDraft = { entries: ensureMinimumSimulationEntries(page, entries) };
     renderSimulationModal();
     return;
   }
   const applyButton = event.target.closest("[data-apply-simulation]");
   if (applyButton) {
     const page = data.pages.find((item) => item.id === applyButton.dataset.applySimulation) || getCurrentPage();
-    appState.pageSimulations[page.id] = normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
-    appState.simulationModalPageId = null;
-    appState.simulationDraft = null;
+    appState.pageSimulations[page.id] = getSimulationDraftMode(page) === SIMULATION_MODE_HEDGE
+      ? normalizeHedgeSimulationScenario(page, getHedgeDraft(page))
+      : normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
+    closeSimulationModal();
     render();
   }
 });
@@ -4997,8 +6270,7 @@ filterPopoverEl.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     if (appState.simulationModalPageId) {
-      appState.simulationModalPageId = null;
-      appState.simulationDraft = null;
+      closeSimulationModal();
       render();
       return;
     }

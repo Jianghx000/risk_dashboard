@@ -57,7 +57,7 @@ FORBIDDEN_LEGACY_TEXT_SNIPPETS = [
     "\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u672c\u6708\u6309\u65e5\u5c55\u793a",
 ]
 
-ALLOWED_SIMULATION_WIDGET_SEQS = {9, 10, 11, 15, 16, 17, 25, 50, 55, 56}
+ALLOWED_SIMULATION_WIDGET_SEQS = {9, 10, 11, 15, 16, 17, 50, 55, 56}
 
 
 def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:
@@ -306,7 +306,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(page_behavior, dict):
         errors.append("pageBehavior should be an object")
     else:
-        allowed_modes = {"interest", "liquidity", "fx", "generic"}
+        allowed_modes = {"interest", "liquidity", "generic"}
         for page_name, behavior in page_behavior.items():
             if page_name not in page_names:
                 warnings.append(f"pageBehavior references unknown page name: {page_name}")

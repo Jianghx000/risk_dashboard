@@ -1,8 +1,8 @@
 window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
-  "pageCount": 4,
-  "widgetCount": 60,
+  "pageCount": 3,
+  "widgetCount": 46,
   "pages": [
     {
       "id": "page-1",
@@ -400,23 +400,6 @@ window.dashboardData = {
                   "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
                   "devNote": "组件：折线图；按业务类型拆线展示",
                   "layout": "full"
-                },
-                {
-                  "seq": 25,
-                  "title": "债券修正久期",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：存量业务。原始要求：展示所选机构与币种口径下的债券修正久期走势。开发细化：采用折线图实现，横轴按统计月展示，切换机构与币种后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：债券修正久期",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
-                  "devNote": "组件：折线图；与机构、币种筛选项联动刷新",
-                  "originPosition": "原始行25",
-                  "layout": "full"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -477,170 +460,66 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 13,
+          "widgetCount": 12,
           "areaCount": 5
         },
         {
-          "id": "block-3",
-          "name": "基准风险",
+          "id": "block-interest-bond-investment",
+          "name": "债券投资",
           "areas": [
             {
-              "id": "area-34",
-              "name": "最大利率基准关联规模及占比",
-              "viewScope": "时间序列（月频）",
+              "id": "area-interest-bond-investment",
+              "name": "债券投资",
+              "viewScope": "限额监测",
               "sharedFilters": [
                 "机构（多选）",
                 "币种（多选）"
               ],
               "widgets": [
                 {
-                  "seq": 34,
-                  "title": "最大利率基准关联规模及占比",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种，展示所选择的机构和币种的在资产端、负债端和资产负债缺口维度的最大基准利率关联规模及占比的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "seq": 59,
+                  "title": "债券投资规模",
+                  "componentType": "限额双柱时序图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：缺口规模/缺口率",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行34"
+                  "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
+                  "legendDescription": "图例：债券投资规模、非金融企业债投资规模、限额",
+                  "responseFields": "org_id, currency_code, bond_investment_scale, non_financial_corporate_bond_scale, limit_value",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
                 },
                 {
-                  "seq": 35,
-                  "title": "分利率基准关联规模及占比",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种和资产/负债/缺口，展示所选择的机构和币种的在资产端、负债端或资产负债缺口维度下，不同基准利率关联的规模及占比的走势。（负债端以负数展示）。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "seq": 60,
+                  "title": "债券投资久期",
+                  "componentType": "限额折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。展示各机构、各币种下债券投资久期走势，指标为限额指标。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：缺口规模/缺口率",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行35"
+                  "metricDescription": "指标：债券投资久期、限额",
+                  "legendDescription": "图例：机构/币种组合",
+                  "responseFields": "date_or_dimension_label, metric_value, limit_value, series_name",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：限额折线图；折线表示债券投资久期，虚线表示限额"
                 }
               ],
               "filterPreset": "orgCurrency",
               "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
-            },
-            {
-              "id": "area-36",
-              "name": "最大利率基准关联规模及占比",
-              "viewScope": "时点",
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 36,
-                  "title": "分基准利率规模一览表",
-                  "componentType": "表格",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；资产负债维度（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种、资产负债维度筛选器。展示口径：时点。原始要求：通过筛选机构、币种，展示资产端、负债端和资产负债缺口挂钩不同利率基准规模。（负债端以负数展示）。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], dimension_code",
-                  "axisDescription": "行维度：币种",
-                  "metricDescription": "指标：缺口规模/缺口率",
-                  "legendDescription": "列维度：按表头定义",
-                  "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
-                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
-                  "originPosition": "原始行36",
-                  "layout": "full"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
+                "snapshotMode": "trend"
               }
             }
           ],
-          "widgetCount": 3,
-          "areaCount": 2
-        },
-        {
-          "id": "block-4",
-          "name": "期权性风险",
-          "areas": [
-            {
-              "id": "area-37",
-              "name": "提前还款率",
-              "viewScope": "时间序列（月频）",
-              "sharedFilters": [
-                "贷款类型（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 37,
-                  "title": "提前还款率",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：贷款类型（多选）。联动规则：当前图表仅联动贷款类型筛选器。展示口径：时间序列（月频）。原始要求：展示境内分行整体口径下，不同贷款类型的提前还款率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "贷款类型：默认全选",
-                  "frontendParams": "dashboard_id, area_code, loan_type_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：贷款类型",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前图表仅联动贷款类型筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行37"
-                }
-              ],
-              "filterPreset": "loanType",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
-            },
-            {
-              "id": "area-38",
-              "name": "提前支取率",
-              "viewScope": "时间序列（月频）",
-              "sharedFilters": [
-                "存款类型（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 38,
-                  "title": "提前支取率",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：存款类型（多选）。联动规则：当前图表仅联动存款类型筛选器。展示口径：时间序列（月频）。原始要求：展示境内分行整体口径下，不同存款类型的提前支取率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "存款类型：默认全选",
-                  "frontendParams": "dashboard_id, area_code, deposit_type_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：存款类型",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前图表仅联动存款类型筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行38"
-                }
-              ],
-              "filterPreset": "depositType",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
-            }
-          ],
-          "widgetCount": 2
+          "widgetCount": 2,
+          "areaCount": 1
         }
       ],
-      "blockCount": 4,
-      "areaCount": 13,
-      "widgetCount": 24
+      "blockCount": 3,
+      "areaCount": 10,
+      "widgetCount": 20
     },
     {
       "id": "page-2",
@@ -812,199 +691,6 @@ window.dashboardData = {
           "widgetCount": 7
         },
         {
-          "id": "block-branch",
-          "name": "分行个性化监管指标",
-          "areas": [
-            {
-              "id": "area-branch-hk",
-              "name": "分行个性化监管指标",
-              "viewScope": "香港分行 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 57,
-                  "title": "流动性维持比率（LMR）",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示香港分行本地监管口径下的流动性维持比率LMR走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：流动性维持比率",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                },
-                {
-                  "seq": 58,
-                  "title": "核心资金比率（CFR）",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示香港分行本地监管口径下的核心资金比率CFR走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：核心资金比率",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgOnly",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "branchLocalRegulation",
-                "tabKey": "香港分行",
-                "institution": "香港分行"
-              }
-            },
-            {
-              "id": "area-branch-ny",
-              "name": "分行个性化监管指标",
-              "viewScope": "纽约分行 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 59,
-                  "title": "法定准备金",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示纽约分行本地监管口径下的法定准备金走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：法定准备金规模",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgOnly",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "branchLocalRegulation",
-                "tabKey": "纽约分行",
-                "institution": "纽约分行"
-              }
-            },
-            {
-              "id": "area-branch-sg",
-              "name": "分行个性化监管指标",
-              "viewScope": "新加坡分行 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 60,
-                  "title": "最低流动资产（MLA）",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示新加坡分行本地监管口径下的最低流动资产MLA走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：最低流动资产比率",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgOnly",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "branchLocalRegulation",
-                "tabKey": "新加坡分行",
-                "institution": "新加坡分行"
-              }
-            },
-            {
-              "id": "area-branch-lu",
-              "name": "分行个性化监管指标",
-              "viewScope": "卢森堡分行 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 61,
-                  "title": "本地口径流动性覆盖率（LCR）",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示卢森堡分行本地监管口径下的流动性覆盖率LCR走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：本地口径LCR比率",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgOnly",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "branchLocalRegulation",
-                "tabKey": "卢森堡分行",
-                "institution": "卢森堡分行"
-              }
-            },
-            {
-              "id": "area-branch-syd",
-              "name": "分行个性化监管指标",
-              "viewScope": "悉尼分行 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 62,
-                  "title": "本地口径流动性覆盖率（LCR）",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：同一第三层区域下的图表共用机构筛选器。展示口径：时间序列（月频）。原始要求：展示悉尼分行本地监管口径下的流动性覆盖率LCR走势，并标示监管下限。开发细化：采用趋势图实现，横轴为统计月，切换机构后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认命中特殊分行",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：本地口径LCR比率",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；带监管下限虚线",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgOnly",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "branchLocalRegulation",
-                "tabKey": "悉尼分行",
-                "institution": "悉尼分行"
-              }
-            }
-          ],
-          "widgetCount": 6
-        },
-        {
           "id": "block-2",
           "name": "现金流错配",
           "areas": [
@@ -1115,17 +801,17 @@ window.dashboardData = {
                 {
                   "seq": 54,
                   "title": "未来逐日资金流",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：未来30天逐日。原始要求：与本区域其他图保持一致口径，展示未来30天每一天的资金净额及累计净额。开发细化：采用柱线组合图实现，柱表示当日净额，线表示累计净额。",
+                  "componentType": "堆叠柱线组合图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；业务类型（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器，业务类型通过图例筛选。展示口径：未来30天逐日。开发细化：参考分业务重定价期限分布图，以业务类型堆叠柱展示未来逐日资金流分布，并叠加当日净额、累计净额两条折线；数据页签展示对应业务明细。",
                   "grain": "日度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计日期",
-                  "metricDescription": "指标：当日净额/累计净额",
-                  "legendDescription": "图例：当日净额、累计净额",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：双轴柱线组合图",
+                  "metricDescription": "指标：分业务资金流规模、当日净额、累计净额",
+                  "legendDescription": "图例：业务类型；折线：当日净额、累计净额",
+                  "responseFields": "date, business_type, business_id, counterparty, direction, amount, daily_net, cumulative_net",
+                  "linkageRule": "同一第三层区域下图表和明细数据共用本区域筛选器，业务类型图例控制堆叠柱展示范围",
+                  "devNote": "组件：堆叠柱线组合图；柱表示分业务资金流规模，两条线表示当日净额和累计净额，数据页展示业务明细",
                   "originPosition": "新增"
                 }
               ],
@@ -1138,194 +824,62 @@ window.dashboardData = {
           "widgetCount": 5
         },
         {
-          "id": "block-3",
-          "name": "资金备付",
+          "id": "block-liquidity-funding-inflow",
+          "name": "资金融入",
           "areas": [
             {
-              "id": "area-52",
-              "name": "超额备付金",
-              "viewScope": "时间序列",
-              "sharedFilters": [],
-              "widgets": [
-                {
-                  "seq": 52,
-                  "title": "超额备付金率及规模",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：无。联动规则：该图独立展示资金备付板块下超额备付金走势。展示口径：时间序列。开发细化：柱状图表示超额备付金规模，折线表示超额备付金率，横轴为时间。",
-                  "grain": "按图表口径确定",
-                  "defaultFilters": "无",
-                  "frontendParams": "dashboard_id, area_code",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：超额备付金规模、超额备付金率",
-                  "legendDescription": "图例：超额备付金规模、超额备付金率",
-                  "responseFields": "date_or_dimension_label, scale_value, ratio_value",
-                  "linkageRule": "无额外筛选联动",
-                  "devNote": "组件：双轴柱线组合图；柱表示规模，线表示比率",
-                  "originPosition": "原始行52"
-                }
+              "id": "area-liquidity-funding-inflow",
+              "name": "资金融入",
+              "viewScope": "限额监测",
+              "sharedFilters": [
+                "机构（多选）",
+                "币种（多选）"
               ],
-              "filterPreset": "none",
-              "scopeMeta": {
-                "snapshotMode": "trend"
-              }
-            },
-            {
-              "id": "area-53",
-              "name": "超额备付金",
-              "viewScope": "时点",
-              "sharedFilters": [],
               "widgets": [
                 {
-                  "seq": 53,
-                  "title": "备付金规模分布结构",
-                  "componentType": "环形图",
-                  "displayDescription": "筛选项：无。联动规则：该图独立展示资金备付板块下备付金结构。展示口径：时点。开发细化：按超额存款准备金、库存现金两个类别展示结构分布，同步展示绝对规模和占比。",
+                  "seq": 57,
+                  "title": "同业融入最长期限",
+                  "componentType": "限额折线图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。展示各机构、各币种的最长同业融入期限，指标为限额指标。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：同业融入最长期限、限额",
+                  "legendDescription": "图例：机构/币种组合",
+                  "responseFields": "date_or_dimension_label, metric_value, limit_value, series_name",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：限额折线图；折线表示最长期限，虚线表示限额"
+                },
+                {
+                  "seq": 58,
+                  "title": "同业融入期限结构",
+                  "componentType": "柱状图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按原始期限 bucket 展示不同期限的同业融入规模占比。",
                   "grain": "时点快照",
-                  "defaultFilters": "无",
-                  "frontendParams": "dashboard_id, area_code",
-                  "axisDescription": "维度：备付金类别（超额存款准备金、库存现金）",
-                  "metricDescription": "指标：规模",
-                  "legendDescription": "图例：超额存款准备金、库存现金",
-                  "responseFields": "dimension_label, metric_value, ratio_value",
-                  "linkageRule": "无额外筛选联动",
-                  "devNote": "组件：环形图；展示备付金类别结构占比",
-                  "originPosition": "原始行53"
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：原始期限 bucket",
+                  "metricDescription": "指标：同业融入规模占比",
+                  "legendDescription": "图例：期限 bucket",
+                  "responseFields": "tenor_bucket, scale_ratio",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：柱状图；展示原始期限 bucket 的规模占比"
                 }
               ],
-              "filterPreset": "none",
+              "filterPreset": "orgCurrency",
               "scopeMeta": {
                 "snapshotMode": "snapshot"
               }
             }
           ],
-          "widgetCount": 2
+          "widgetCount": 2,
+          "areaCount": 1
         }
       ],
-      "blockCount": 4,
-      "areaCount": 13,
-      "widgetCount": 20
-    },
-    {
-      "id": "page-3",
-      "name": "汇率风险",
-      "blocks": [
-        {
-          "id": "block-1",
-          "name": "外汇敞口",
-          "areas": [
-            {
-              "id": "area-68",
-              "name": "外汇敞口",
-              "viewScope": null,
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 68,
-                  "title": "外币总敞口（短边法）走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：通过筛选机构，展示不同机构的外币总敞口（短边法）走势。开发细化：采用趋势图实现，横轴为时间或统计期，切换筛选项后整图联动刷新。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
-                  "grain": "按图表口径确定",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；建议支持tooltip同步查看",
-                  "originPosition": "原始行68"
-                },
-                {
-                  "seq": 69,
-                  "title": "分币种外币敞口",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：在上述筛选机构的基础上，进一步选择币种，展示所选机构及币种的外币敞口走势。开发细化：按当前图表名称对应的可视化组件实现。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
-                  "grain": "按图表口径确定",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；建议支持tooltip同步查看",
-                  "originPosition": "原始行69"
-                }
-              ],
-              "filterPreset": "orgCurrency"
-            },
-            {
-              "id": "area-70",
-              "name": "外汇敞口",
-              "viewScope": null,
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 70,
-                  "title": "外币敞口一览表",
-                  "componentType": "表格",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第二层板块下的图表/表格共用机构、币种筛选器。展示口径：固定口径。原始要求：通过选择机构，展示该机构在不同币种上的外汇敞口。开发细化：采用表格组件实现，行列维度按说明中的行/列口径组织，支持排序、冻结表头和导出。开发补充：本板块图表/表格建议使用同一套机构、币种公共筛选栏。",
-                  "grain": "按图表口径确定",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "行维度：业务/币种/机构（按图表含义确定）",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "列维度：按表头定义",
-                  "responseFields": "row_key, row_label, col_key, col_label, metric_value",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
-                  "devNote": "组件：表格；建议支持字段排序、冻结首列",
-                  "originPosition": "原始行70"
-                }
-              ],
-              "filterPreset": "orgCurrency"
-            }
-          ],
-          "widgetCount": 3
-        },
-        {
-          "id": "block-2",
-          "name": "汇兑损益",
-          "areas": [
-            {
-              "id": "area-71",
-              "name": "时间序列",
-              "viewScope": null,
-              "sharedFilters": [
-                "机构（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 71,
-                  "title": "汇兑损益走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）。联动规则：当前图表单独使用机构筛选器。展示口径：固定口径。原始要求：通过筛选机构，展示不同机构的汇兑总损益（折线）、外币折算损益、外汇交易收入、衍生品估值（三个堆积柱状图）走势。开发细化：采用趋势图实现，横轴为时间或统计期，切换筛选项后整图联动刷新。开发补充：建议固定为1条折线+3组堆积柱的组合图。",
-                  "grain": "按图表口径确定",
-                  "defaultFilters": "机构：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：估值/损益",
-                  "legendDescription": "图例：机构",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；建议支持tooltip同步查看",
-                  "originPosition": "原始行71"
-                }
-              ],
-              "filterPreset": "orgOnly"
-            }
-          ],
-          "widgetCount": 1
-        }
-      ],
-      "blockCount": 2,
-      "areaCount": 3,
-      "widgetCount": 4
+      "blockCount": 3,
+      "areaCount": 7,
+      "widgetCount": 14
     },
     {
       "id": "page-4",
@@ -1520,7 +1074,7 @@ window.dashboardData = {
                   "seq": 90,
                   "title": "到期资产负债规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
+                  "displayDescription": "展示历史实际到期以及按合同约定推演的未来到期，未来日期段需与历史日期段有明显区分。",
                   "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
@@ -1536,7 +1090,7 @@ window.dashboardData = {
                   "seq": 91,
                   "title": "分业务到期规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
+                  "displayDescription": "按业务类型展示历史实际到期以及按合同约定推演的未来到期，未来日期段需与历史日期段有明显区分。",
                   "grain": "月度",
                   "defaultFilters": "",
                   "frontendParams": "",
@@ -1552,7 +1106,7 @@ window.dashboardData = {
                   "seq": 96,
                   "title": "到期业务资产负债结构一览表",
                   "componentType": "表格",
-                  "displayDescription": "",
+                  "displayDescription": "在标题旁提供历史实际到期、未来合同到期两个并列页签；历史页仅选择历史日期，未来页仅选择未来日期，避免历史/未来区间混用。",
                   "grain": "时间区间",
                   "defaultFilters": "",
                   "frontendParams": "",

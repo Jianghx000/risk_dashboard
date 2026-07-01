@@ -63,15 +63,6 @@ window.dashboardConfig = {
         "表外衍生品应付",
         "表外衍生品应收"
       ],
-      "贷款类型": [
-        "整体对公贷款",
-        "个人住房贷款",
-        "个人非住房贷款"
-      ],
-      "存款类型": [
-        "对公定期存款",
-        "储蓄定期存款"
-      ],
       "时间区间": [
         "近1月",
         "近3月",
@@ -85,15 +76,6 @@ window.dashboardConfig = {
       ]
     },
     "areaOverrides": {
-      "分行个性化监管指标": {
-        "机构": [
-          "香港分行",
-          "纽约分行",
-          "新加坡分行",
-          "卢森堡分行",
-          "悉尼分行"
-        ]
-      },
       "净利息收入波动率": {
         "利率情景": [
           "所有利率平行上移200bp",
@@ -107,15 +89,6 @@ window.dashboardConfig = {
       ],
       "币种": [
         "全折人民币"
-      ],
-      "贷款类型": [
-        "整体对公贷款",
-        "个人住房贷款",
-        "个人非住房贷款"
-      ],
-      "存款类型": [
-        "对公定期存款",
-        "储蓄定期存款"
       ],
       "业务类型": [
         "自营贷款",
@@ -134,14 +107,7 @@ window.dashboardConfig = {
       ],
       "orgOnly": [
         "机构"
-      ],
-      "loanType": [
-        "贷款类型"
-      ],
-      "depositType": [
-        "存款类型"
-      ],
-      "none": []
+      ]
     }
   },
   "tabs": {
@@ -180,63 +146,6 @@ window.dashboardConfig = {
           "tabKey": "新发生"
         }
       }
-    ],
-    "分行个性化监管指标": [
-      {
-        "label": "香港分行",
-        "matchViewScope": "香港分行",
-        "matchScopeMeta": {
-          "tabGroup": "branchLocalRegulation",
-          "tabKey": "香港分行"
-        },
-        "matchInstitutions": [
-          "香港分行"
-        ]
-      },
-      {
-        "label": "纽约分行",
-        "matchViewScope": "纽约分行",
-        "matchScopeMeta": {
-          "tabGroup": "branchLocalRegulation",
-          "tabKey": "纽约分行"
-        },
-        "matchInstitutions": [
-          "纽约分行"
-        ]
-      },
-      {
-        "label": "新加坡分行",
-        "matchViewScope": "新加坡分行",
-        "matchScopeMeta": {
-          "tabGroup": "branchLocalRegulation",
-          "tabKey": "新加坡分行"
-        },
-        "matchInstitutions": [
-          "新加坡分行"
-        ]
-      },
-      {
-        "label": "卢森堡分行",
-        "matchViewScope": "卢森堡分行",
-        "matchScopeMeta": {
-          "tabGroup": "branchLocalRegulation",
-          "tabKey": "卢森堡分行"
-        },
-        "matchInstitutions": [
-          "卢森堡分行"
-        ]
-      },
-      {
-        "label": "悉尼分行",
-        "matchViewScope": "悉尼分行",
-        "matchScopeMeta": {
-          "tabGroup": "branchLocalRegulation",
-          "tabKey": "悉尼分行"
-        },
-        "matchInstitutions": [
-          "悉尼分行"
-        ]
-      }
     ]
   },
   "pageBehavior": {
@@ -247,13 +156,7 @@ window.dashboardConfig = {
       "simulationMode": "liquidity"
     }
   },
-  "blockDisplay": {
-    "利率风险": {
-      "期权性风险": {
-        "pairAreas": true
-      }
-    }
-  },
+  "blockDisplay": {},
   "areaDisplay": {
     "利率风险": {
       "核心风险指标": {
@@ -276,11 +179,6 @@ window.dashboardConfig = {
     "流动性风险": {
       "核心风险指标": {
         "流动性覆盖率LCR": {
-          "mergeViewGroups": true
-        }
-      },
-      "资金备付": {
-        "超额备付金": {
           "mergeViewGroups": true
         }
       }
@@ -348,26 +246,6 @@ window.dashboardConfig = {
       ]
     },
     {
-      "indicator": "债券修正久期",
-      "matchTitles": [
-        "债券修正久期"
-      ],
-      "values": {
-        "法人汇总": 32,
-        "境外分行汇总": 29,
-        "境内汇总": 34,
-        "纽约分行": 36,
-        "新加坡分行": 31,
-        "卢森堡分行": 30,
-        "伦敦分行": 35,
-        "悉尼分行": 30,
-        "香港分行": 33
-      },
-      "widgetSeqs": [
-        25
-      ]
-    },
-    {
       "indicator": "流动性覆盖率LCR",
       "matchTitles": [
         "流动性覆盖率LCR"
@@ -385,68 +263,6 @@ window.dashboardConfig = {
       },
       "widgetSeqs": [
         42
-      ]
-    },
-    {
-      "indicator": "流动性维持比率（LMR）",
-      "matchTitles": [
-        "流动性维持比率（LMR）"
-      ],
-      "values": {
-        "香港分行": 25
-      },
-      "widgetSeqs": [
-        57
-      ]
-    },
-    {
-      "indicator": "核心资金比率（CFR）",
-      "matchTitles": [
-        "核心资金比率（CFR）"
-      ],
-      "values": {
-        "香港分行": 100
-      },
-      "widgetSeqs": [
-        58
-      ]
-    },
-    {
-      "indicator": "法定准备金",
-      "matchTitles": [
-        "法定准备金"
-      ],
-      "values": {
-        "纽约分行": 0
-      },
-      "widgetSeqs": [
-        59
-      ]
-    },
-    {
-      "indicator": "最低流动资产（MLA）",
-      "matchTitles": [
-        "最低流动资产（MLA）"
-      ],
-      "values": {
-        "新加坡分行": 16
-      },
-      "widgetSeqs": [
-        60
-      ]
-    },
-    {
-      "indicator": "本地口径流动性覆盖率（LCR）",
-      "matchTitles": [
-        "本地口径流动性覆盖率（LCR）"
-      ],
-      "values": {
-        "卢森堡分行": 100,
-        "悉尼分行": 100
-      },
-      "widgetSeqs": [
-        61,
-        62
       ]
     },
     {
@@ -585,20 +401,6 @@ window.dashboardConfig = {
         ]
       }
     },
-    "25": {
-      "chartKind": "bondModifiedDuration",
-      "fullWidth": false,
-      "yAxisLabel": "久期",
-      "simulationBehavior": {
-        "sensitivity": 0.18
-      },
-      "seriesFilters": {
-        "suppress": [
-          "机构",
-          "币种"
-        ]
-      }
-    },
     "27": {
       "chartKind": "durationGapCombo",
       "fullWidth": false,
@@ -615,9 +417,6 @@ window.dashboardConfig = {
           "币种"
         ]
       }
-    },
-    "36": {
-      "tableKind": "benchmarkCurrencyMatrix"
     },
     "42": {
       "frequencyToggle": true
@@ -652,17 +451,6 @@ window.dashboardConfig = {
         "口径"
       ]
     },
-    "52": {
-      "chartKind": "reserveRatioScaleCombo"
-    },
-    "53": {
-      "chartKind": "donut",
-      "defaultTableDimension": "备付金类别",
-      "distributionLabels": [
-        "超额存款准备金",
-        "库存现金"
-      ]
-    },
     "54": {
       "chartKind": "futureFundingFlow",
       "fullWidth": true
@@ -680,8 +468,21 @@ window.dashboardConfig = {
         "sensitivity": 0.11
       }
     },
-    "70": {
-      "tableKind": "fxExposureMatrix"
+    "57": {
+      "chartKind": "interbankFundingMaxTenor",
+      "yAxisLabel": "期限（天）"
+    },
+    "58": {
+      "chartKind": "interbankFundingTenorBucket",
+      "yAxisLabel": "规模占比"
+    },
+    "59": {
+      "chartKind": "bondInvestmentScaleLimit",
+      "yAxisLabel": "规模（亿元）"
+    },
+    "60": {
+      "chartKind": "bondInvestmentDurationLimit",
+      "yAxisLabel": "久期"
     },
     "72": {
       "chartKind": "balanceScaleGrowth"
@@ -759,16 +560,6 @@ window.dashboardConfig = {
         "presetRef": "businessTypeLegend"
       }
     ],
-    "35": [
-      {
-        "presetRef": "benchmarkSelector"
-      }
-    ],
-    "36": [
-      {
-        "presetRef": "durationDimensionSelector"
-      }
-    ],
     "49": [
       {
         "presetRef": "liquidityTenorLegend"
@@ -777,6 +568,11 @@ window.dashboardConfig = {
     "50": [
       {
         "presetRef": "caliberSelector"
+      }
+    ],
+    "54": [
+      {
+        "presetRef": "futureFundingBusinessTypeLegend"
       }
     ],
     "73": [
@@ -871,44 +667,44 @@ window.dashboardConfig = {
         "债券投资"
       ]
     },
-    "benchmarkSelector": {
-      "name": "利率基准",
-      "label": "利率基准",
+    "futureFundingBusinessTypeLegend": {
+      "name": "业务类型",
+      "renderMode": "legend",
+      "multi": true,
       "options": [
-        "DR007",
-        "LPR 1Y",
-        "LPR 5Y",
-        "HIBOR",
-        "备付金利率",
-        "贷款基准利率",
-        "活期存款利率",
-        "其他资产利率",
-        "通知存款利率",
-        "准备金利率",
-        "LIBOR",
-        "PRIME RATE",
-        "SOFR",
-        "TERM SOFR",
-        "ESTR",
-        "EURIBOR"
+        "自营贷款",
+        "债券投资",
+        "同业资产",
+        "自营非标投资",
+        "存放央行",
+        "内部交易资产",
+        "活期存款",
+        "定期存款",
+        "同业负债",
+        "发行债券",
+        "中央行借款",
+        "租赁负债",
+        "内部交易负债",
+        "表外衍生品应付",
+        "表外衍生品应收"
       ],
       "defaultValues": [
-        "DR007"
-      ],
-      "multi": false
-    },
-    "durationDimensionSelector": {
-      "name": "维度",
-      "label": "维度",
-      "options": [
-        "资产端",
-        "负债端",
-        "资产负债差值"
-      ],
-      "defaultValues": [
-        "资产端"
-      ],
-      "multi": false
+        "自营贷款",
+        "债券投资",
+        "同业资产",
+        "自营非标投资",
+        "存放央行",
+        "内部交易资产",
+        "活期存款",
+        "定期存款",
+        "同业负债",
+        "发行债券",
+        "中央行借款",
+        "租赁负债",
+        "内部交易负债",
+        "表外衍生品应付",
+        "表外衍生品应收"
+      ]
     },
     "liquidityTenorLegend": {
       "name": "期限长度",
@@ -978,11 +774,7 @@ window.dashboardConfig = {
     }
   },
   "layoutRules": {
-    "blocks": {
-      "利率风险/期权性风险": {
-        "pairAreas": true
-      }
-    },
+    "blocks": {},
     "areas": {
       "利率风险/核心风险指标/最大经济价值变动比例": {
         "mergeViewGroups": true,
@@ -1002,13 +794,6 @@ window.dashboardConfig = {
       "流动性风险/核心风险指标/流动性覆盖率LCR": {
         "mergeViewGroups": true,
         "sharedFilterPreset": "orgCurrency"
-      },
-      "流动性风险/资金备付/超额备付金": {
-        "mergeViewGroups": true,
-        "sharedFilterPreset": "orgOnly"
-      },
-      "流动性风险/分行个性化监管指标/分行个性化监管指标": {
-        "sharedFilterPreset": "orgOnly"
       }
     },
     "widgets": {
@@ -1022,9 +807,6 @@ window.dashboardConfig = {
         "fullWidth": true
       },
       "24": {
-        "fullWidth": false
-      },
-      "25": {
         "fullWidth": false
       },
       "27": {
@@ -1081,8 +863,7 @@ window.dashboardConfig = {
           "wholesaleLiabilityDirection": 1,
           "liabilityDirection": -0.56
         }
-      },
-      "fx": {}
+      }
     }
   },
   "tableTemplates": {
