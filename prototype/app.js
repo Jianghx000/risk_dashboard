@@ -55,6 +55,8 @@ const FUTURE_MATURITY_MONTH_COUNT = 6;
 const SIMULATION_FUNDING_ROLE_OPTIONS = ["资金来源", "资金运用"];
 const SIMULATION_MODE_NEW_BUSINESS = "newBusiness";
 const SIMULATION_MODE_HEDGE = "hedge";
+const SIMULATION_MODULE_NET_INTEREST_INCOME = "netInterestIncome";
+const SIMULATION_MODULE_LIQUIDITY_STRESS = "liquidityStress";
 const REPRICING_FREQUENCY_OPTIONS = [
   { label: "按月重定价", value: "1" },
   { label: "按季重定价", value: "3" },
@@ -2289,7 +2291,7 @@ function renderBondInvestmentScaleLimitDataTable(widget, chartContext) {
 function renderBondInvestmentDurationLimitChart(widget, chartContext) {
   return renderLimitedLineMetricChart(widget, chartContext, {
     yLabel: "久期",
-    valueLabel: "债券投资久期",
+    valueLabel: "投资组合久期",
     minValue: 2.4,
     maxValue: 5.6,
     limitBase: 5.8,
@@ -2302,7 +2304,7 @@ function renderBondInvestmentDurationLimitChart(widget, chartContext) {
 
 function renderBondInvestmentDurationLimitDataTable(widget, chartContext) {
   return renderLimitedLineMetricDataTable(widget, chartContext, {
-    valueLabel: "债券投资久期",
+    valueLabel: "投资组合久期",
     minValue: 2.4,
     maxValue: 5.6,
     limitBase: 5.8,
@@ -4877,6 +4879,26 @@ function canRenderHedgeSimulation(page = getCurrentPage()) {
   return getSimulationMode(page) === "interest";
 }
 
+function getSimulationModeTabs(page = getCurrentPage()) {
+  const simulationMode = getSimulationMode(page);
+  if (simulationMode === "interest") {
+    return [
+      { mode: SIMULATION_MODE_NEW_BUSINESS, label: "新业务模拟测算" },
+      { mode: SIMULATION_MODE_HEDGE, label: "套期交易模拟测算" },
+      { module: SIMULATION_MODULE_NET_INTEREST_INCOME, label: "净利息收入" },
+    ];
+  }
+  if (simulationMode === "liquidity") {
+    return [
+      { mode: SIMULATION_MODE_NEW_BUSINESS, label: "新业务模拟测算" },
+      { module: SIMULATION_MODULE_LIQUIDITY_STRESS, label: "流动性压力测试" },
+    ];
+  }
+  return [
+    { mode: SIMULATION_MODE_NEW_BUSINESS, label: "新业务模拟测算" },
+  ];
+}
+
 function getSimulationDraftMode(page = getCurrentPage()) {
   if (!canRenderHedgeSimulation(page)) return SIMULATION_MODE_NEW_BUSINESS;
   return appState.simulationDraftMode === SIMULATION_MODE_HEDGE ? SIMULATION_MODE_HEDGE : SIMULATION_MODE_NEW_BUSINESS;
@@ -5256,20 +5278,18 @@ function renderSimulationRoleSection(page, entries, fundingRole) {
 }
 
 function renderSimulationModeTabs(page, activeMode) {
-  if (!canRenderHedgeSimulation(page)) return "";
-  const tabs = [
-    { mode: SIMULATION_MODE_NEW_BUSINESS, label: "新业务模拟测算" },
-    { mode: SIMULATION_MODE_HEDGE, label: "套期交易模拟测算" },
-  ];
+  const tabs = getSimulationModeTabs(page);
+  if (tabs.length <= 1) return "";
   return `
     <div class="simulation-mode-tabs" role="tablist" aria-label="模拟测算类型">
       ${tabs.map((tab) => `
         <button
-          class="simulation-mode-tab ${tab.mode === activeMode ? "is-active" : ""}"
+          class="simulation-mode-tab ${tab.mode === activeMode ? "is-active" : ""}${tab.module ? " simulation-mode-tab--module" : ""}"
           type="button"
           role="tab"
           aria-selected="${tab.mode === activeMode ? "true" : "false"}"
-          data-simulation-mode-tab="${tab.mode}"
+          ${tab.mode ? `data-simulation-mode-tab="${tab.mode}"` : ""}
+          ${tab.module ? `data-simulation-module-link="${tab.module}"` : ""}
         >
           ${tab.label}
         </button>
@@ -6185,6 +6205,16 @@ simulationModalEl.addEventListener("click", (event) => {
   if (closeButton) {
     closeSimulationModal();
     render();
+    return;
+  }
+  const moduleLink = event.target.closest("[data-simulation-module-link]");
+  if (moduleLink) {
+    window.dispatchEvent(new CustomEvent("risk-dashboard:simulation-module-request", {
+      detail: {
+        module: moduleLink.dataset.simulationModuleLink,
+        pageId: appState.simulationModalPageId,
+      },
+    }));
     return;
   }
   const modeTab = event.target.closest("[data-simulation-mode-tab]");

@@ -1,8 +1,8 @@
 window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
-  "pageCount": 3,
-  "widgetCount": 46,
+  "pageCount": 4,
+  "widgetCount": 45,
   "pages": [
     {
       "id": "page-1",
@@ -236,40 +236,6 @@ window.dashboardData = {
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
                   "originPosition": "原始行11"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot",
-                "timeMode": "frequencyToggle",
-                "tabGroup": "repricingGapCaliber",
-                "tabKey": "时点口径"
-              }
-            },
-            {
-              "id": "area-12",
-              "name": "重定价缺口率",
-              "viewScope": "时点口径 / 时点",
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 13,
-                  "title": "各币种规模及占比",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 时点。原始要求：与上述所选择的机构一致，展示所选择的单个机构下，不同币种的资产规模占比饼状图。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：规模",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图；建议支持tooltip同步查看",
-                  "originPosition": "原始行13"
                 },
                 {
                   "seq": 14,
@@ -291,6 +257,7 @@ window.dashboardData = {
               "filterPreset": "orgCurrency",
               "scopeMeta": {
                 "snapshotMode": "snapshot",
+                "timeMode": "frequencyToggle",
                 "tabGroup": "repricingGapCaliber",
                 "tabKey": "时点口径"
               }
@@ -458,68 +425,46 @@ window.dashboardData = {
                 "tabGroup": "repricingDuration",
                 "tabKey": "新发生"
               }
-            }
-          ],
-          "widgetCount": 12,
-          "areaCount": 5
-        },
-        {
-          "id": "block-interest-bond-investment",
-          "name": "债券投资",
-          "areas": [
+            },
             {
-              "id": "area-interest-bond-investment",
-              "name": "债券投资",
-              "viewScope": "限额监测",
+              "id": "area-interest-portfolio-duration",
+              "name": "投资组合久期",
+              "viewScope": "存量业务 / 限额监测",
               "sharedFilters": [
                 "机构（多选）",
                 "币种（多选）"
               ],
               "widgets": [
                 {
-                  "seq": 59,
-                  "title": "债券投资规模",
-                  "componentType": "限额双柱时序图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
-                  "legendDescription": "图例：债券投资规模、非金融企业债投资规模、限额",
-                  "responseFields": "org_id, currency_code, bond_investment_scale, non_financial_corporate_bond_scale, limit_value",
-                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
-                  "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
-                },
-                {
                   "seq": 60,
-                  "title": "债券投资久期",
+                  "title": "投资组合久期",
                   "componentType": "限额折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。展示各机构、各币种下债券投资久期走势，指标为限额指标。",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。展示所选机构、币种口径下投资组合久期走势，指标为限额指标。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：债券投资久期、限额",
+                  "metricDescription": "指标：投资组合久期、限额",
                   "legendDescription": "图例：机构/币种组合",
                   "responseFields": "date_or_dimension_label, metric_value, limit_value, series_name",
                   "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
-                  "devNote": "组件：限额折线图；折线表示债券投资久期，虚线表示限额"
+                  "devNote": "组件：限额折线图；折线表示投资组合久期，虚线表示限额"
                 }
               ],
               "filterPreset": "orgCurrency",
               "scopeMeta": {
-                "snapshotMode": "trend"
+                "snapshotMode": "trend",
+                "timeMode": "monthly"
               }
             }
           ],
-          "widgetCount": 2,
-          "areaCount": 1
+          "widgetCount": 12,
+          "areaCount": 5
         }
       ],
-      "blockCount": 3,
-      "areaCount": 10,
-      "widgetCount": 20
+      "blockCount": 2,
+      "areaCount": 9,
+      "widgetCount": 18
     },
     {
       "id": "page-2",
@@ -822,13 +767,60 @@ window.dashboardData = {
             }
           ],
           "widgetCount": 5
+        }
+      ],
+      "blockCount": 2,
+      "areaCount": 6,
+      "widgetCount": 12
+    },
+    {
+      "id": "page-3",
+      "name": "投融资业务",
+      "blocks": [
+        {
+          "id": "block-investment-financing-bond-investment",
+          "name": "债券投资",
+          "areas": [
+            {
+              "id": "area-investment-financing-bond-investment",
+              "name": "债券投资",
+              "viewScope": "限额监测",
+              "sharedFilters": [
+                "机构（多选）",
+                "币种（多选）"
+              ],
+              "widgets": [
+                {
+                  "seq": 59,
+                  "title": "债券投资规模",
+                  "componentType": "限额双柱时序图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
+                  "legendDescription": "图例：债券投资规模、非金融企业债投资规模、限额",
+                  "responseFields": "org_id, currency_code, bond_investment_scale, non_financial_corporate_bond_scale, limit_value",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
+                }
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend"
+              }
+            }
+          ],
+          "widgetCount": 1,
+          "areaCount": 1
         },
         {
-          "id": "block-liquidity-funding-inflow",
+          "id": "block-investment-financing-funding-inflow",
           "name": "资金融入",
           "areas": [
             {
-              "id": "area-liquidity-funding-inflow",
+              "id": "area-investment-financing-funding-inflow",
               "name": "资金融入",
               "viewScope": "限额监测",
               "sharedFilters": [
@@ -877,9 +869,9 @@ window.dashboardData = {
           "areaCount": 1
         }
       ],
-      "blockCount": 3,
-      "areaCount": 7,
-      "widgetCount": 14
+      "blockCount": 2,
+      "areaCount": 2,
+      "widgetCount": 3
     },
     {
       "id": "page-4",

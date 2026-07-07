@@ -20,6 +20,7 @@ const TEXT = {
   pages: [
     "\u5229\u7387\u98ce\u9669",
     "\u6d41\u52a8\u6027\u98ce\u9669",
+    "\u6295\u878d\u8d44\u4e1a\u52a1",
     "\u4e1a\u52a1\u53d8\u52a8\u5206\u6790",
   ],
   removedPage: "\u6c47\u7387\u98ce\u9669",
@@ -27,11 +28,12 @@ const TEXT = {
     "\u57fa\u51c6\u98ce\u9669",
     "\u671f\u6743\u6027\u98ce\u9669",
     "\u503a\u5238\u4fee\u6b63\u4e45\u671f",
+    "\u5404\u5e01\u79cd\u89c4\u6a21\u53ca\u5360\u6bd4",
   ],
   interestBondBlock: "\u503a\u5238\u6295\u8d44",
-  interestBondWidgetTitles: [
+  interestPortfolioDurationTitle: "\u6295\u8d44\u7ec4\u5408\u4e45\u671f",
+  investmentFinanceBondWidgetTitles: [
     "\u503a\u5238\u6295\u8d44\u89c4\u6a21",
-    "\u503a\u5238\u6295\u8d44\u4e45\u671f",
   ],
   removedLiquidityTitles: [
     "\u8d44\u91d1\u5907\u4ed8",
@@ -162,29 +164,33 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   for (const title of TEXT.removedInterestTitles) {
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
   }
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toBeVisible();
-  for (const title of TEXT.interestBondWidgetTitles) {
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  }
-  const bondScaleBarCount = await page.locator('article[data-widget-seq="59"] svg rect').evaluateAll((nodes) =>
-    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
-  );
-  expect(bondScaleBarCount).toBeGreaterThan(0);
-  await expect(page.locator('article[data-widget-seq="59"] .chart-stage')).toContainText("2026-01");
+  await expect(page.locator('article[data-widget-seq="13"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "\u65f6\u70b9\u53e3\u5f84", exact: true })).toHaveClass(/is-active/);
+  await expect(page.locator('article[data-widget-seq="11"]')).toBeVisible();
+  await expect(page.locator('article[data-widget-seq="14"]')).toBeVisible();
+  const repricingGapRow = await page.evaluate(() => {
+    const gapWidget = document.querySelector('article[data-widget-seq="11"]');
+    const maturityWidget = document.querySelector('article[data-widget-seq="14"]');
+    if (!gapWidget || !maturityWidget) return null;
+    const gapRect = gapWidget.getBoundingClientRect();
+    const maturityRect = maturityWidget.getBoundingClientRect();
+    return {
+      sameRow: Math.abs(gapRect.top - maturityRect.top) < 8,
+      gapRight: gapRect.right,
+      maturityLeft: maturityRect.left,
+    };
+  });
+  expect(repricingGapRow).not.toBeNull();
+  expect(repricingGapRow.sameRow).toBeTruthy();
+  expect(repricingGapRow.gapRight).toBeLessThanOrEqual(repricingGapRow.maturityLeft);
+  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="60"]').getByRole("heading", { name: TEXT.interestPortfolioDurationTitle, exact: true })).toBeVisible();
   expect(await page.locator('article[data-widget-seq="60"] svg polyline').count()).toBeGreaterThan(0);
   await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
   for (const title of TEXT.removedLiquidityTitles) {
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
   }
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toBeVisible();
-  for (const title of TEXT.liquidityFundingWidgetTitles) {
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  }
-  expect(await page.locator('article[data-widget-seq="57"] svg polyline').count()).toBeGreaterThan(0);
-  const interbankTenorBarCount = await page.locator('article[data-widget-seq="58"] svg rect').evaluateAll((nodes) =>
-    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
-  );
-  expect(interbankTenorBarCount).toBeGreaterThan(0);
+  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toHaveCount(0);
   const futureFundingFlowWidget = page.locator('article[data-widget-seq="54"]');
   await expect(futureFundingFlowWidget).toContainText("\u5f53\u65e5\u51c0\u989d");
   await expect(futureFundingFlowWidget).toContainText("\u7d2f\u8ba1\u51c0\u989d");
@@ -199,11 +205,31 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await futureFundingFlowWidget.getByRole("button", { name: "\u6570\u636e", exact: true }).click();
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u660e\u7ec6");
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u7f16\u53f7");
+
+  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
+  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toBeVisible();
+  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toBeVisible();
+  for (const title of TEXT.investmentFinanceBondWidgetTitles) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  }
+  for (const title of TEXT.liquidityFundingWidgetTitles) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  }
+  const bondScaleBarCount = await page.locator('article[data-widget-seq="59"] svg rect').evaluateAll((nodes) =>
+    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
+  );
+  expect(bondScaleBarCount).toBeGreaterThan(0);
+  await expect(page.locator('article[data-widget-seq="59"] .chart-stage')).toContainText("2026-01");
+  expect(await page.locator('article[data-widget-seq="57"] svg polyline').count()).toBeGreaterThan(0);
+  const interbankTenorBarCount = await page.locator('article[data-widget-seq="58"] svg rect').evaluateAll((nodes) =>
+    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
+  );
+  expect(interbankTenorBarCount).toBeGreaterThan(0);
 });
 
 test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574", async ({ page }) => {
   await openPage(page);
-  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
+  await page.getByRole("button", { name: TEXT.pages[3], exact: true }).click();
   for (const title of TEXT.businessChangeTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
@@ -284,7 +310,7 @@ test("\u673a\u6784\u591a\u9009\u540e\u77e9\u9635\u8868\u6309\u673a\u6784\u5206\u
   await expect(eveHeader).toContainText("境内汇总");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
+  await page.getByRole("button", { name: TEXT.pages[3], exact: true }).click();
   await page.evaluate(() => {
     Object.values(appState.areaFilters).forEach((state) => {
       if (Array.isArray(state["机构"])) state["机构"] = ["法人汇总", "境内汇总"];
@@ -318,6 +344,16 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await page.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(page.getByRole("heading", { name: TEXT.interestRiskSimulationTitle, exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "\u65b0\u4e1a\u52a1\u6a21\u62df\u6d4b\u7b97", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "\u51c0\u5229\u606f\u6536\u5165", exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    window.__lastSimulationModuleRequest = null;
+    window.addEventListener("risk-dashboard:simulation-module-request", (event) => {
+      window.__lastSimulationModuleRequest = event.detail;
+    }, { once: true });
+  });
+  await page.getByRole("tab", { name: "\u51c0\u5229\u606f\u6536\u5165", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "\u65b0\u4e1a\u52a1\u6a21\u62df\u6d4b\u7b97", exact: true })).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.__lastSimulationModuleRequest?.module)).toBe("netInterestIncome");
   await page.getByRole("tab", { name: "\u5957\u671f\u4ea4\u6613\u6a21\u62df\u6d4b\u7b97", exact: true }).click();
   await expect(page.getByText("\u88ab\u5957\u671f\u9879\u76ee\u7f16\u53f7", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /HT-BOND-2026-014/ }).click();
@@ -334,7 +370,17 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
   await page.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(page.getByRole("heading", { name: TEXT.liquidityRiskSimulationTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "\u6d41\u52a8\u6027\u538b\u529b\u6d4b\u8bd5", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "\u5957\u671f\u4ea4\u6613\u6a21\u62df\u6d4b\u7b97", exact: true })).toHaveCount(0);
+  await page.evaluate(() => {
+    window.__lastSimulationModuleRequest = null;
+    window.addEventListener("risk-dashboard:simulation-module-request", (event) => {
+      window.__lastSimulationModuleRequest = event.detail;
+    }, { once: true });
+  });
+  await page.getByRole("tab", { name: "\u6d41\u52a8\u6027\u538b\u529b\u6d4b\u8bd5", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "\u65b0\u4e1a\u52a1\u6a21\u62df\u6d4b\u7b97", exact: true })).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.__lastSimulationModuleRequest?.module)).toBe("liquidityStress");
   await expect(page.locator(".simulation-role-section")).toHaveCount(2);
   await expect(page.locator(".simulation-role-section--source")).toContainText("\u8d44\u91d1\u6765\u6e90");
   await expect(page.locator(".simulation-role-section--use")).toContainText("\u8d44\u91d1\u8fd0\u7528");

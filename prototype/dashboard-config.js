@@ -113,19 +113,19 @@ window.dashboardConfig = {
   "tabs": {
     "重定价缺口率": [
       {
-        "label": "月日均口径",
-        "matchViewScope": "月日均口径",
-        "matchScopeMeta": {
-          "tabGroup": "repricingGapCaliber",
-          "tabKey": "月日均口径"
-        }
-      },
-      {
         "label": "时点口径",
         "matchViewScope": "时点口径",
         "matchScopeMeta": {
           "tabGroup": "repricingGapCaliber",
           "tabKey": "时点口径"
+        }
+      },
+      {
+        "label": "月日均口径",
+        "matchViewScope": "月日均口径",
+        "matchScopeMeta": {
+          "tabGroup": "repricingGapCaliber",
+          "tabKey": "月日均口径"
         }
       }
     ],
@@ -169,10 +169,6 @@ window.dashboardConfig = {
       },
       "缺口风险": {
         "重定价缺口率": {
-          "pinnedViewScopeIncludes": [
-            "时点口径 / 时点",
-            "/ 时点"
-          ]
         }
       }
     },
@@ -352,15 +348,11 @@ window.dashboardConfig = {
     },
     "11": {
       "chartKind": "repricingScaleGap",
-      "fullWidth": true,
+      "fullWidth": false,
       "frequencyToggle": true,
       "simulationBehavior": {
         "sensitivity": 0.16
       }
-    },
-    "13": {
-      "chartKind": "donut",
-      "defaultTableDimension": "币种"
     },
     "14": {
       "chartKind": "maturityDistribution"
@@ -785,10 +777,6 @@ window.dashboardConfig = {
         "sharedFilterPreset": "orgCurrencyRateScenario"
       },
       "利率风险/缺口风险/重定价缺口率": {
-        "pinnedViewScopeIncludes": [
-          "时点口径 / 时点",
-          "/ 时点"
-        ],
         "sharedFilterPreset": "orgCurrency"
       },
       "流动性风险/核心风险指标/流动性覆盖率LCR": {
@@ -801,7 +789,7 @@ window.dashboardConfig = {
         "fullWidth": false
       },
       "11": {
-        "fullWidth": true
+        "fullWidth": false
       },
       "17": {
         "fullWidth": true
