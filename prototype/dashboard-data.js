@@ -1,8 +1,8 @@
 window.dashboardData = {
   "generatedAt": "2026-04-08 16:19",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
-  "pageCount": 4,
-  "widgetCount": 45,
+  "pageCount": 3,
+  "widgetCount": 37,
   "pages": [
     {
       "id": "page-1",
@@ -174,7 +174,8 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 6
+          "widgetCount": 6,
+          "areaCount": 4
         },
         {
           "id": "block-2",
@@ -460,11 +461,49 @@ window.dashboardData = {
           ],
           "widgetCount": 12,
           "areaCount": 5
+        },
+        {
+          "id": "block-investment-financing-bond-investment",
+          "name": "债券投资",
+          "areas": [
+            {
+              "id": "area-investment-financing-bond-investment",
+              "name": "债券投资",
+              "viewScope": "限额监测",
+              "sharedFilters": [
+                "机构（多选）",
+                "币种（多选）"
+              ],
+              "widgets": [
+                {
+                  "seq": 59,
+                  "title": "债券投资规模",
+                  "componentType": "限额双柱时序图",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
+                  "legendDescription": "图例：债券投资规模、非金融企业债投资规模、限额",
+                  "responseFields": "org_id, currency_code, bond_investment_scale, non_financial_corporate_bond_scale, limit_value",
+                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
+                  "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
+                }
+              ],
+              "filterPreset": "orgCurrency",
+              "scopeMeta": {
+                "snapshotMode": "trend"
+              }
+            }
+          ],
+          "widgetCount": 1,
+          "areaCount": 1
         }
       ],
-      "blockCount": 2,
-      "areaCount": 9,
-      "widgetCount": 18
+      "blockCount": 3,
+      "areaCount": 10,
+      "widgetCount": 19
     },
     {
       "id": "page-2",
@@ -498,75 +537,12 @@ window.dashboardData = {
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
                   "originPosition": "原始行42"
-                },
-                {
-                  "seq": 44,
-                  "title": "未来30天现金净流出量走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的未来30天现金净流出量走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行44"
                 }
               ],
               "filterPreset": "orgCurrency",
               "scopeMeta": {
                 "timeMode": "frequencyToggle",
                 "breakdownMode": "currency"
-              }
-            },
-            {
-              "id": "area-45",
-              "name": "流动性覆盖率LCR",
-              "viewScope": "时点",
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 43,
-                  "title": "优质流动性资产HQLA走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：与上述筛选的机构保持一致，展示所选机构本外币合计口径的优质流动性资产HQLA走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：HQLA",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行43"
-                },
-                {
-                  "seq": 45,
-                  "title": "HQLA规模分布结构",
-                  "componentType": "环形图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点。原始要求：通过筛选机构及币种，展示所选机构及币种的HQLA的分布结构，一级资产、二级资产等。开发细化：采用结构分布图实现，同步展示绝对规模和占比。",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "维度：HQLA层级（一级资产、二级资产）",
-                  "metricDescription": "指标：HQLA",
-                  "legendDescription": "图例：一级资产、二级资产",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：环形图；建议支持tooltip同步查看",
-                  "originPosition": "原始行45"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
               }
             },
             {
@@ -593,38 +569,6 @@ window.dashboardData = {
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
                   "originPosition": "原始行46"
-                },
-                {
-                  "seq": 47,
-                  "title": "可用稳定资金规模走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的可用稳定资金规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：规模",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行47"
-                },
-                {
-                  "seq": 48,
-                  "title": "业务所需稳定资金走势",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，展示所选机构和币种下的业务所需稳定资金走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：按图表标题定义",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行48"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -633,60 +577,13 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 7
+          "widgetCount": 2,
+          "areaCount": 2
         },
         {
           "id": "block-2",
           "name": "现金流错配",
           "areas": [
-            {
-              "id": "area-55",
-              "name": "流动性比例",
-              "viewScope": "时间序列（月频）",
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 55,
-                  "title": "流动性比例",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：时间序列（月频）。原始要求：展示所选机构和币种口径下的流动性比例走势。开发细化：采用折线图实现，横轴为统计月，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：流动性比例",
-                  "legendDescription": "图例：当前口径",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "新增"
-                },
-                {
-                  "seq": 56,
-                  "title": "流动性资产和流动性负债",
-                  "componentType": "柱状图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：时间序列（月频）。原始要求：展示所选机构和币种口径下的流动性资产和流动性负债规模。开发细化：采用双柱图实现，每个统计月展示流动性资产和流动性负债两根柱，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：流动性资产规模/流动性负债规模",
-                  "legendDescription": "图例：流动性资产、流动性负债",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：双柱图",
-                  "originPosition": "新增"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
-            },
             {
               "id": "area-49",
               "name": "流动性缺口",
@@ -698,11 +595,11 @@ window.dashboardData = {
               "widgets": [
                 {
                   "seq": 49,
-                  "title": "流动性缺口（1D/7D/3M）",
+                  "title": "流动性缺口",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1D/7D/3M图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：筛选机构和币种，再选择期限长度（1D/7D/3M），展示所选机构和币种维度下，不同期限长度的流动性缺口规模与流动性缺口率走势。开发细化：采用柱状图+折线图实现，柱子表示流动性缺口规模，折线表示流动性缺口率，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：期限长度默认选中3M，可按需追加对比1D、7D。",
+                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（1D/7D/30D/3M）；统计口径（仅30D生效，默认时点）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。开发细化：合并原流动性缺口（1D/7D/3M）和30日流动性缺口规模，采用柱状图+折线图实现，柱子表示流动性缺口规模，折线表示流动性缺口率，30D支持时点/月日均切换，1D/7D/3M不展示月日均口径。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
+                  "defaultFilters": "机构：默认全选；币种：默认全选；期限：默认30D；口径：默认时点",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：缺口规模/缺口率",
@@ -710,23 +607,7 @@ window.dashboardData = {
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
-                  "originPosition": "原始行49"
-                },
-                {
-                  "seq": 50,
-                  "title": "30日流动性缺口规模",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）；期限长度（多选，仅1D/7D/3M图生效）；统计口径（多选，仅30日图和资金流入流出图生效）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。原始要求：与上述筛选的机构和币种保持一致，进一步选择口径（时点或月日均），展示所选机构和币种维度下不同口径（时点或月日均）的30日流动性缺口规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。开发补充：统计口径支持多选，可同图对比时点与月日均结果。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；口径：默认当前区域主口径；期限：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：缺口规模/缺口率",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行50"
+                  "originPosition": "原始行49、50合并"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -766,54 +647,8 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 5
-        }
-      ],
-      "blockCount": 2,
-      "areaCount": 6,
-      "widgetCount": 12
-    },
-    {
-      "id": "page-3",
-      "name": "投融资业务",
-      "blocks": [
-        {
-          "id": "block-investment-financing-bond-investment",
-          "name": "债券投资",
-          "areas": [
-            {
-              "id": "area-investment-financing-bond-investment",
-              "name": "债券投资",
-              "viewScope": "限额监测",
-              "sharedFilters": [
-                "机构（多选）",
-                "币种（多选）"
-              ],
-              "widgets": [
-                {
-                  "seq": 59,
-                  "title": "债券投资规模",
-                  "componentType": "限额双柱时序图",
-                  "displayDescription": "筛选项：机构（多选）；币种（多选）。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
-                  "legendDescription": "图例：债券投资规模、非金融企业债投资规模、限额",
-                  "responseFields": "org_id, currency_code, bond_investment_scale, non_financial_corporate_bond_scale, limit_value",
-                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
-                  "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend"
-              }
-            }
-          ],
-          "widgetCount": 1,
-          "areaCount": 1
+          "widgetCount": 2,
+          "areaCount": 2
         },
         {
           "id": "block-investment-financing-funding-inflow",
@@ -869,9 +704,9 @@ window.dashboardData = {
           "areaCount": 1
         }
       ],
-      "blockCount": 2,
-      "areaCount": 2,
-      "widgetCount": 3
+      "blockCount": 3,
+      "areaCount": 5,
+      "widgetCount": 6
     },
     {
       "id": "page-4",
@@ -961,7 +796,8 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 4
+          "widgetCount": 4,
+          "areaCount": 1
         },
         {
           "id": "block-2",
@@ -1047,7 +883,8 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 4
+          "widgetCount": 4,
+          "areaCount": 1
         },
         {
           "id": "block-3",
@@ -1133,7 +970,8 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 4
+          "widgetCount": 4,
+          "areaCount": 1
         }
       ],
       "blockCount": 3,

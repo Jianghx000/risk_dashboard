@@ -41,10 +41,10 @@ window.dashboardConfig = {
         "短端下降"
       ],
       "期限长度": [
-        "1日",
-        "7日",
-        "30日",
-        "90日"
+        "1D",
+        "7D",
+        "30D",
+        "3M"
       ],
       "业务类型": [
         "自营贷款",
@@ -282,9 +282,9 @@ window.dashboardConfig = {
       ]
     },
     {
-      "indicator": "30日流动性缺口规模",
+      "indicator": "流动性缺口",
       "matchTitles": [
-        "30日流动性缺口规模"
+        "流动性缺口"
       ],
       "values": {
         "法人汇总": 55,
@@ -298,7 +298,7 @@ window.dashboardConfig = {
         "香港分行": 56
       },
       "widgetSeqs": [
-        50
+        49
       ]
     }
   ],
@@ -413,52 +413,24 @@ window.dashboardConfig = {
     "42": {
       "frequencyToggle": true
     },
-    "43": {
+    "46": {
       "frequencyToggle": true
-    },
-    "44": {
-      "frequencyToggle": true
-    },
-    "45": {
-      "chartKind": "donut",
-      "defaultTableDimension": "一级资产",
-      "distributionLabels": [
-        "一级资产",
-        "二级资产"
-      ]
     },
     "49": {
       "chartKind": "liquidityGapTenor",
-      "inlineFilters": [
-        "期限长度"
-      ]
-    },
-    "50": {
-      "chartKind": "thirtyDayLiquidityGap",
+      "frequencyToggle": true,
       "simulationBehavior": {
         "directionMode": "gap",
         "sensitivity": 0.16
       },
       "inlineFilters": [
+        "期限长度",
         "口径"
       ]
     },
     "54": {
       "chartKind": "futureFundingFlow",
       "fullWidth": true
-    },
-    "55": {
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
-    },
-    "56": {
-      "chartKind": "liquidityAssetLiabilityBars",
-      "simulationBehavior": {
-        "directionMode": "default",
-        "sensitivity": 0.11
-      }
     },
     "57": {
       "chartKind": "interbankFundingMaxTenor",
@@ -555,9 +527,7 @@ window.dashboardConfig = {
     "49": [
       {
         "presetRef": "liquidityTenorLegend"
-      }
-    ],
-    "50": [
+      },
       {
         "presetRef": "caliberSelector"
       }
@@ -701,15 +671,17 @@ window.dashboardConfig = {
     "liquidityTenorLegend": {
       "name": "期限长度",
       "label": "期限",
+      "renderMode": "segmented",
       "options": [
         "1D",
         "7D",
+        "30D",
         "3M"
       ],
       "defaultValues": [
-        "3M"
+        "30D"
       ],
-      "multi": true
+      "multi": false
     },
     "caliberSelector": {
       "name": "口径",

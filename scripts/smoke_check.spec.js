@@ -20,10 +20,10 @@ const TEXT = {
   pages: [
     "\u5229\u7387\u98ce\u9669",
     "\u6d41\u52a8\u6027\u98ce\u9669",
-    "\u6295\u878d\u8d44\u4e1a\u52a1",
     "\u4e1a\u52a1\u53d8\u52a8\u5206\u6790",
   ],
   removedPage: "\u6c47\u7387\u98ce\u9669",
+  removedInvestmentFinancePage: "\u6295\u878d\u8d44\u4e1a\u52a1",
   removedInterestTitles: [
     "\u57fa\u51c6\u98ce\u9669",
     "\u671f\u6743\u6027\u98ce\u9669",
@@ -38,6 +38,14 @@ const TEXT = {
   removedLiquidityTitles: [
     "\u8d44\u91d1\u5907\u4ed8",
     "\u5206\u884c\u4e2a\u6027\u5316\u76d1\u7ba1\u6307\u6807",
+    "\u672a\u676530\u5929\u73b0\u91d1\u51c0\u6d41\u51fa\u91cf",
+    "\u4f18\u8d28\u6d41\u52a8\u6027\u8d44\u4ea7HQLA",
+    "HQLA\u89c4\u6a21\u5206\u5e03\u7ed3\u6784",
+    "\u53ef\u7528\u7a33\u5b9a\u8d44\u91d1\u89c4\u6a21",
+    "\u4e1a\u52a1\u6240\u9700\u7a33\u5b9a\u8d44\u91d1",
+    "\u6d41\u52a8\u6027\u6bd4\u4f8b",
+    "\u6d41\u52a8\u6027\u8d44\u4ea7\u548c\u6d41\u52a8\u6027\u8d1f\u503a",
+    "30\u65e5\u6d41\u52a8\u6027\u7f3a\u53e3\u89c4\u6a21",
   ],
   liquidityFundingBlock: "\u8d44\u91d1\u878d\u5165",
   liquidityFundingWidgetTitles: [
@@ -161,19 +169,57 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     await expect(page.getByRole("button", { name: title, exact: true })).toBeVisible();
   }
   await expect(page.getByRole("button", { name: TEXT.removedPage, exact: true })).toHaveCount(0);
+  const blockPills = page.locator("#blockPills");
+  for (const removedBlock of ["\u6838\u5fc3\u98ce\u9669\u6307\u6807", "\u7f3a\u53e3\u98ce\u9669"]) {
+    await expect(blockPills.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: removedBlock, exact: true })).toHaveCount(0);
+  }
+  await expect(blockPills.locator(".block-pill")).toHaveCount(0);
+  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
+  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
+  await expect(page.locator(".block-section")).toHaveCount(0);
+  await expect(page.locator(".area-card")).toHaveCount(0);
+  for (const sectionTitle of [
+    "\u6700\u5927\u7ecf\u6d4e\u4ef7\u503c\u53d8\u52a8\u6bd4\u4f8b",
+    "\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8\u7387",
+    "\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387",
+    "\u91cd\u5b9a\u4ef7\u4e45\u671f",
+    "\u6295\u8d44\u7ec4\u5408\u4e45\u671f",
+  ]) {
+    await expect(blockPills.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
+  }
+  await expect(page.locator("#dashboardView").locator('[data-owner-type="area"][data-filter-name="\u673a\u6784"]')).toHaveCount(0);
+  await expect(page.locator("#dashboardView").locator('[data-owner-type="area"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(0);
   for (const title of TEXT.removedInterestTitles) {
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
   }
+  for (const removedSeq of ["5", "8", "10", "11", "16", "17"]) {
+    await expect(page.locator(`article[data-widget-seq="${removedSeq}"]`)).toHaveCount(0);
+  }
+  await expect(page.locator("#dashboardView article.widget-card h4").nth(1)).toHaveText("\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8");
+  await expect(page.getByRole("heading", { name: TEXT.mergedEveTableTitle, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "\u5404\u5e01\u79cd\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8", exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="13"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "\u65f6\u70b9\u53e3\u5f84", exact: true })).toHaveClass(/is-active/);
-  await expect(page.locator('article[data-widget-seq="11"]')).toBeVisible();
-  await expect(page.locator('article[data-widget-seq="14"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "\u65f6\u70b9\u53e3\u5f84", exact: true }).first()).toHaveClass(/is-active/);
+  await expect(page.locator('article[data-widget-seq="901"]')).toBeVisible();
+  await expect(page.locator('article[data-widget-seq="902"]')).toBeVisible();
+  const maturityDistributionWidget = page.locator('article[data-widget-seq="14"]');
+  await expect(maturityDistributionWidget).toBeVisible();
+  await expect(maturityDistributionWidget).toHaveClass(/widget-card--full/);
+  await expect(maturityDistributionWidget.locator(".area-subtab")).toHaveCount(0);
+  await expect(maturityDistributionWidget).toContainText("\u9010\u7b14\u91cd\u5b9a\u4ef7\u660e\u7ec6");
+  expect(await maturityDistributionWidget.locator("[data-repricing-maturity-cell]").count()).toBeGreaterThan(0);
+  await maturityDistributionWidget.locator('[data-repricing-maturity-cell][data-business-type="\u503a\u5238\u6295\u8d44"]').first().click();
+  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u503a\u5238\u6295\u8d44");
+  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u5ba2\u6237/\u53d1\u884c\u4eba");
+  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u91cd\u5b9a\u4ef7\u91d1\u989d");
+  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u4e0b\u4e00\u91cd\u5b9a\u4ef7\u65e5");
   const repricingGapRow = await page.evaluate(() => {
-    const gapWidget = document.querySelector('article[data-widget-seq="11"]');
-    const maturityWidget = document.querySelector('article[data-widget-seq="14"]');
-    if (!gapWidget || !maturityWidget) return null;
-    const gapRect = gapWidget.getBoundingClientRect();
-    const maturityRect = maturityWidget.getBoundingClientRect();
+    const monthlyWidget = document.querySelector('article[data-widget-seq="901"]');
+    const dailyWidget = document.querySelector('article[data-widget-seq="902"]');
+    if (!monthlyWidget || !dailyWidget) return null;
+    const gapRect = monthlyWidget.getBoundingClientRect();
+    const maturityRect = dailyWidget.getBoundingClientRect();
     return {
       sameRow: Math.abs(gapRect.top - maturityRect.top) < 8,
       gapRight: gapRect.right,
@@ -183,14 +229,89 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   expect(repricingGapRow).not.toBeNull();
   expect(repricingGapRow.sameRow).toBeTruthy();
   expect(repricingGapRow.gapRight).toBeLessThanOrEqual(repricingGapRow.maturityLeft);
+  await expect(page.locator('article[data-widget-seq="901"]')).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\uff08\u6708\u9891\uff09");
+  await expect(page.locator('article[data-widget-seq="902"]')).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\uff08\u65e5\u9891\uff09");
+  const monthlyRepricingGapWidget = page.locator('article[data-widget-seq="901"]');
+  await monthlyRepricingGapWidget.scrollIntoViewIfNeeded();
+  await monthlyRepricingGapWidget.locator('[data-repricing-gap-point="true"]').first().click({ force: true });
+  await page.getByRole("button", { name: "\u67e5\u770b\u8ba1\u7b97\u8fc7\u7a0b", exact: true }).click();
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("\u7ecf\u671f\u9650\u8c03\u6574\u540e\u7684\u91cd\u5b9a\u4ef7\u7f3a\u53e3");
+  await page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action').click();
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("\u7ecf\u671f\u9650\u8c03\u6574\u540e\u7684\u751f\u606f\u8d44\u4ea7");
+  await page.locator('[data-repricing-gap-process-node="numerator"] [data-process-sparkline]').click();
+  await expect(page.locator("#processSparklinePreview")).toContainText("\u5206\u5b50");
+  await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
+  await page.keyboard.press("Escape");
   await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="60"]').getByRole("heading", { name: TEXT.interestPortfolioDurationTitle, exact: true })).toBeVisible();
   expect(await page.locator('article[data-widget-seq="60"] svg polyline').count()).toBeGreaterThan(0);
+  for (const title of TEXT.investmentFinanceBondWidgetTitles) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  }
+  const bondScaleBarCount = await page.locator('article[data-widget-seq="59"] svg rect').evaluateAll((nodes) =>
+    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
+  );
+  expect(bondScaleBarCount).toBeGreaterThan(0);
+  await expect(page.locator('article[data-widget-seq="59"] .chart-stage')).toContainText("2026-01");
   await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
+  for (const removedBlock of ["\u6838\u5fc3\u98ce\u9669\u6307\u6807", "\u73b0\u91d1\u6d41\u9519\u914d"]) {
+    await expect(blockPills.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: removedBlock, exact: true })).toHaveCount(0);
+  }
+  await expect(blockPills.locator(".block-pill")).toHaveCount(0);
+  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
+  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
+  for (const sectionTitle of [
+    "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
+    "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u7387NSFR",
+    "\u6d41\u52a8\u6027\u6bd4\u4f8b",
+    "\u6d41\u52a8\u6027\u7f3a\u53e3",
+  ]) {
+    await expect(blockPills.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
+  }
   for (const title of TEXT.removedLiquidityTitles) {
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
   }
+  await expect(page.locator('article[data-widget-seq="43"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="44"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="45"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="47"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="48"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="50"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="55"]')).toHaveCount(0);
+  await expect(page.locator('article[data-widget-seq="56"]')).toHaveCount(0);
+  const lcrWidget = page.locator('article[data-widget-seq="42"]');
+  await expect(lcrWidget.getByRole("heading", { name: "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR", exact: true })).toBeVisible();
+  await lcrWidget.locator('[data-liquidity-point="true"]').first().click({ force: true });
+  await page.getByRole("button", { name: "\u67e5\u770b\u8ba1\u7b97\u8fc7\u7a0b", exact: true }).click();
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u672a\u676530\u5929\u73b0\u91d1\u51c0\u6d41\u51fa\u91cf");
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u4f18\u8d28\u6d41\u52a8\u6027\u8d44\u4ea7HQLA");
+  await page.locator('[data-liquidity-process-node="numerator"] .eve-process-node__action').click();
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u672a\u676530\u5929\u73b0\u91d1\u6d41\u51fa\u91cf");
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u672a\u676530\u5929\u73b0\u91d1\u6d41\u5165\u91cf");
+  await page.keyboard.press("Escape");
+  const nsfrWidget = page.locator('article[data-widget-seq="46"]');
+  await expect(nsfrWidget.getByRole("heading", { name: "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR", exact: true })).toBeVisible();
+  await nsfrWidget.locator('[data-liquidity-point="true"]').first().click({ force: true });
+  await page.getByRole("button", { name: "\u67e5\u770b\u8ba1\u7b97\u8fc7\u7a0b", exact: true }).click();
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u53ef\u7528\u7a33\u5b9a\u8d44\u91d1\u89c4\u6a21");
+  await expect(page.locator("#liquidityProcessModal")).toContainText("\u4e1a\u52a1\u6240\u9700\u7a33\u5b9a\u8d44\u91d1");
+  await page.keyboard.press("Escape");
+  const liquidityGapWidget = page.locator('article[data-widget-seq="49"]');
+  await expect(liquidityGapWidget.getByRole("heading", { name: "\u6d41\u52a8\u6027\u7f3a\u53e3", exact: true })).toBeVisible();
+  await expect(liquidityGapWidget.locator('[data-filter-name="\u671f\u9650\u957f\u5ea6"][data-filter-value="30D"]')).toHaveClass(/is-active/);
+  await expect(liquidityGapWidget.locator('[data-filter-name="\u53e3\u5f84"][data-filter-value="\u65f6\u70b9"]')).toHaveClass(/is-active/);
+  await liquidityGapWidget.locator('[data-filter-name="\u671f\u9650\u957f\u5ea6"][data-filter-value="1D"]').click();
+  await expect(liquidityGapWidget.locator('[data-filter-name="\u53e3\u5f84"]')).toHaveCount(0);
   await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toHaveCount(0);
+  for (const title of TEXT.liquidityFundingWidgetTitles) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  }
+  expect(await page.locator('article[data-widget-seq="57"] svg polyline').count()).toBeGreaterThan(0);
+  const interbankTenorBarCount = await page.locator('article[data-widget-seq="58"] svg rect').evaluateAll((nodes) =>
+    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
+  );
+  expect(interbankTenorBarCount).toBeGreaterThan(0);
   const futureFundingFlowWidget = page.locator('article[data-widget-seq="54"]');
   await expect(futureFundingFlowWidget).toContainText("\u5f53\u65e5\u51c0\u989d");
   await expect(futureFundingFlowWidget).toContainText("\u7d2f\u8ba1\u51c0\u989d");
@@ -202,34 +323,21 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
   );
   expect(visibleBarCount).toBeGreaterThan(0);
+  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u8d44\u91d1\u6d41\u660e\u7ec6");
+  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u73b0\u91d1\u6d41\u65e5");
+  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u4ea4\u6613\u5bf9\u624b");
+  await futureFundingFlowWidget.locator('[data-future-funding-flow-cell][data-business-type="\u503a\u5238\u6295\u8d44"]').first().click();
+  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u503a\u5238\u6295\u8d44\u8d44\u91d1\u6d41\u660e\u7ec6");
   await futureFundingFlowWidget.getByRole("button", { name: "\u6570\u636e", exact: true }).click();
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u660e\u7ec6");
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u7f16\u53f7");
 
-  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toBeVisible();
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toBeVisible();
-  for (const title of TEXT.investmentFinanceBondWidgetTitles) {
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  }
-  for (const title of TEXT.liquidityFundingWidgetTitles) {
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  }
-  const bondScaleBarCount = await page.locator('article[data-widget-seq="59"] svg rect').evaluateAll((nodes) =>
-    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
-  );
-  expect(bondScaleBarCount).toBeGreaterThan(0);
-  await expect(page.locator('article[data-widget-seq="59"] .chart-stage')).toContainText("2026-01");
-  expect(await page.locator('article[data-widget-seq="57"] svg polyline').count()).toBeGreaterThan(0);
-  const interbankTenorBarCount = await page.locator('article[data-widget-seq="58"] svg rect').evaluateAll((nodes) =>
-    nodes.filter((node) => Number(node.getAttribute("height") || 0) > 4).length
-  );
-  expect(interbankTenorBarCount).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: TEXT.removedInvestmentFinancePage, exact: true })).toHaveCount(0);
 });
 
 test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574", async ({ page }) => {
   await openPage(page);
-  await page.getByRole("button", { name: TEXT.pages[3], exact: true }).click();
+  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
   for (const title of TEXT.businessChangeTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
@@ -290,31 +398,25 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   expect(newStructureScrolls).toBeTruthy();
 });
 
-test("EVE\u8868\u5df2\u5408\u5e76\u4e3a\u5355\u4e00\u8868\u683c", async ({ page }) => {
+test("EVE\u548cNII\u5e01\u79cd\u77e9\u9635\u8868\u5df2\u79fb\u9664", async ({ page }) => {
   await openPage(page);
-  const mergedHeading = page.getByRole("heading", { name: TEXT.mergedEveTableTitle, exact: true });
-  await expect(mergedHeading).toBeVisible();
+  await expect(page.getByRole("heading", { name: TEXT.mergedEveTableTitle, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "\u5404\u5e01\u79cd\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: TEXT.removedEveTableTitle, exact: true })).toHaveCount(0);
-  const mergedTable = page.locator('[data-widget-seq="5"] table').first();
-  await expect(mergedTable).toContainText("△EVE");
-  await expect(mergedTable).toContainText("平行上移");
-  await expect(mergedTable).toContainText("短端下降");
+  await expect(page.locator('[data-widget-seq="5"]')).toHaveCount(0);
+  await expect(page.locator('[data-widget-seq="8"]')).toHaveCount(0);
+  await expect(page.locator("#dashboardView article.widget-card h4").nth(1)).toHaveText("\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8");
 });
 
 test("\u673a\u6784\u591a\u9009\u540e\u77e9\u9635\u8868\u6309\u673a\u6784\u5206\u7ec4\u5c55\u793a", async ({ page }) => {
   await openPage(page);
-  await page.locator('[data-filter-toggle][data-filter-name="机构"]').first().click();
-  await page.locator('[data-filter-option][data-filter-value="境内汇总"]').click();
-  const eveHeader = page.locator('[data-widget-seq="5"] thead').first();
-  await expect(eveHeader).toContainText("法人汇总");
-  await expect(eveHeader).toContainText("境内汇总");
-  await page.keyboard.press("Escape");
-
-  await page.getByRole("button", { name: TEXT.pages[3], exact: true }).click();
+  await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
   await page.evaluate(() => {
-    Object.values(appState.areaFilters).forEach((state) => {
-      if (Array.isArray(state["机构"])) state["机构"] = ["法人汇总", "境内汇总"];
-    });
+    const businessPage = data.pages.find((item) => item.name === "业务变动分析") || getCurrentPage();
+    appState.pageFilters[businessPage.id] = {
+      ...(appState.pageFilters[businessPage.id] || {}),
+      机构: ["法人汇总", "境内汇总"],
+    };
     render();
   });
   const businessStructureHeader = page.locator('[data-widget-seq="79"] thead').first();

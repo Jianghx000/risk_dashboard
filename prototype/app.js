@@ -5,6 +5,8 @@ const FILTER_OPTIONS = config.filters?.options || config.filterOptions || {};
 const FILTER_PRESET_CONFIG = config.filters?.presets || {};
 const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
+const PAGE_SHARED_FILTER_LABELS = ["机构（多选）", "币种（多选）"];
+const PAGE_SHARED_FILTER_NAMES = new Set(["机构", "币种"]);
 const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
 const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
 const BLOCK_DISPLAY_CONFIG = config.blockDisplay || {};
@@ -20,7 +22,7 @@ const TABLE_TEMPLATE_CONFIG = config.tableTemplates || {};
 const DETAIL_TABLE_CONFIG = config.detailTables || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
 const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "中央行借款", "租赁负债", "内部交易负债", "表外衍生品应付", "表外衍生品应收"];
-const LIQUIDITY_GAP_TENOR_OPTIONS = ["1D", "7D", "3M"];
+const LIQUIDITY_GAP_TENOR_OPTIONS = ["1D", "7D", "30D", "3M"];
 const DEFAULT_SERIES_DIMENSION_ORDER = ["利率情景", "情景", "机构", "币种", "贷款类型", "存款类型", "期限长度", "业务类型"];
 const DEFAULT_SERIES_LABEL_MAP = {
   利率情景: "情景",
@@ -57,6 +59,22 @@ const SIMULATION_MODE_NEW_BUSINESS = "newBusiness";
 const SIMULATION_MODE_HEDGE = "hedge";
 const SIMULATION_MODULE_NET_INTEREST_INCOME = "netInterestIncome";
 const SIMULATION_MODULE_LIQUIDITY_STRESS = "liquidityStress";
+const EVE_RATIO_WIDGET_SEQ = 1;
+const EVE_SOURCE_TREND_WIDGET_SEQS = new Set([3, 4]);
+const EVE_SCENARIO_DEFINITIONS = [
+  { key: "parallel-up", name: "平行上移", base: 76, slope: 4.1, wave: 9 },
+  { key: "parallel-down", name: "平行下移", base: 55, slope: 2.6, wave: 6 },
+  { key: "steepener", name: "变陡峭", base: 39, slope: 2.3, wave: 5 },
+  { key: "flattener", name: "变平缓", base: 30, slope: 1.5, wave: 4 },
+  { key: "short-up", name: "短端上升", base: 61, slope: 2.7, wave: 7 },
+  { key: "short-down", name: "短端下降", base: 36, slope: 1.9, wave: 4.5 },
+];
+const EVE_COLOR_PRIMARY = "#4289EE";
+const EVE_COLOR_WORST = "#C86F43";
+const FLATTENED_BLOCK_LAYER_NAMES = new Set(["核心风险指标", "缺口风险", "现金流错配"]);
+const HIDDEN_WIDGET_SEQS = new Set([5, 8, 10, 11, 16, 17]);
+const REPRICING_GAP_RATE_WIDGET_SEQS = new Set([9, 15]);
+const REPRICING_GAP_COLOR = "#4289EE";
 const REPRICING_FREQUENCY_OPTIONS = [
   { label: "按月重定价", value: "1" },
   { label: "按季重定价", value: "3" },
@@ -196,6 +214,7 @@ const BUSINESS_DETAIL_SCOPE_META = {
 const appState = {
   currentPageId: data.pages[0]?.id || null,
   activeBlockId: null,
+  pageFilters: {},
   areaFilters: {},
   areaSubpages: {},
   widgetFilters: {},
@@ -209,6 +228,15 @@ const appState = {
   simulationDraft: null,
   hedgeSimulationDraft: null,
   insightWidgetSeq: null,
+  evePointPopover: null,
+  eveProcessModal: null,
+  liquidityMetricPointPopover: null,
+  liquidityProcessModal: null,
+  repricingGapPointPopover: null,
+  repricingGapProcessModal: null,
+  processSparklinePreview: null,
+  repricingMaturityDrilldowns: {},
+  futureFundingFlowDrilldowns: {},
   businessDrilldowns: {},
 };
 
@@ -220,6 +248,10 @@ const globalStartInputEl = document.getElementById("globalStartDate");
 const globalEndInputEl = document.getElementById("globalEndDate");
 const simulationModalEl = ensureOverlayRoot("simulationModal");
 const insightModalEl = ensureOverlayRoot("insightModal");
+const eveProcessModalEl = ensureOverlayRoot("eveProcessModal");
+const liquidityProcessModalEl = ensureOverlayRoot("liquidityProcessModal");
+const repricingGapProcessModalEl = ensureOverlayRoot("repricingGapProcessModal");
+const processSparklinePreviewEl = ensureOverlayRoot("processSparklinePreview");
 let activeBlockSyncQueued = false;
 
 function render() {
@@ -230,6 +262,10 @@ function render() {
   renderFilterPopover();
   renderSimulationModal();
   renderInsightModal();
+  renderEveProcessModal();
+  renderLiquidityProcessModal();
+  renderRepricingGapProcessModal();
+  renderProcessSparklinePreview();
   refreshBlockPillState();
   queueActiveBlockSync();
 }
@@ -264,44 +300,226 @@ function renderPageTabs() {
 function renderCurrentPage() {
   const page = getCurrentPage();
   if (!page) return;
-
-  if (!appState.activeBlockId || !page.blocks.find((block) => block.id === appState.activeBlockId)) {
-    appState.activeBlockId = page.blocks[0]?.id || null;
-  }
+  ensurePageFilterState(page);
+  appState.activeBlockId = null;
 
   const simulationButton = isSimulationPage(page)
     ? `<button class="toolbar-action toolbar-action--primary" type="button" data-open-simulation="${page.id}">模拟测算</button>`
     : "";
   blockPillsEl.innerHTML = `
-    <div class="block-pills__list">
-      ${page.blocks
-        .map(
-          (block) => `
-            <button class="block-pill ${block.id === appState.activeBlockId ? "is-active" : ""}" data-block-id="${block.id}" type="button">
-              ${block.name}
-            </button>
-          `
-        )
-        .join("")}
+    <div class="page-shared-filterbar">
+      <div class="filter-panel filter-panel--inline page-shared-filterbar__filters">
+        ${renderPageSharedFilters(page)}
+      </div>
     </div>
     ${simulationButton}
   `;
 
-  dashboardViewEl.innerHTML = page.blocks.map((block) => renderBlockSection(block)).join("");
+  dashboardViewEl.innerHTML = renderFlatDashboardPage(page);
 }
 
-function renderBlockSection(block) {
+function ensurePageFilterState(page = getCurrentPage()) {
+  if (!page?.id) return {};
+  if (!appState.pageFilters[page.id]) appState.pageFilters[page.id] = {};
+  PAGE_SHARED_FILTER_LABELS.forEach((filterLabel) => {
+    const name = normalizeFilterName(filterLabel);
+    if (Array.isArray(appState.pageFilters[page.id][name]) && appState.pageFilters[page.id][name].length) return;
+    appState.pageFilters[page.id][name] = getDefaultFilterValues(name, FILTER_OPTIONS[name] || ["默认口径"]);
+  });
+  return appState.pageFilters[page.id];
+}
+
+function renderPageSharedFilters(page = getCurrentPage()) {
+  const pageState = ensurePageFilterState(page);
+  return PAGE_SHARED_FILTER_LABELS
+    .map((filterLabel) => {
+      const name = normalizeFilterName(filterLabel);
+      return renderFilterGroup("page", page.id, filterLabel, pageState[name] || [], FILTER_OPTIONS[name] || ["默认口径"]);
+    })
+    .join("");
+}
+
+function applyPageSharedFiltersToState(state, page = getCurrentPage()) {
+  const pageState = ensurePageFilterState(page);
+  PAGE_SHARED_FILTER_NAMES.forEach((name) => {
+    state[name] = [...(pageState[name] || [])];
+  });
+  return state;
+}
+
+function renderFlatDashboardPage(page = getCurrentPage()) {
+  const cards = [];
+  const simulationSummary = renderSimulationSummary();
+  (page?.blocks || []).forEach((block) => {
+    groupBlockAreas(block).forEach((areaGroup) => {
+      const baseAreaState = ensureAreaFilterState(areaGroup);
+      const areaState = applyPageSharedFiltersToState(cloneFilterState(baseAreaState), page);
+      const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
+      const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
+      visibleViewGroups.forEach((viewGroup) => {
+        const viewScopedState = applyPageSharedFiltersToState(
+          getViewGroupScopedAreaState(areaGroup, viewGroup, areaState),
+          page
+        );
+        const sharedContextControls = renderFlatWidgetContextControls(areaGroup, areaState);
+        (viewGroup.widgets || [])
+          .flatMap((widget) => getFlatRenderableWidgets(widget))
+          .forEach((widget) => {
+            const contextControls = isRepricingMaturityDistributionWidget(widget)
+              ? renderFlatWidgetContextControls(areaGroup, areaState, { hideSubtabs: true })
+              : sharedContextControls;
+            const cardOptions = {
+              contextControls,
+              flatMode: true,
+              widgetStateOverride: widget.__forcedFrequency ? { 频率: [widget.__forcedFrequency] } : null,
+              hiddenLocalFilterNames: widget.__forcedFrequency ? ["频率"] : [],
+            };
+            cards.push(renderWidgetCard(areaGroup, widget, viewScopedState, cardOptions));
+          });
+      });
+    });
+  });
+  return `
+    ${simulationSummary}
+    <section class="flat-dashboard-grid">
+      ${cards.join("")}
+    </section>
+  `;
+}
+
+function getFlatRenderableWidgets(widget) {
+  if (shouldHideWidget(widget)) return [];
+  if (isBaseRepricingGapRateWidget(widget)) return createRepricingGapFrequencyWidgets(widget);
+  return [widget];
+}
+
+function shouldHideWidget(widget) {
+  return isEveSourceTrendWidget(widget) || HIDDEN_WIDGET_SEQS.has(Number(widget?.seq));
+}
+
+function isBaseRepricingGapRateWidget(widget) {
+  return REPRICING_GAP_RATE_WIDGET_SEQS.has(Number(widget?.seq));
+}
+
+function createRepricingGapFrequencyWidgets(widget) {
+  return [
+    createVirtualRepricingGapWidget(widget, "月频", 1),
+    createVirtualRepricingGapWidget(widget, "日频", 2),
+  ];
+}
+
+function createVirtualRepricingGapWidget(widget, frequency, index) {
+  return {
+    ...widget,
+    seq: Number(widget.seq) * 100 + index,
+    sourceSeq: Number(widget.seq),
+    title: `重定价缺口率（${frequency}）`,
+    __forcedFrequency: frequency,
+  };
+}
+
+function cloneFilterState(source = {}) {
+  return Object.keys(source || {}).reduce((next, key) => {
+    next[key] = [...(source[key] || [])];
+    return next;
+  }, {});
+}
+
+function renderFlatWidgetContextControls(areaGroup, areaState, options = {}) {
+  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
+  const tabMarkup = !options.hideSubtabs && areaSubpage.tabs.length
+    ? `
+      <div class="area-subtabs area-subtabs--inline flat-widget-controls__subtabs">
+        ${areaSubpage.tabs
+          .map(
+            (tab) => `
+              <button
+                class="area-subtab ${tab === areaSubpage.activeTab ? "is-active" : ""}"
+                type="button"
+                data-area-subtab="${areaGroup.id}"
+                data-tab-name="${tab}"
+              >
+                ${tab}
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `
+    : "";
+  const filterGroups = areaGroup.sharedFilters
+    .filter((filterLabel) => !PAGE_SHARED_FILTER_NAMES.has(normalizeFilterName(filterLabel)))
+    .map((filterLabel) => {
+      const name = normalizeFilterName(filterLabel);
+      return renderFilterGroup(
+        "area",
+        areaGroup.id,
+        filterLabel,
+        areaState[name] || [],
+        getAreaFilterOptions(areaGroup, filterLabel)
+      );
+    })
+    .join("");
+  if (!tabMarkup && !filterGroups) return "";
+  return `
+    <div class="flat-widget-controls">
+      ${tabMarkup}
+      ${filterGroups ? `<div class="filter-panel filter-panel--inline flat-widget-controls__filters">${filterGroups}</div>` : ""}
+    </div>
+  `;
+}
+
+function shouldFlattenBlockLayer(block, page = getCurrentPage()) {
+  if (!["利率风险", "流动性风险"].includes(page?.name)) return false;
+  return FLATTENED_BLOCK_LAYER_NAMES.has(block?.name);
+}
+
+function splitBlockIntoAreaSections(block) {
+  const grouped = new Map();
+  block.areas.forEach((area, index) => {
+    if (!grouped.has(area.name)) {
+      grouped.set(area.name, {
+        id: `${block.id}-flat-${index + 1}`,
+        name: area.name,
+        sourceBlockId: block.id,
+        sourceBlockName: block.name,
+        hideAreaTitleWhenSameAsBlock: true,
+        moveAreaHeaderToSection: true,
+        areas: [],
+      });
+    }
+    grouped.get(area.name).areas.push(area);
+  });
+  return Array.from(grouped.values()).map((section) => ({
+    ...section,
+    areaCount: section.areas.length,
+    widgetCount: section.areas.reduce((sum, area) => sum + (area.widgets?.length || 0), 0),
+  }));
+}
+
+function getRenderablePageSections(page = getCurrentPage()) {
+  if (!page?.blocks?.length) return [];
+  return page.blocks.flatMap((block) => (
+    shouldFlattenBlockLayer(block, page) ? splitBlockIntoAreaSections(block) : [block]
+  ));
+}
+
+function renderBlockSection(block, sectionIndex = 0) {
   const groupedAreas = groupBlockAreas(block);
   const areaLayoutClass = shouldRenderAreasInPairs(block, groupedAreas) ? " block-section__areas--paired" : "";
-  const simulationSummary = renderSimulationSummary();
+  const simulationSummary = sectionIndex === 0 ? renderSimulationSummary() : "";
+  const sectionHeaderControls = block.moveAreaHeaderToSection && groupedAreas.length === 1
+    ? renderAreaHeaderChrome(groupedAreas[0], "block-section")
+    : "";
   const renderedAreas = groupedAreas.map((areaGroup) => renderAreaCard(areaGroup, block)).filter(Boolean);
   if (!renderedAreas.length) return "";
   return `
     <section class="block-section" id="${block.id}">
-      <div class="block-section__header">
+      <div class="block-section__header${sectionHeaderControls ? " block-section__header--with-controls" : ""}">
         <div class="block-section__title-wrap">
           <h2 class="block-section__title">${formatDisplayTitle(block.name)}</h2>
         </div>
+        ${sectionHeaderControls}
       </div>
       ${simulationSummary}
       <div class="block-section__body">
@@ -314,7 +532,7 @@ function renderBlockSection(block) {
   `;
 }
 
-function renderAreaCard(areaGroup, block) {
+function renderAreaHeaderChrome(areaGroup, ownerClass = "area-card") {
   const areaState = ensureAreaFilterState(areaGroup);
   const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
   const filterGroups = areaGroup.sharedFilters
@@ -330,7 +548,7 @@ function renderAreaCard(areaGroup, block) {
     .join("");
   const tabMarkup = areaSubpage.tabs.length
     ? `
-      <div class="area-subtabs area-subtabs--inline">
+      <div class="area-subtabs area-subtabs--inline ${ownerClass}__subtabs">
         ${areaSubpage.tabs
           .map(
             (tab) => `
@@ -350,27 +568,43 @@ function renderAreaCard(areaGroup, block) {
     : "";
   const controlsMarkup = filterGroups
     ? `
-      <div class="area-card__controls">
+      <div class="${ownerClass}__controls area-card__controls">
         <div class="filter-panel filter-panel--inline">${filterGroups}</div>
       </div>
     `
     : "";
+  if (!tabMarkup && !controlsMarkup) return "";
+  return `
+    <div class="${ownerClass}__header-chrome">
+      ${tabMarkup}
+      ${controlsMarkup}
+    </div>
+  `;
+}
+
+function renderAreaCard(areaGroup, block) {
+  const areaState = ensureAreaFilterState(areaGroup);
+  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
+  const headerChrome = renderAreaHeaderChrome(areaGroup, "area-card");
+  const shouldRenderHeader = !block?.moveAreaHeaderToSection || !block?.hideAreaTitleWhenSameAsBlock || block.name !== areaGroup.name;
   const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
   if (!visibleViewGroups.length) return "";
 
   return `
     <article class="area-card">
-      <div class="area-card__header area-card__header--topbar">
-        <div class="area-card__lead">
-          ${shouldHideAreaTitle(areaGroup) ? "" : `
-            <div class="area-card__title-wrap">
-              <h3 class="area-card__title">${formatDisplayTitle(areaGroup.name)}</h3>
-            </div>
-          `}
-          ${tabMarkup}
+      ${shouldRenderHeader ? `
+        <div class="area-card__header area-card__header--topbar">
+          <div class="area-card__lead">
+            ${shouldHideAreaTitle(areaGroup, block) ? "" : `
+              <div class="area-card__title-wrap">
+                <h3 class="area-card__title">${formatDisplayTitle(areaGroup.name)}</h3>
+              </div>
+            `}
+            ${headerChrome && shouldHideAreaTitle(areaGroup, block) ? headerChrome : ""}
+          </div>
+          ${headerChrome && !shouldHideAreaTitle(areaGroup, block) ? headerChrome : ""}
         </div>
-        ${controlsMarkup}
-      </div>
+      ` : ""}
       <div class="area-view-groups">
         ${visibleViewGroups.map((viewGroup) => renderAreaViewGroup(areaGroup, viewGroup, areaState)).join("")}
       </div>
@@ -380,17 +614,19 @@ function renderAreaCard(areaGroup, block) {
 
 function renderAreaViewGroup(areaGroup, viewGroup, areaState) {
   const viewScopedState = getViewGroupScopedAreaState(areaGroup, viewGroup, areaState);
+  const visibleWidgets = (viewGroup.widgets || []).filter((widget) => !isEveSourceTrendWidget(widget));
+  if (!visibleWidgets.length) return "";
   return `
     <section class="area-view-group">
       <div class="widgets-grid">
-        ${viewGroup.widgets.map((widget) => renderWidgetCard(areaGroup, widget, viewScopedState)).join("")}
+        ${visibleWidgets.map((widget) => renderWidgetCard(areaGroup, widget, viewScopedState)).join("")}
       </div>
     </section>
   `;
 }
 
-function shouldHideAreaTitle(areaGroup) {
-  return false;
+function shouldHideAreaTitle(areaGroup, block) {
+  return Boolean(block?.hideAreaTitleWhenSameAsBlock && block.name === areaGroup.name);
 }
 
 function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
@@ -505,14 +741,22 @@ function renderFilterPopover() {
   filterPopoverEl.setAttribute("aria-hidden", "false");
 }
 
-function renderWidgetCard(areaGroup, widget, areaState) {
+function renderWidgetCard(areaGroup, widget, areaState, options = {}) {
   const widgetBehavior = getWidgetBehavior(widget);
-  const widgetState = ensureWidgetFilterState(widget, widgetBehavior);
+  const widgetState = {
+    ...ensureWidgetFilterState(widget, widgetBehavior),
+    ...(options.widgetStateOverride || {}),
+  };
   const chartContext = buildChartContext(widget, areaState, widgetState);
   const displayMode = ensureWidgetDisplayMode(widget);
-  const { headerMarkup: widgetHeaderTabs, bodyMarkup: widgetLocalFilters } = renderWidgetLocalFilters(widgetBehavior, widgetState, widget.seq);
-  const widgetCardClass = shouldSpanFullWidth(widget) ? " widget-card--full" : "";
-  const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.seq}">AI</button>`;
+  const { headerMarkup: widgetHeaderTabs, bodyMarkup: widgetLocalFilters } = renderWidgetLocalFilters(
+    widgetBehavior,
+    widgetState,
+    widget.seq,
+    options.hiddenLocalFilterNames || []
+  );
+  const widgetCardClass = `${shouldSpanFullWidth(widget) ? " widget-card--full" : ""}${options.flatMode ? " widget-card--flat" : ""}${isRepricingMaturityDistributionWidget(widget) ? " widget-card--repricing-maturity" : ""}`;
+  const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.sourceSeq || widget.seq}">AI</button>`;
   const modeSwitch = supportsDisplayToggle(widget)
     ? `
       <div class="widget-display-switch" role="tablist" aria-label="图表显示方式">
@@ -527,6 +771,7 @@ function renderWidgetCard(areaGroup, widget, areaState) {
         <div class="widget-card__lead">
           <h4 class="widget-card__title">${getWidgetDisplayTitle(widget)}</h4>
           ${renderMaturityStructureHeaderTabs(widget)}
+          ${options.contextControls || ""}
           ${widgetHeaderTabs}
         </div>
         <div class="widget-card__actions">
@@ -599,6 +844,9 @@ function renderChart(widget, chartContext) {
     bondInvestmentScaleLimit: renderBondInvestmentScaleLimitChart,
     bondInvestmentDurationLimit: renderBondInvestmentDurationLimitChart,
   };
+  if (isEveRatioTrendWidget(widget)) return renderEveRatioTrendChart(widget, chartContext);
+  if (isLiquidityDiagnosticRatioWidget(widget)) return renderLiquidityDiagnosticRatioChart(widget, chartContext);
+  if (isRepricingGapRateWidget(widget)) return renderRepricingGapRateChart(widget, chartContext);
   if (behavior.tableKind) return renderTable(widget, chartContext);
   if (chartKind && chartRendererRegistry[chartKind]) return chartRendererRegistry[chartKind](widget, chartContext);
   if (type.includes("表格")) return renderTable(widget, chartContext);
@@ -688,8 +936,16 @@ function getWidgetBehavior(widget) {
   };
 }
 
-function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq) {
+function renderWidgetLocalFilters(widgetBehavior, widgetState, widgetSeq, hiddenFilterNames = []) {
+  const hiddenSet = new Set(hiddenFilterNames);
   const visibleFilters = widgetBehavior.localFilters.filter((filter) => {
+    if (hiddenSet.has(filter.name)) return false;
+    if (Number(widgetSeq) === 49 && filter.name === "口径") {
+      const selectedTenor = (widgetState["期限长度"] || filter.defaultValues || []).find((value) =>
+        LIQUIDITY_GAP_TENOR_OPTIONS.includes(value)
+      );
+      return (selectedTenor || "30D") === "30D";
+    }
     if (filter.renderMode === "legend") return false;
     if (filter.type === "dateRange" && (Number(widgetSeq) === 89 || Number(widgetSeq) === 96)) return false;
     return true;
@@ -845,6 +1101,1139 @@ function renderLineChart(widget, chartContext) {
       ${renderSeriesLegend(widget, chartContext)}
     </div>
   `;
+}
+
+function renderEveRatioTrendChart(widget, chartContext) {
+  const model = buildEveDiagnosticModel(widget, chartContext);
+  const frame = createFrame(model.labels.length);
+  const axis = renderAxes(frame, model.labels, "比例 (%)");
+  const ratioPoints = scaleValuesToFrame(model.ratios, frame, 0, 100);
+  const ratioPath = ratioPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const selectedPopover = appState.evePointPopover;
+  const selectedIndex = selectedPopover?.widgetSeq === widget.seq
+    ? clampNumber(Number(selectedPopover.dateIndex), 0, model.labels.length - 1)
+    : null;
+  const pointMarkup = ratioPoints
+    .map((point, index) => {
+      const isSelected = index === selectedIndex;
+      return `
+        <circle
+          class="eve-ratio-point ${isSelected ? "is-selected" : ""}"
+          cx="${point.x}"
+          cy="${point.y}"
+          r="${isSelected ? 6 : 4.8}"
+          fill="#ffffff"
+          stroke="${isSelected ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY}"
+          stroke-width="3"
+          data-eve-point="true"
+          data-widget-seq="${widget.seq}"
+          data-date-index="${index}"
+          data-eve-signature="${model.signature}"
+          data-eve-labels="${model.labels.join("||")}"
+          aria-label="${model.displayLabels[index]} 查看计算过程"
+        ></circle>
+      `;
+    })
+    .join("");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
+  const popoverMarkup = Number.isInteger(selectedIndex)
+    ? renderEvePointPopover(widget, model, ratioPoints[selectedIndex], frame, selectedIndex)
+    : "";
+
+  return `
+    <div class="chart-shell chart-shell--eve-ratio">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${managementLimitOverlay}
+        <polyline fill="none" stroke="${EVE_COLOR_PRIMARY}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
+        ${pointMarkup}
+      </svg>
+      ${popoverMarkup}
+      ${renderSeriesLegend(widget, { ...chartContext, seriesList: ["△EVE"], allSeriesList: ["△EVE"] })}
+    </div>
+  `;
+}
+
+function renderEvePointPopover(widget, model, point, frame, index) {
+  const ratio = model.ratios[index];
+  const worst = model.worstScenarios[index];
+  const left = Number(((point.x / 700) * 100).toFixed(2));
+  const top = Number(((point.y / 300) * 100).toFixed(2));
+  const space = model.limit - ratio;
+  return `
+    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
+      <div class="eve-point-popover__grid">
+        <div><span>△EVE</span><strong>${formatEvePercent(ratio)}</strong></div>
+        <div><span>距限额</span><strong>${space.toFixed(1)}pct</strong></div>
+        <div><span>最不利情景</span><strong>${worst.name}</strong></div>
+        <div><span>经济价值变动</span><strong>${formatEveAmount(worst.value)}</strong></div>
+      </div>
+      <button
+        class="eve-point-popover__action"
+        type="button"
+        data-open-eve-process="true"
+        data-widget-seq="${widget.seq}"
+        data-date-index="${index}"
+        data-eve-signature="${model.signature}"
+        data-eve-labels="${model.labels.join("||")}"
+      >查看计算过程</button>
+    </div>
+  `;
+}
+
+function buildEveDiagnosticModel(widget, chartContextOrState = {}) {
+  const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
+  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || EVE_RATIO_WIDGET_SEQ, chartContextOrState.filterState || {}));
+  const count = labels.length;
+  const normalizedOffset = signature % 17;
+  const legalRwa = Array.from({ length: count }, (_, index) => Number((8200 + normalizedOffset * 4 + index * 34).toFixed(1)));
+  const overseasRwa = Array.from({ length: count }, (_, index) => Number((858 + normalizedOffset * 0.8 + index * 7.6).toFixed(1)));
+  const legalTierOne = Array.from({ length: count }, (_, index) => Number((4860 + normalizedOffset * 5 + index * 26).toFixed(1)));
+  const capital = overseasRwa.map((value, index) => Number(((value / legalRwa[index]) * legalTierOne[index]).toFixed(1)));
+  const scenarios = EVE_SCENARIO_DEFINITIONS.map((scenario, scenarioIndex) => {
+    const values = Array.from({ length: count }, (_, index) => {
+      const wave = Math.sin((index + scenarioIndex + normalizedOffset / 5) / 1.8) * scenario.wave;
+      const seasonal = ((index + scenarioIndex * 3 + normalizedOffset) % 5) * 1.4;
+      return Number((-1 * (scenario.base + index * scenario.slope + wave + seasonal)).toFixed(1));
+    });
+    return { ...scenario, values };
+  });
+  const worstScenarios = labels.map((_, index) => {
+    const scenario = scenarios.reduce((worst, current) =>
+      Math.abs(current.values[index]) > Math.abs(worst.values[index]) ? current : worst
+    , scenarios[0]);
+    return { key: scenario.key, name: scenario.name, value: scenario.values[index] };
+  });
+  const numerator = worstScenarios.map((scenario) => scenario.value);
+  const ratios = numerator.map((value, index) => Number(((Math.abs(value) / capital[index]) * 100).toFixed(1)));
+  return {
+    labels,
+    displayLabels: buildEveDisplayLabels(labels),
+    signature,
+    limit: 28,
+    legalRwa,
+    overseasRwa,
+    legalTierOne,
+    capital,
+    scenarios,
+    worstScenarios,
+    numerator,
+    ratios,
+  };
+}
+
+function buildEveDisplayLabels(labels) {
+  let currentYear = null;
+  let previousMonth = null;
+  return labels.map((label) => {
+    const value = String(label || "");
+    const full = value.match(/^(\d{4})-(\d{2})$/);
+    if (full) {
+      currentYear = Number(full[1]);
+      previousMonth = Number(full[2]);
+      return `${full[1]}/${full[2]}`;
+    }
+    const month = value.match(/^(\d{1,2})$/);
+    if (month) {
+      const nextMonth = Number(month[1]);
+      if (!currentYear) currentYear = new Date().getFullYear();
+      if (previousMonth && nextMonth < previousMonth) currentYear += 1;
+      previousMonth = nextMonth;
+      return `${currentYear}/${String(nextMonth).padStart(2, "0")}`;
+    }
+    return value.replace(/-/g, "/");
+  });
+}
+
+function scaleValuesToFrame(values, frame, minValue = 0, maxValue = 100) {
+  const range = maxValue - minValue || 1;
+  return values.map((value, index) => ({
+    x: getFrameXPosition(frame, index, values.length),
+    y: Number((frame.bottom - (frame.height * (value - minValue)) / range).toFixed(1)),
+    value,
+  }));
+}
+
+function renderEveProcessModal() {
+  const state = appState.eveProcessModal;
+  if (!state) {
+    eveProcessModalEl.innerHTML = "";
+    eveProcessModalEl.classList.remove("is-open");
+    eveProcessModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const target = findWidgetBySeq(state.widgetSeq || EVE_RATIO_WIDGET_SEQ);
+  const widget = target?.widget || { seq: EVE_RATIO_WIDGET_SEQ };
+  const model = buildEveDiagnosticModel(widget, {
+    labels: state.labels,
+    signature: state.signature,
+  });
+  const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const activeNode = state.activeNode || "eve";
+  const worst = model.worstScenarios[selectedIndex];
+
+  eveProcessModalEl.innerHTML = `
+    <div class="overlay-scrim" data-close-overlay="eveProcessModal"></div>
+    <section class="eve-process-modal" role="dialog" aria-modal="true" aria-labelledby="eveProcessModalTitle">
+      <div class="eve-process-modal__header">
+        <h3 id="eveProcessModalTitle">计算过程</h3>
+        <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="eveProcessModal">关闭</button>
+      </div>
+      <div class="eve-process-modal__controls">
+        <div class="eve-process-date">
+          <span>当前日期</span>
+          <strong>${model.displayLabels[selectedIndex]}</strong>
+        </div>
+        <div class="eve-process-slider">
+          <input
+            class="eve-process-slider__input"
+            type="range"
+            min="0"
+            max="${model.labels.length - 1}"
+            step="1"
+            value="${selectedIndex}"
+            data-eve-process-date-slider="true"
+          >
+          <div class="eve-process-slider__axis">
+            ${model.displayLabels.map((label) => `<span>${label}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="eve-process-flow">
+        <div class="eve-process-flow__canvas">
+          <div class="eve-process-flow__lane">
+            ${renderEveProcessNode({
+              key: "eve",
+              title: "△EVE",
+              note: "最大经济价值变动比例",
+              value: formatEvePercent(model.ratios[selectedIndex]),
+              series: model.ratios,
+              selectedIndex,
+              activeNode,
+              changeType: "delta",
+              valueFormat: "percent",
+              labels: model.displayLabels,
+            })}
+            <div class="eve-process-operator">=</div>
+            <div class="eve-process-factor-stack">
+              ${renderEveProcessNode({
+                key: "numerator",
+                title: "分子",
+                note: "Max经济价值变动",
+                value: formatEveAmount(model.numerator[selectedIndex]),
+                series: model.numerator.map(Math.abs),
+                selectedIndex,
+                activeNode,
+                isWorst: true,
+                actionText: "点击展开六情景 →",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+              <div class="eve-process-division">÷</div>
+              ${renderEveProcessNode({
+                key: "denominator",
+                title: "分母",
+                note: "一级资本净额",
+                value: formatEveAmount(model.capital[selectedIndex]),
+                series: model.capital,
+                selectedIndex,
+                activeNode,
+                actionText: "点击展开分母来源 →",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+            </div>
+            <div class="eve-process-connector" aria-hidden="true"></div>
+            <div class="eve-process-expansions">
+              <div class="eve-process-expansion-slot">
+                ${state.numeratorExpanded
+                  ? renderEveScenarioExpansion(model, selectedIndex, activeNode, worst)
+                  : `<div class="eve-process-placeholder">点击左侧“分子”节点后，在这里向右展开六种监管利率情景。</div>`}
+              </div>
+              <div class="eve-process-expansion-slot">
+                ${state.denominatorExpanded
+                  ? renderEveDenominatorExpansion(model, selectedIndex, activeNode)
+                  : `<div class="eve-process-placeholder">点击左侧“分母”节点后，在这里向右展开一级资本净额的计算来源。</div>`}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+  eveProcessModalEl.classList.add("is-open");
+  eveProcessModalEl.setAttribute("aria-hidden", "false");
+}
+
+function renderEveProcessNode({
+  key,
+  title,
+  value,
+  series,
+  selectedIndex,
+  activeNode,
+  isWorst = false,
+  actionText = "",
+  dataAttribute = "data-eve-process-node",
+  changeType = "rate",
+  valueFormat = "amount",
+  labels = [],
+}) {
+  const change = formatProcessNodeChange(series, selectedIndex, changeType);
+  const previewPayload = encodeProcessPreviewPayload({
+    title,
+    labels,
+    values: series,
+    selectedIndex,
+    color: isWorst ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY,
+    valueFormat,
+  });
+  return `
+    <button class="eve-process-node ${activeNode === key ? "is-active" : ""} ${isWorst ? "is-worst" : ""}" type="button" ${dataAttribute}="${key}">
+      <span class="eve-process-node__top">
+        <span class="eve-process-node__title"><strong>${title}</strong></span>
+        <span class="eve-process-node__metric">
+          <span class="eve-process-node__value">${value}</span>
+          <span class="eve-process-node__change ${change.className}">${change.text}</span>
+        </span>
+      </span>
+      <span
+        class="eve-process-sparkline"
+        role="button"
+        tabindex="0"
+        title="点击放大趋势"
+        data-process-sparkline="true"
+        data-process-preview="${previewPayload}"
+      >${renderEveSparkline(series, selectedIndex, isWorst ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY)}</span>
+      ${actionText ? `<span class="eve-process-node__action">${actionText}</span>` : ""}
+    </button>
+  `;
+}
+
+function renderEveScenarioExpansion(model, selectedIndex, activeNode, worst) {
+  return `
+    <div class="eve-process-scenario-strip">
+      ${model.scenarios.map((scenario) => {
+        const isWorst = scenario.key === worst.key;
+        return renderEveProcessNode({
+          key: `scenario:${scenario.key}`,
+          title: scenario.name,
+          note: "监管利率情景",
+          value: formatEveAmount(scenario.values[selectedIndex]),
+          series: scenario.values.map(Math.abs),
+          selectedIndex,
+          activeNode,
+          isWorst,
+          valueFormat: "amount",
+          labels: model.displayLabels,
+        }).replace(
+          '<button class="eve-process-node',
+          `<button class="eve-process-node eve-process-node--compact${isWorst ? ' is-worst' : ''}`
+        );
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
+  return `
+    <div class="eve-process-capital-strip">
+      ${renderEveProcessNode({
+        key: "overseas-rwa",
+        title: "境外分行RWA",
+        note: "分摊权重分子",
+        value: formatEveRwa(model.overseasRwa[selectedIndex]),
+        series: model.overseasRwa,
+        selectedIndex,
+        activeNode,
+        valueFormat: "amount0",
+        labels: model.displayLabels,
+      })}
+      <span class="eve-process-mini-operator">÷</span>
+      ${renderEveProcessNode({
+        key: "legal-rwa",
+        title: "法人RWA",
+        note: "分摊权重分母",
+        value: formatEveRwa(model.legalRwa[selectedIndex]),
+        series: model.legalRwa,
+        selectedIndex,
+        activeNode,
+        valueFormat: "amount0",
+        labels: model.displayLabels,
+      })}
+      <span class="eve-process-mini-operator">×</span>
+      ${renderEveProcessNode({
+        key: "legal-tier-one",
+        title: "法人一级资本净额",
+        note: "资本分摊基数",
+        value: formatEveAmount(model.legalTierOne[selectedIndex]),
+        series: model.legalTierOne,
+        selectedIndex,
+        activeNode,
+        valueFormat: "amount",
+        labels: model.displayLabels,
+      })}
+    </div>
+  `;
+}
+
+function formatProcessNodeChange(values = [], selectedIndex = 0, changeType = "rate") {
+  const current = Number(values?.[selectedIndex]);
+  const previous = Number(values?.[selectedIndex - 1]);
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) {
+    return { text: "较上期 --", className: "is-flat" };
+  }
+  if (changeType === "delta") {
+    const delta = Number((current - previous).toFixed(1));
+    return {
+      text: `较上期 ${formatSignedNumber(delta)}pct`,
+      className: getChangeClass(delta),
+    };
+  }
+  if (previous === 0) return { text: "较上期 --", className: "is-flat" };
+  const rate = Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
+  return {
+    text: `较上期 ${formatSignedNumber(rate)}%`,
+    className: getChangeClass(rate),
+  };
+}
+
+function formatSignedNumber(value) {
+  const numeric = Number(value || 0);
+  if (numeric > 0) return `+${numeric.toFixed(1)}`;
+  if (numeric < 0) return numeric.toFixed(1);
+  return "0.0";
+}
+
+function getChangeClass(value) {
+  const numeric = Number(value || 0);
+  if (numeric > 0) return "is-up";
+  if (numeric < 0) return "is-down";
+  return "is-flat";
+}
+
+function encodeProcessPreviewPayload(payload) {
+  return encodeURIComponent(JSON.stringify(payload));
+}
+
+function decodeProcessPreviewPayload(encoded) {
+  try {
+    return JSON.parse(decodeURIComponent(String(encoded || "")));
+  } catch (error) {
+    return null;
+  }
+}
+
+function renderEveSparkline(values, selectedIndex, color) {
+  const width = 180;
+  const height = 42;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values.map((value, index) => ({
+    x: 10 + (index / Math.max(1, values.length - 1)) * (width - 20),
+    y: 7 + (1 - (value - min) / range) * (height - 14),
+  }));
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const selected = points[clampNumber(selectedIndex, 0, points.length - 1)] || points[0];
+  return `
+    <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
+      <line x1="${selected.x}" y1="4" x2="${selected.x}" y2="${height - 4}" stroke="#D85F63" stroke-width="2" stroke-dasharray="4 3"></line>
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="${selected.x}" cy="${selected.y}" r="4" fill="#fff" stroke="${color}" stroke-width="2"></circle>
+    </svg>
+  `;
+}
+
+function renderProcessSparklinePreview() {
+  const state = appState.processSparklinePreview;
+  if (!state) {
+    processSparklinePreviewEl.innerHTML = "";
+    processSparklinePreviewEl.classList.remove("is-open");
+    processSparklinePreviewEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const values = (state.values || []).map(Number).filter(Number.isFinite);
+  const labels = Array.isArray(state.labels) && state.labels.length === values.length
+    ? state.labels
+    : values.map((_, index) => String(index + 1));
+  const selectedIndex = clampNumber(Number(state.selectedIndex || 0), 0, Math.max(0, values.length - 1));
+  processSparklinePreviewEl.innerHTML = `
+    <div class="overlay-scrim" data-close-process-sparkline="true"></div>
+    <section class="process-sparkline-preview" role="dialog" aria-modal="true" aria-labelledby="processSparklinePreviewTitle">
+      <div class="process-sparkline-preview__header">
+        <div>
+          <h3 id="processSparklinePreviewTitle">${state.title || "趋势"}</h3>
+          <p>${labels[selectedIndex] || ""}：${formatProcessPreviewValue(values[selectedIndex], state.valueFormat)}</p>
+        </div>
+        <button class="overlay-panel__close process-sparkline-preview__close" type="button" data-close-process-sparkline="true">关闭</button>
+      </div>
+      <div class="process-sparkline-preview__body">
+        ${renderProcessPreviewChart(labels, values, selectedIndex, state.color || EVE_COLOR_PRIMARY, state.valueFormat)}
+      </div>
+    </section>
+  `;
+  processSparklinePreviewEl.classList.add("is-open");
+  processSparklinePreviewEl.setAttribute("aria-hidden", "false");
+}
+
+function renderProcessPreviewChart(labels, values, selectedIndex, color, valueFormat = "amount") {
+  const frame = { left: 78, right: 770, top: 34, bottom: 286, width: 692, height: 252, count: values.length };
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const padding = Math.max(1, (maxValue - minValue) * 0.12);
+  const scaledPoints = scaleValuesToFrame(values, frame, minValue - padding, maxValue + padding);
+  const selected = scaledPoints[selectedIndex] || scaledPoints[0];
+  const path = scaledPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = frame.top + frame.height * ratio;
+    return `<line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="#DDEBFA" stroke-width="1"></line>`;
+  }).join("");
+  const sampledLabels = labels.map((label, index) => {
+    const shouldShow = labels.length <= 14 || index === 0 || index === labels.length - 1 || index % Math.ceil(labels.length / 8) === 0;
+    if (!shouldShow) return "";
+    const x = getFrameXPosition(frame, index, labels.length);
+    return `<text x="${x}" y="${frame.bottom + 28}" text-anchor="middle" class="axis-label">${label}</text>`;
+  }).join("");
+  return `
+    <svg viewBox="0 0 850 350" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      ${gridLines}
+      <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="#B7D3F0" stroke-width="1.4"></line>
+      <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="#B7D3F0" stroke-width="1.4"></line>
+      <text x="${frame.left}" y="${frame.top - 10}" class="axis-title">${formatProcessPreviewValue(maxValue, valueFormat)}</text>
+      <text x="${frame.left}" y="${frame.bottom + 18}" class="axis-title">${formatProcessPreviewValue(minValue, valueFormat)}</text>
+      <polyline fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${path}"></polyline>
+      <line x1="${selected.x}" y1="${frame.top}" x2="${selected.x}" y2="${frame.bottom}" stroke="#D85F63" stroke-width="2.2" stroke-dasharray="6 4"></line>
+      ${scaledPoints.map((point, index) => `<circle cx="${point.x}" cy="${point.y}" r="${index === selectedIndex ? 6 : 3.8}" fill="#fff" stroke="${index === selectedIndex ? "#D85F63" : color}" stroke-width="${index === selectedIndex ? 3 : 2}"></circle>`).join("")}
+      ${sampledLabels}
+      <text x="${selected.x + 10}" y="${Math.max(frame.top + 18, selected.y - 12)}" class="process-sparkline-preview__callout">${labels[selectedIndex]} ${formatProcessPreviewValue(values[selectedIndex], valueFormat)}</text>
+    </svg>
+  `;
+}
+
+function formatProcessPreviewValue(value, valueFormat = "amount") {
+  if (valueFormat === "percent") return formatEvePercent(value);
+  if (valueFormat === "amount0") return formatEveRwa(value);
+  if (valueFormat === "number") return Number(value || 0).toFixed(1);
+  return formatEveAmount(value);
+}
+
+function formatEvePercent(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function formatEveAmount(value) {
+  return `${Number(value || 0).toFixed(1)}亿`;
+}
+
+function formatEveRwa(value) {
+  return `${Number(value || 0).toFixed(0)}亿`;
+}
+
+function getLiquidityDiagnosticKind(widget) {
+  const seq = Number(widget?.sourceSeq || widget?.seq);
+  if (seq === 42) return "lcr";
+  if (seq === 46) return "nsfr";
+  return "";
+}
+
+function buildLiquidityDiagnosticModel(widget, chartContextOrState = {}) {
+  const kind = chartContextOrState.kind || getLiquidityDiagnosticKind(widget);
+  const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
+  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || 42, chartContextOrState.filterState || {}));
+  const count = labels.length;
+  const normalizedOffset = signature % 23;
+
+  if (kind === "nsfr") {
+    const availableStableFunding = Array.from({ length: count }, (_, index) =>
+      Number((610 + normalizedOffset * 2.6 + index * 7.8 + Math.sin((index + normalizedOffset) / 2.4) * 24).toFixed(1))
+    );
+    const requiredStableFunding = Array.from({ length: count }, (_, index) =>
+      Number((720 + normalizedOffset * 2.2 + index * 6.1 + Math.cos((index + normalizedOffset) / 2.8) * 18).toFixed(1))
+    );
+    const ratios = availableStableFunding.map((value, index) =>
+      Number(((value / requiredStableFunding[index]) * 100).toFixed(1))
+    );
+    return {
+      kind,
+      labels,
+      displayLabels: buildEveDisplayLabels(labels),
+      signature,
+      title: "净稳定资金比例NSFR",
+      numeratorTitle: "可用稳定资金规模",
+      denominatorTitle: "业务所需稳定资金",
+      numerator: availableStableFunding,
+      denominator: requiredStableFunding,
+      ratios,
+      components: {
+        availableStableFunding,
+        requiredStableFunding,
+      },
+    };
+  }
+
+  const cashOutflows = Array.from({ length: count }, (_, index) =>
+    Number((330 + normalizedOffset * 2.8 + index * 5.8 + Math.sin((index + normalizedOffset) / 2.1) * 20).toFixed(1))
+  );
+  const cashInflows = Array.from({ length: count }, (_, index) =>
+    Number((118 + normalizedOffset * 1.5 + index * 3.2 + Math.cos((index + normalizedOffset) / 2.7) * 13).toFixed(1))
+  );
+  const netOutflows = cashOutflows.map((value, index) => Number((value - cashInflows[index]).toFixed(1)));
+  const hqla = Array.from({ length: count }, (_, index) =>
+    Number((305 + normalizedOffset * 3.2 + index * 6.6 + Math.sin((index + normalizedOffset) / 3) * 16).toFixed(1))
+  );
+  const ratios = netOutflows.map((value, index) => Number(((value / hqla[index]) * 100).toFixed(1)));
+  return {
+    kind: "lcr",
+    labels,
+    displayLabels: buildEveDisplayLabels(labels),
+    signature,
+    title: "流动性覆盖率LCR",
+    numeratorTitle: "未来30天现金净流出量",
+    denominatorTitle: "优质流动性资产HQLA",
+    numerator: netOutflows,
+    denominator: hqla,
+    ratios,
+    components: {
+      cashOutflows,
+      cashInflows,
+      netOutflows,
+      hqla,
+    },
+  };
+}
+
+function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
+  const model = buildLiquidityDiagnosticModel(widget, chartContext);
+  const frame = createFrame(model.labels.length);
+  const maxValue = Math.max(100, Math.ceil(Math.max(...model.ratios, 0) / 20) * 20);
+  const axis = renderScaledAxes(frame, model.labels, "比例 (%)", maxValue);
+  const ratioPoints = scaleValuesToFrame(model.ratios, frame, 0, maxValue);
+  const ratioPath = ratioPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const selectedPopover = appState.liquidityMetricPointPopover;
+  const selectedIndex = selectedPopover?.widgetSeq === widget.seq
+    ? clampNumber(Number(selectedPopover.dateIndex), 0, model.labels.length - 1)
+    : null;
+  const color = model.kind === "nsfr" ? LINE_SERIES_PALETTE[2] : EVE_COLOR_PRIMARY;
+  const pointMarkup = ratioPoints.map((point, index) => {
+    const isSelected = index === selectedIndex;
+    return `
+      <circle
+        class="eve-ratio-point liquidity-ratio-point ${isSelected ? "is-selected" : ""}"
+        cx="${point.x}"
+        cy="${point.y}"
+        r="${isSelected ? 6 : 4.8}"
+        fill="#ffffff"
+        stroke="${isSelected ? EVE_COLOR_WORST : color}"
+        stroke-width="3"
+        data-liquidity-point="true"
+        data-widget-seq="${widget.seq}"
+        data-liquidity-kind="${model.kind}"
+        data-date-index="${index}"
+        data-liquidity-signature="${model.signature}"
+        data-liquidity-labels="${model.labels.join("||")}"
+        aria-label="${model.displayLabels[index]} 查看计算过程"
+      ></circle>
+    `;
+  }).join("");
+  const popoverMarkup = Number.isInteger(selectedIndex)
+    ? renderLiquidityPointPopover(widget, model, ratioPoints[selectedIndex], selectedIndex)
+    : "";
+  return `
+    <div class="chart-shell chart-shell--eve-ratio chart-shell--liquidity-ratio">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        <polyline fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
+        ${pointMarkup}
+      </svg>
+      ${popoverMarkup}
+      ${renderSeriesLegend(widget, { ...chartContext, seriesList: [model.title], allSeriesList: [model.title], legendItems: [{ label: model.title, color }] })}
+    </div>
+  `;
+}
+
+function renderLiquidityPointPopover(widget, model, point, index) {
+  const left = Number(((point.x / 700) * 100).toFixed(2));
+  const top = Number(((point.y / 300) * 100).toFixed(2));
+  return `
+    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
+      <div class="eve-point-popover__grid">
+        <div><span>${model.kind === "nsfr" ? "NSFR" : "LCR"}</span><strong>${formatEvePercent(model.ratios[index])}</strong></div>
+        <div><span>分子</span><strong>${formatEveAmount(model.numerator[index])}</strong></div>
+        <div><span>分母</span><strong>${formatEveAmount(model.denominator[index])}</strong></div>
+        <div><span>口径</span><strong>${model.kind === "lcr" ? "30天" : "稳定资金"}</strong></div>
+      </div>
+      <button
+        class="eve-point-popover__action"
+        type="button"
+        data-open-liquidity-process="true"
+        data-widget-seq="${widget.seq}"
+        data-liquidity-kind="${model.kind}"
+        data-date-index="${index}"
+        data-liquidity-signature="${model.signature}"
+        data-liquidity-labels="${model.labels.join("||")}"
+      >查看计算过程</button>
+    </div>
+  `;
+}
+
+function renderLiquidityDiagnosticRatioDataTable(widget, chartContext) {
+  const model = buildLiquidityDiagnosticModel(widget, chartContext);
+  const componentHeaders = model.kind === "lcr"
+    ? ["未来30天现金流出量", "未来30天现金流入量"]
+    : [];
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(model.labels)}</th>
+              <th>${model.title}</th>
+              <th>${model.numeratorTitle}</th>
+              <th>${model.denominatorTitle}</th>
+              ${componentHeaders.map((label) => `<th>${label}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${model.labels.map((label, index) => `
+              <tr>
+                <td>${label}</td>
+                <td>${formatEvePercent(model.ratios[index])}</td>
+                <td>${formatEveAmount(model.numerator[index])}</td>
+                <td>${formatEveAmount(model.denominator[index])}</td>
+                ${model.kind === "lcr" ? `<td>${formatEveAmount(model.components.cashOutflows[index])}</td><td>${formatEveAmount(model.components.cashInflows[index])}</td>` : ""}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderLiquidityProcessModal() {
+  const state = appState.liquidityProcessModal;
+  if (!state) {
+    liquidityProcessModalEl.innerHTML = "";
+    liquidityProcessModalEl.classList.remove("is-open");
+    liquidityProcessModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const target = findWidgetBySeq(state.widgetSeq || 42);
+  const widget = target?.widget || { seq: state.widgetSeq || 42 };
+  const model = buildLiquidityDiagnosticModel(widget, {
+    labels: state.labels,
+    signature: state.signature,
+    kind: state.kind,
+  });
+  const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const activeNode = state.activeNode || "ratio";
+  const isLcr = model.kind === "lcr";
+
+  liquidityProcessModalEl.innerHTML = `
+    <div class="overlay-scrim" data-close-overlay="liquidityProcessModal"></div>
+    <section class="eve-process-modal" role="dialog" aria-modal="true" aria-labelledby="liquidityProcessModalTitle">
+      <div class="eve-process-modal__header">
+        <h3 id="liquidityProcessModalTitle">计算过程</h3>
+        <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="liquidityProcessModal">关闭</button>
+      </div>
+      <div class="eve-process-modal__controls">
+        <div class="eve-process-date">
+          <span>当前日期</span>
+          <strong>${model.displayLabels[selectedIndex]}</strong>
+        </div>
+        <div class="eve-process-slider">
+          <input
+            class="eve-process-slider__input"
+            type="range"
+            min="0"
+            max="${model.labels.length - 1}"
+            step="1"
+            value="${selectedIndex}"
+            data-liquidity-process-date-slider="true"
+          >
+          <div class="eve-process-slider__axis">
+            ${model.displayLabels.map((label, index) => `<span class="${shouldShowProcessAxisLabel(model.displayLabels, index) ? "" : "is-muted"}">${shouldShowProcessAxisLabel(model.displayLabels, index) ? label : ""}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="eve-process-flow">
+        <div class="eve-process-flow__canvas">
+          <div class="eve-process-flow__lane">
+            ${renderEveProcessNode({
+              key: "ratio",
+              title: model.title,
+              value: formatEvePercent(model.ratios[selectedIndex]),
+              series: model.ratios,
+              selectedIndex,
+              activeNode,
+              dataAttribute: "data-liquidity-process-node",
+              changeType: "delta",
+              valueFormat: "percent",
+              labels: model.displayLabels,
+            })}
+            <div class="eve-process-operator">=</div>
+            <div class="eve-process-factor-stack">
+              ${renderEveProcessNode({
+                key: "numerator",
+                title: model.numeratorTitle,
+                value: formatEveAmount(model.numerator[selectedIndex]),
+                series: model.numerator,
+                selectedIndex,
+                activeNode,
+                actionText: isLcr ? "点击展开现金流出/流入 →" : "",
+                dataAttribute: "data-liquidity-process-node",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+              <div class="eve-process-division">÷</div>
+              ${renderEveProcessNode({
+                key: "denominator",
+                title: model.denominatorTitle,
+                value: formatEveAmount(model.denominator[selectedIndex]),
+                series: model.denominator,
+                selectedIndex,
+                activeNode,
+                dataAttribute: "data-liquidity-process-node",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+            </div>
+            <div class="eve-process-connector" aria-hidden="true"></div>
+            <div class="eve-process-expansions liquidity-process-expansions">
+              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                ${isLcr && state.numeratorExpanded
+                  ? renderLiquidityLcrNumeratorExpansion(model, selectedIndex, activeNode)
+                  : `<div class="eve-process-placeholder">${isLcr ? "点击左侧“未来30天现金净流出量”节点后，在这里向右展开现金流出量和现金流入量。" : "当前版本先穿透到“可用稳定资金规模”和“业务所需稳定资金”这一层，后续再继续细化。 "}</div>`}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+  liquidityProcessModalEl.classList.add("is-open");
+  liquidityProcessModalEl.setAttribute("aria-hidden", "false");
+}
+
+function renderLiquidityLcrNumeratorExpansion(model, selectedIndex, activeNode) {
+  const nodeOptions = { selectedIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
+  return `
+    <div class="eve-process-capital-strip liquidity-process-component-strip">
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "cash-outflow",
+        title: "未来30天现金流出量",
+        value: formatEveAmount(model.components.cashOutflows[selectedIndex]),
+        series: model.components.cashOutflows,
+      })}
+      <span class="eve-process-mini-operator">-</span>
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "cash-inflow",
+        title: "未来30天现金流入量",
+        value: formatEveAmount(model.components.cashInflows[selectedIndex]),
+        series: model.components.cashInflows,
+      })}
+    </div>
+  `;
+}
+
+function renderRepricingGapRateChart(widget, chartContext) {
+  const model = buildRepricingGapDiagnosticModel(widget, chartContext);
+  const frame = createFrame(model.labels.length);
+  const axis = renderAxes(frame, model.labels, "缺口率 (%)");
+  const ratioPoints = scaleValuesToFrame(model.ratios, frame, 0, 100);
+  const ratioPath = ratioPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const selectedPopover = appState.repricingGapPointPopover;
+  const selectedIndex = selectedPopover?.widgetSeq === widget.seq
+    ? clampNumber(Number(selectedPopover.dateIndex), 0, model.labels.length - 1)
+    : null;
+  const pointMarkup = ratioPoints
+    .map((point, index) => {
+      const isSelected = index === selectedIndex;
+      return `
+        <circle
+          class="eve-ratio-point repricing-gap-point ${isSelected ? "is-selected" : ""}"
+          cx="${point.x}"
+          cy="${point.y}"
+          r="${isSelected ? 6 : 4.8}"
+          fill="#ffffff"
+          stroke="${isSelected ? EVE_COLOR_WORST : REPRICING_GAP_COLOR}"
+          stroke-width="3"
+          data-repricing-gap-point="true"
+          data-widget-seq="${widget.seq}"
+          data-source-widget-seq="${widget.sourceSeq || widget.seq}"
+          data-date-index="${index}"
+          data-repricing-gap-signature="${model.signature}"
+          data-repricing-gap-labels="${model.labels.join("||")}"
+          aria-label="${model.displayLabels[index]} 查看计算过程"
+        ></circle>
+      `;
+    })
+    .join("");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame);
+  const popoverMarkup = Number.isInteger(selectedIndex)
+    ? renderRepricingGapPointPopover(widget, model, ratioPoints[selectedIndex], selectedIndex)
+    : "";
+
+  return `
+    <div class="chart-shell chart-shell--eve-ratio chart-shell--repricing-gap">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${axis}
+        ${managementLimitOverlay}
+        <polyline fill="none" stroke="${REPRICING_GAP_COLOR}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
+        ${pointMarkup}
+      </svg>
+      ${popoverMarkup}
+      ${renderSeriesLegend(widget, { ...chartContext, seriesList: ["重定价缺口率"], allSeriesList: ["重定价缺口率"] })}
+    </div>
+  `;
+}
+
+function renderRepricingGapPointPopover(widget, model, point, index) {
+  const ratio = model.ratios[index];
+  const limitSpace = model.limit - ratio;
+  const left = Number(((point.x / 700) * 100).toFixed(2));
+  const top = Number(((point.y / 300) * 100).toFixed(2));
+  return `
+    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
+      <div class="eve-point-popover__grid">
+        <div><span>缺口率</span><strong>${formatRepricingGapPercent(ratio)}</strong></div>
+        <div><span>距限额</span><strong>${limitSpace.toFixed(1)}pct</strong></div>
+        <div><span>分子</span><strong>${formatEveAmount(model.numerator[index])}</strong></div>
+        <div><span>分母</span><strong>${formatEveAmount(model.totalInterestAssets[index])}</strong></div>
+      </div>
+      <button
+        class="eve-point-popover__action"
+        type="button"
+        data-open-repricing-gap-process="true"
+        data-widget-seq="${widget.seq}"
+        data-source-widget-seq="${widget.sourceSeq || widget.seq}"
+        data-date-index="${index}"
+        data-repricing-gap-signature="${model.signature}"
+        data-repricing-gap-labels="${model.labels.join("||")}"
+      >查看计算过程</button>
+    </div>
+  `;
+}
+
+function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
+  const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
+  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || widget?.sourceSeq || 9, chartContextOrState.filterState || {}));
+  const count = labels.length;
+  const normalizedOffset = signature % 19;
+  const totalInterestAssets = Array.from({ length: count }, (_, index) =>
+    Number((820 + normalizedOffset * 3.2 + index * 5.4 + Math.sin(index / 2.1) * 18).toFixed(1))
+  );
+  const adjustedInterestAssets = totalInterestAssets.map((value, index) =>
+    Number((value * (0.58 + ((index + normalizedOffset) % 5) * 0.012)).toFixed(1))
+  );
+  const adjustedInterestLiabilities = totalInterestAssets.map((value, index) =>
+    Number((value * (0.43 + ((index + normalizedOffset) % 4) * 0.011)).toFixed(1))
+  );
+  const demandDeposits = totalInterestAssets.map((value, index) =>
+    Number((value * (0.055 + ((index + normalizedOffset) % 3) * 0.007)).toFixed(1))
+  );
+  const derivativeReceivable = totalInterestAssets.map((value, index) =>
+    Number((value * (0.035 + Math.abs(Math.sin((index + normalizedOffset) / 3)) * 0.014)).toFixed(1))
+  );
+  const derivativePayable = totalInterestAssets.map((value, index) =>
+    Number((value * (0.024 + Math.abs(Math.cos((index + normalizedOffset) / 3.4)) * 0.012)).toFixed(1))
+  );
+  const numerator = adjustedInterestAssets.map((value, index) =>
+    Number((value - adjustedInterestLiabilities[index] + demandDeposits[index] + derivativeReceivable[index] - derivativePayable[index]).toFixed(1))
+  );
+  const ratios = numerator.map((value, index) => Number(((value / totalInterestAssets[index]) * 100).toFixed(1)));
+  return {
+    labels,
+    displayLabels: buildEveDisplayLabels(labels),
+    signature,
+    limit: 38,
+    totalInterestAssets,
+    adjustedInterestAssets,
+    adjustedInterestLiabilities,
+    demandDeposits,
+    derivativeReceivable,
+    derivativePayable,
+    numerator,
+    ratios,
+  };
+}
+
+function renderRepricingGapProcessModal() {
+  const state = appState.repricingGapProcessModal;
+  if (!state) {
+    repricingGapProcessModalEl.innerHTML = "";
+    repricingGapProcessModalEl.classList.remove("is-open");
+    repricingGapProcessModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const target = findWidgetBySeq(state.sourceSeq || state.widgetSeq || 9);
+  const widget = target?.widget || { seq: state.sourceSeq || 9, title: "重定价缺口率" };
+  const model = buildRepricingGapDiagnosticModel(widget, {
+    labels: state.labels,
+    signature: state.signature,
+  });
+  const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const activeNode = state.activeNode || "ratio";
+
+  repricingGapProcessModalEl.innerHTML = `
+    <div class="overlay-scrim" data-close-overlay="repricingGapProcessModal"></div>
+    <section class="eve-process-modal" role="dialog" aria-modal="true" aria-labelledby="repricingGapProcessModalTitle">
+      <div class="eve-process-modal__header">
+        <h3 id="repricingGapProcessModalTitle">计算过程</h3>
+        <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="repricingGapProcessModal">关闭</button>
+      </div>
+      <div class="eve-process-modal__controls">
+        <div class="eve-process-date">
+          <span>当前日期</span>
+          <strong>${model.displayLabels[selectedIndex]}</strong>
+        </div>
+        <div class="eve-process-slider">
+          <input
+            class="eve-process-slider__input"
+            type="range"
+            min="0"
+            max="${model.labels.length - 1}"
+            step="1"
+            value="${selectedIndex}"
+            data-repricing-gap-process-date-slider="true"
+          >
+          <div class="eve-process-slider__axis">
+            ${model.displayLabels.map((label, index) => `<span class="${shouldShowProcessAxisLabel(model.displayLabels, index) ? "" : "is-muted"}">${shouldShowProcessAxisLabel(model.displayLabels, index) ? label : ""}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="eve-process-flow">
+        <div class="eve-process-flow__canvas">
+          <div class="eve-process-flow__lane">
+            ${renderEveProcessNode({
+              key: "ratio",
+              title: "重定价缺口率",
+              note: "期限调整后缺口占比",
+              value: formatRepricingGapPercent(model.ratios[selectedIndex]),
+              series: model.ratios,
+              selectedIndex,
+              activeNode,
+              dataAttribute: "data-repricing-gap-process-node",
+              changeType: "delta",
+              valueFormat: "percent",
+              labels: model.displayLabels,
+            })}
+            <div class="eve-process-operator">=</div>
+            <div class="eve-process-factor-stack">
+              ${renderEveProcessNode({
+                key: "numerator",
+                title: "分子",
+                note: "经期限调整后的重定价缺口",
+                value: formatEveAmount(model.numerator[selectedIndex]),
+                series: model.numerator,
+                selectedIndex,
+                activeNode,
+                actionText: "点击展开组成项 →",
+                dataAttribute: "data-repricing-gap-process-node",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+              <div class="eve-process-division">÷</div>
+              ${renderEveProcessNode({
+                key: "denominator",
+                title: "分母",
+                note: "总生息资产规模",
+                value: formatEveAmount(model.totalInterestAssets[selectedIndex]),
+                series: model.totalInterestAssets,
+                selectedIndex,
+                activeNode,
+                dataAttribute: "data-repricing-gap-process-node",
+                valueFormat: "amount",
+                labels: model.displayLabels,
+              })}
+            </div>
+            <div class="eve-process-connector" aria-hidden="true"></div>
+            <div class="eve-process-expansions">
+              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                ${state.numeratorExpanded
+                  ? renderRepricingGapNumeratorExpansion(model, selectedIndex, activeNode)
+                  : `<div class="eve-process-placeholder">点击左侧“分子”节点后，在这里向右展开经期限调整后的重定价缺口组成项。</div>`}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+  repricingGapProcessModalEl.classList.add("is-open");
+  repricingGapProcessModalEl.setAttribute("aria-hidden", "false");
+}
+
+function renderRepricingGapNumeratorExpansion(model, selectedIndex, activeNode) {
+  const nodeOptions = { selectedIndex, activeNode, dataAttribute: "data-repricing-gap-process-node", valueFormat: "amount", labels: model.displayLabels };
+  return `
+    <div class="eve-process-capital-strip repricing-gap-component-strip">
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "adjusted-assets",
+        title: "经期限调整后的生息资产",
+        note: "资产端重定价现金流",
+        value: formatEveAmount(model.adjustedInterestAssets[selectedIndex]),
+        series: model.adjustedInterestAssets,
+      })}
+      <span class="eve-process-mini-operator">-</span>
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "adjusted-liabilities",
+        title: "经期限调整后的付息负债",
+        note: "负债端重定价现金流",
+        value: formatEveAmount(model.adjustedInterestLiabilities[selectedIndex]),
+        series: model.adjustedInterestLiabilities,
+      })}
+      <span class="eve-process-mini-operator">+</span>
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "demand-deposits",
+        title: "活期存款",
+        note: "稳定沉淀部分",
+        value: formatEveAmount(model.demandDeposits[selectedIndex]),
+        series: model.demandDeposits,
+      })}
+      <span class="eve-process-mini-operator">+</span>
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "derivative-receivable",
+        title: "经期限调整后的表外衍生品应收",
+        note: "表外应收重定价现金流",
+        value: formatEveAmount(model.derivativeReceivable[selectedIndex]),
+        series: model.derivativeReceivable,
+      })}
+      <span class="eve-process-mini-operator">-</span>
+      ${renderEveProcessNode({
+        ...nodeOptions,
+        key: "derivative-payable",
+        title: "经期限调整后的表外衍生品应付",
+        note: "表外应付重定价现金流",
+        value: formatEveAmount(model.derivativePayable[selectedIndex]),
+        series: model.derivativePayable,
+      })}
+    </div>
+  `;
+}
+
+function shouldShowProcessAxisLabel(labels, index) {
+  if (labels.length <= 14) return true;
+  const step = labels.length > 24 ? 5 : 3;
+  return index === 0 || index === labels.length - 1 || index % step === 0;
+}
+
+function formatRepricingGapPercent(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
 }
 
 function renderComboChart(widget, chartContext) {
@@ -1864,6 +3253,9 @@ function renderDataView(widget, chartContext) {
   if (behavior.tableKind && tableRendererRegistry[behavior.tableKind]) {
     return applyTableTemplateClasses(widget, tableRendererRegistry[behavior.tableKind](widget, chartContext), getWidgetTableTemplateKey(widget, "compact"));
   }
+  if (isLiquidityDiagnosticRatioWidget(widget)) {
+    return applyTableTemplateClasses(widget, renderLiquidityDiagnosticRatioDataTable(widget, chartContext), getWidgetTableTemplateKey(widget, "timeSeries"));
+  }
   if (behavior.chartKind && dataRendererRegistry[behavior.chartKind]) {
     return applyTableTemplateClasses(widget, dataRendererRegistry[behavior.chartKind](widget, chartContext), getWidgetTableTemplateKey(widget, "timeSeries"));
   }
@@ -2315,19 +3707,25 @@ function renderBondInvestmentDurationLimitDataTable(widget, chartContext) {
 }
 
 function buildLiquidityGapTenorSeries(widget, chartContext) {
-  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : LIQUIDITY_GAP_TENOR_OPTIONS;
-  const seriesList = chartContext.seriesList.length ? chartContext.seriesList : [LIQUIDITY_GAP_TENOR_OPTIONS[LIQUIDITY_GAP_TENOR_OPTIONS.length - 1]];
-  return seriesList.map((label, seriesIndex) => {
-    const allSeriesIndex = Math.max(0, allSeries.indexOf(label));
-    return {
+  const selectedTenor = ((chartContext.filterState?.["期限长度"] || []).find((value) =>
+    LIQUIDITY_GAP_TENOR_OPTIONS.includes(value)
+  )) || "30D";
+  const selectedCaliber = ((chartContext.filterState?.["口径"] || []).find((value) => ["时点", "月日均"].includes(value))) || "时点";
+  const allSeriesIndex = Math.max(0, LIQUIDITY_GAP_TENOR_OPTIONS.indexOf(selectedTenor));
+  const caliberOffset = selectedTenor === "30D" && selectedCaliber === "月日均" ? 11 : 0;
+  const label = selectedTenor === "30D" ? `${selectedTenor}/${selectedCaliber}` : selectedTenor;
+  return [
+    {
       label,
       colorIndex: allSeriesIndex,
-      scaleValues: buildBarValues(widget.seq + 7 + allSeriesIndex * 17, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 29)
+      tenor: selectedTenor,
+      caliber: selectedTenor === "30D" ? selectedCaliber : "",
+      scaleValues: buildBarValues(widget.seq + 7 + allSeriesIndex * 17, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 29 + caliberOffset)
         .map((value) => 28 + (value % 96)),
-      ratioValues: buildMetricValues(widget.seq + 41 + allSeriesIndex * 13, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 37)
+      ratioValues: buildMetricValues(widget.seq + 41 + allSeriesIndex * 13, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 37 + caliberOffset)
         .map((value) => Number((2 + (value % 72) / 6).toFixed(1))),
-    };
-  });
+    },
+  ];
 }
 
 function buildAxisTicks(maxValue, segmentCount = 4) {
@@ -2417,6 +3815,9 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
       `;
     })
     .join("");
+  const activeSeries = seriesData[0] || { label: "30D", colorIndex: 2 };
+  const scaleColor = getBarFillColor(activeSeries.label, LIQUIDITY_GAP_TENOR_OPTIONS, activeSeries.colorIndex, 0.78);
+  const ratioColor = getPaletteColor(activeSeries.label, LIQUIDITY_GAP_TENOR_OPTIONS, activeSeries.colorIndex, "line");
 
   return `
     <div class="chart-shell">
@@ -2427,14 +3828,13 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
       </svg>
       ${renderSeriesLegend(widget, {
         ...chartContext,
-        allSeriesList: LIQUIDITY_GAP_TENOR_OPTIONS,
+        allSeriesList: [`${activeSeries.label}缺口规模`, `${activeSeries.label}缺口率`],
         seriesList: seriesData.map((series) => series.label),
-        legendItems: LIQUIDITY_GAP_TENOR_OPTIONS.map((label, index) => ({
-          label,
-          filterValue: label,
-          color: getPaletteColor(label, LIQUIDITY_GAP_TENOR_OPTIONS, index, "line"),
-        })),
-      })}
+        legendItems: [
+          { label: `${activeSeries.label}缺口规模`, color: scaleColor },
+          { label: `${activeSeries.label}缺口率`, color: ratioColor },
+        ],
+      }, "__legend_liquidity_gap_metrics__")}
     </div>
   `;
 }
@@ -3140,6 +4540,10 @@ function isMaturityDistributionWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "maturityDistribution" || String(widget.componentType || "").includes("期限分布");
 }
 
+function isRepricingMaturityDistributionWidget(widget) {
+  return Number(widget?.sourceSeq || widget?.seq) === 14;
+}
+
 function getMaturityDistributionBuckets() {
   return ["2026-04-01", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30", "2026-10-31", "2026-11-30", "2026-12-31", "2027-01-31", "2027-02-28", "2027-03-31"];
 }
@@ -3190,6 +4594,10 @@ function buildMaturityDistributionMatrix(widget, signature, selectedNames = []) 
 }
 
 function renderMaturityDistributionChart(widget, chartContext) {
+  if (isRepricingMaturityDistributionWidget(widget)) {
+    return renderRepricingMaturityDistributionChart(widget, chartContext);
+  }
+
   const selectedNames = getMaturityDistributionSelection(chartContext);
   const matrix = buildMaturityDistributionMatrix(widget, chartContext.signature, selectedNames);
   const allSeries = getMaturityDistributionSeries().map((item) => item.name);
@@ -3377,6 +4785,194 @@ function renderFxExposureMatrixTable(widget, chartContext) {
       </div>
     </div>
   `;
+}
+
+function renderRepricingMaturityDistributionChart(widget, chartContext) {
+  const selectedNames = getMaturityDistributionSelection(chartContext);
+  const matrix = buildMaturityDistributionMatrix(widget, chartContext.signature, selectedNames);
+  const allSeries = getMaturityDistributionSeries().map((item) => item.name);
+  const drilldown = getRepricingMaturityDrilldown(widget, matrix);
+  const frame = { left: 72, right: 560, top: 24, bottom: 224, width: 488, height: 200 };
+  const maxAbs = Math.max(
+    120,
+    ...matrix.rows.map((row) => Math.max(
+      Math.abs(row.values.filter((value) => value > 0).reduce((sum, value) => sum + value, 0)),
+      Math.abs(row.values.filter((value) => value < 0).reduce((sum, value) => sum + value, 0))
+    ))
+  );
+  const zeroY = frame.top + frame.height / 2;
+  const scale = (frame.height / 2 - 8) / maxAbs;
+  const step = frame.width / matrix.buckets.length;
+  const barWidth = Math.max(14, step * 0.44);
+  const ticks = [-100, -50, 0, 50, 100].map((tick) => ({ tick, y: zeroY - tick * scale }));
+  const axisMarkup = `
+    <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.2"></line>
+    <line x1="${frame.left}" y1="${zeroY}" x2="${frame.right}" y2="${zeroY}" stroke="rgba(109,165,215,0.42)" stroke-width="1.2"></line>
+    ${ticks.map(({ tick, y }) => `
+      <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.12)" stroke-width="1"></line>
+      <text x="${frame.left - 12}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${tick}</text>
+    `).join("")}
+    <text x="${frame.left - 46}" y="${frame.top - 6}" class="axis-title">规模(亿元)</text>
+    <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 48}" text-anchor="middle" class="axis-title">重定价期限</text>
+    ${matrix.buckets.map((bucket, index) => {
+      const x = frame.left + step * index + step * 0.5;
+      return `
+        <line x1="${x}" y1="${zeroY}" x2="${x}" y2="${zeroY + 6}" stroke="rgba(109,165,215,0.28)" stroke-width="1"></line>
+        <text x="${x}" y="${frame.bottom + 18}" text-anchor="end" transform="rotate(-38 ${x} ${frame.bottom + 18})" class="axis-label axis-label--x">${bucket}</text>
+      `;
+    }).join("")}
+  `;
+  const barsMarkup = matrix.rows.map((row, rowIndex) => {
+    const x = frame.left + step * rowIndex + (step - barWidth) / 2;
+    let positiveOffset = 0;
+    let negativeOffset = 0;
+    return row.values.map((value, valueIndex) => {
+      const seriesItem = matrix.series[valueIndex];
+      const height = Math.abs(value) * scale;
+      const color = getPaletteColor(seriesItem.name, allSeries, allSeries.indexOf(seriesItem.name), "bar");
+      const isActive = drilldown.bucket === row.bucket && drilldown.businessType === seriesItem.name;
+      const y = value >= 0 ? zeroY - positiveOffset - height : zeroY + negativeOffset;
+      if (value >= 0) positiveOffset += height;
+      else negativeOffset += height;
+      return `
+        <rect
+          class="repricing-maturity-segment ${isActive ? "is-active" : ""}"
+          x="${x}"
+          y="${y}"
+          width="${barWidth}"
+          height="${Math.max(3, height)}"
+          rx="6"
+          fill="${color}"
+          opacity="${isActive ? "1" : value >= 0 ? "0.9" : "0.7"}"
+          role="button"
+          tabindex="0"
+          aria-label="${row.bucket} ${seriesItem.name} 查看重定价明细"
+          data-repricing-maturity-cell="true"
+          data-widget-seq="${widget.seq}"
+          data-bucket="${row.bucket}"
+          data-bucket-index="${rowIndex}"
+          data-business-type="${seriesItem.name}"
+        ></rect>
+      `;
+    }).join("");
+  }).join("");
+
+  return `
+    <div class="chart-shell chart-shell--repricing-maturity">
+      <div class="repricing-maturity-layout">
+        <div class="repricing-maturity-chart">
+          <svg viewBox="0 0 600 320" preserveAspectRatio="xMidYMid meet" aria-label="分业务重定价期限分布">
+            ${axisMarkup}
+            ${barsMarkup}
+          </svg>
+          ${renderMaturityDistributionLegend(widget, selectedNames)}
+        </div>
+        ${renderRepricingMaturityDetailTable(widget, chartContext, drilldown)}
+      </div>
+    </div>
+  `;
+}
+
+function getRepricingMaturityDrilldown(widget, matrix) {
+  const widgetKey = String(widget?.seq || 14);
+  const state = appState.repricingMaturityDrilldowns?.[widgetKey] || {};
+  const visibleSeries = (matrix.series || []).map((item) => item.name);
+  const firstBucket = matrix.buckets?.[0] || "";
+  const firstBusinessType = visibleSeries[0] || "";
+  const bucket = matrix.buckets?.includes(state.bucket) ? state.bucket : firstBucket;
+  const businessType = visibleSeries.includes(state.businessType) ? state.businessType : firstBusinessType;
+  const bucketIndex = Math.max(0, matrix.buckets?.indexOf(bucket) || 0);
+  return {
+    bucket,
+    bucketIndex,
+    businessType,
+    category: getBusinessCategoryByType(businessType),
+  };
+}
+
+function getBusinessCategoryByType(businessType) {
+  return BUSINESS_STRUCTURE_GROUPS.find((group) => group.items.includes(businessType))?.category || "";
+}
+
+function getRepricingMaturityDetailColumns() {
+  return [
+    { key: "businessId", label: "业务编号" },
+    { key: "repricingCounterparty", label: "客户/发行人" },
+    { key: "repricingAmount", label: "重定价金额" },
+    { key: "repricingDate", label: "下一重定价日" },
+  ];
+}
+
+function renderRepricingMaturityDetailTable(widget, chartContext, drilldown) {
+  if (!drilldown?.businessType) {
+    return `
+      <aside class="repricing-maturity-detail">
+        <div class="business-detail-empty">
+          <div class="business-detail-empty__title">选择期限和业务类型查看明细</div>
+          <div class="business-detail-empty__desc">点击左侧堆叠柱中的任一柱段后，这里展示对应业务的逐笔重定价明细。</div>
+        </div>
+      </aside>
+    `;
+  }
+  const columns = getRepricingMaturityDetailColumns();
+  const rows = buildRepricingMaturityDetailRows(widget, chartContext, drilldown);
+  const institutions = summarizeFilterSelection("机构", chartContext.filterState["机构"] || []);
+  const currencies = summarizeFilterSelection("币种", chartContext.filterState["币种"] || []);
+  return `
+    <aside class="repricing-maturity-detail">
+      <div class="business-detail-panel">
+        <div class="business-detail-context">
+          <div>
+            <div class="business-detail-context__eyebrow">逐笔重定价明细</div>
+            <div class="business-detail-context__title">${drilldown.businessType}｜${drilldown.bucket}</div>
+            <div class="business-detail-context__meta">机构：${institutions} | 币种：${currencies} | 共 ${rows.length} 笔业务</div>
+          </div>
+        </div>
+        <div class="table-shell">
+          <table class="chart-table chart-table--repricing-detail">
+            <thead>
+              <tr>${columns.map((column) => `<th>${column.label}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => `
+                <tr>
+                  ${columns.map((column) => `<td>${row[column.key] ?? ""}</td>`).join("")}
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function buildRepricingMaturityDetailRows(widget, chartContext, drilldown) {
+  const signature = createSignature(widget.seq, {
+    机构: chartContext.filterState["机构"] || [],
+    币种: chartContext.filterState["币种"] || [],
+    业务类型: [drilldown.businessType],
+    重定价期限: [drilldown.bucket],
+  });
+  const seededRows = buildBusinessDetailRows(widget, chartContext, {
+    businessType: drilldown.businessType,
+    category: drilldown.category,
+    sourceWidgetSeq: widget.seq,
+  });
+  const bucketDate = parseDateValue(drilldown.bucket) || parseDateValue(addMonthsDateValue(getDefaultGlobalEndDate(), drilldown.bucketIndex + 1));
+  const bucketAnchor = formatDateValue(bucketDate);
+  return seededRows.slice(0, 8 + (signature % 4)).map((row, index) => {
+    const repricingDate = addDays(bucketAnchor, (index % 7) - 3);
+    const repricingTermMonths = Math.max(1, Math.round(Math.abs((parseDateValue(repricingDate) - (parseDateValue(getDefaultGlobalEndDate()) || new Date())) / (1000 * 60 * 60 * 24 * 30))));
+    return {
+      ...row,
+      repricingCounterparty: row.issuer || row.counterparty || "-",
+      repricingAmount: row.holdingScale || row.amount,
+      repricingDate,
+      repricingTerm: repricingTermMonths <= 1 ? "1个月内" : `${repricingTermMonths}个月`,
+      repricingCycle: row.rateType === "浮动" ? row.repricingCycle : "到期",
+    };
+  });
 }
 
 function renderBenchmarkCurrencyMatrixTable(widget, chartContext) {
@@ -4041,7 +5637,7 @@ function supportsFrequencyToggle(widget) {
 }
 
 function getManagementLimitConfig(widget) {
-  const widgetSeq = Number(widget?.seq);
+  const widgetSeq = Number(widget?.sourceSeq || widget?.seq);
   const directMatch = MANAGEMENT_LIMIT_CONFIG.find((item) =>
     Array.isArray(item.widgetSeqs) && item.widgetSeqs.includes(widgetSeq)
   );
@@ -4318,9 +5914,12 @@ function getBlockDisplayConfig(block, page = getCurrentPage()) {
 
 function getAreaDisplayConfig(areaGroup, block, page = getCurrentPage()) {
   if (!page?.name || !block?.name || !areaGroup?.name) return {};
-  const legacyConfig = AREA_DISPLAY_CONFIG[page.name]?.[block.name]?.[areaGroup.name] || {};
-  const unifiedConfig = LAYOUT_RULE_CONFIG.areas?.[`${page.name}/${block.name}/${areaGroup.name}`] || {};
-  return { ...legacyConfig, ...unifiedConfig };
+  const blockNames = uniqueList([block.sourceBlockName, block.name].filter(Boolean));
+  return blockNames.reduce((config, blockName) => {
+    const legacyConfig = AREA_DISPLAY_CONFIG[page.name]?.[blockName]?.[areaGroup.name] || {};
+    const unifiedConfig = LAYOUT_RULE_CONFIG.areas?.[`${page.name}/${blockName}/${areaGroup.name}`] || {};
+    return { ...config, ...legacyConfig, ...unifiedConfig };
+  }, {});
 }
 
 function mergeAreaViewGroups(areaGroup) {
@@ -4372,6 +5971,7 @@ function ensureWidgetFilterState(widget, widgetBehavior = getWidgetBehavior(widg
 }
 
 function getFilterStateBucket(ownerType, ownerId) {
+  if (ownerType === "page") return appState.pageFilters[ownerId] || {};
   if (ownerType === "widget") return appState.widgetFilters[ownerId] || {};
   return appState.areaFilters[ownerId] || {};
 }
@@ -4570,6 +6170,7 @@ function shouldRenderAreasInPairs(block, groupedAreas) {
 }
 
 function shouldSpanFullWidth(widget) {
+  if (isRepricingMaturityDistributionWidget(widget)) return true;
   const layoutConfig = LAYOUT_RULE_CONFIG.widgets?.[String(widget?.seq)] || {};
   if (Object.prototype.hasOwnProperty.call(layoutConfig, "fullWidth")) {
     return Boolean(layoutConfig.fullWidth);
@@ -4625,6 +6226,22 @@ function isEveCombinedTableWidget(widget) {
   return getConfiguredWidgetBehavior(widget).tableKind === "eveCombined";
 }
 
+function isEveRatioTrendWidget(widget) {
+  return Number(widget?.seq) === EVE_RATIO_WIDGET_SEQ;
+}
+
+function isEveSourceTrendWidget(widget) {
+  return EVE_SOURCE_TREND_WIDGET_SEQS.has(Number(widget?.seq));
+}
+
+function isRepricingGapRateWidget(widget) {
+  return REPRICING_GAP_RATE_WIDGET_SEQS.has(Number(widget?.sourceSeq || widget?.seq));
+}
+
+function isLiquidityDiagnosticRatioWidget(widget) {
+  return Boolean(getLiquidityDiagnosticKind(widget));
+}
+
 function isNiiVolatilityWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "niiVolatility";
 }
@@ -4654,6 +6271,7 @@ function isDonutWidget(widget) {
 }
 
 function getWidgetDisplayTitle(widget) {
+  if (widget?.displayTitle) return widget.displayTitle;
   const behavior = getConfiguredWidgetBehavior(widget);
   if (behavior.tableKind === "businessDetail") {
     const scopeMeta = BUSINESS_DETAIL_SCOPE_META[behavior.detailScope || "stock"] || BUSINESS_DETAIL_SCOPE_META.stock;
@@ -4667,7 +6285,7 @@ function getWidgetSimulationBehavior(widget) {
 }
 
 function getConfiguredWidgetBehavior(widget) {
-  return getConfiguredWidgetBehaviorBySeq(widget?.seq);
+  return getConfiguredWidgetBehaviorBySeq(widget?.sourceSeq || widget?.seq);
 }
 
 function getConfiguredWidgetBehaviorBySeq(widgetSeq) {
@@ -4748,7 +6366,7 @@ function syncActiveBlockWithViewport() {
   if (!page?.blocks?.length) return;
   const toolbarRect = blockPillsEl.getBoundingClientRect();
   const threshold = Math.max(140, Math.round(toolbarRect.bottom + 24));
-  const sections = page.blocks
+  const sections = getRenderablePageSections(page)
     .map((block) => document.getElementById(block.id))
     .filter(Boolean);
   if (!sections.length) return;
@@ -5681,43 +7299,57 @@ function buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates)
 function buildFutureFundingFlowDetailRows(widget, chartContext, matrix, dailyNet, cumulativeNet) {
   const counterparties = ["战略客户部", "机构资金部", "同业合作户", "集团内部账户", "境外分行资金池", "财政性存款", "大型企业结算户", "债券承销计划"];
   return matrix.rows.flatMap((row, dateIndex) =>
-    matrix.series.map((series, seriesIndex) => {
+    matrix.series.flatMap((series, seriesIndex) => {
       const value = row.values[seriesIndex] || 0;
       const seed = chartContext.signature + widget.seq * 19 + dateIndex * 37 + seriesIndex * 53;
-      return {
-        date: row.date,
-        businessId: `CF-${String((seed % 900000) + 100000).slice(-6)}`,
-        businessType: series.name,
-        counterparty: counterparties[(dateIndex + seriesIndex) % counterparties.length],
-        direction: value >= 0 ? "资金流入" : "资金流出",
-        amount: Number(Math.abs(value).toFixed(1)),
-        dailyNet: Number(dailyNet[dateIndex].toFixed(1)),
-        cumulativeNet: Number(cumulativeNet[dateIndex].toFixed(1)),
-      };
+      const splitCount = 2 + (Math.abs(seed) % 2);
+      const totalAmount = Math.abs(value);
+      return Array.from({ length: splitCount }, (_, transactionIndex) => {
+        const weight = transactionIndex === splitCount - 1 ? 1 : 0.36 + ((seed + transactionIndex * 17) % 18) / 100;
+        const preliminaryAmount = transactionIndex === splitCount - 1
+          ? totalAmount
+          : totalAmount * weight / splitCount;
+        const previousAmounts = Array.from({ length: transactionIndex }, (_, previousIndex) => {
+          const previousWeight = 0.36 + ((seed + previousIndex * 17) % 18) / 100;
+          return totalAmount * previousWeight / splitCount;
+        }).reduce((sum, item) => sum + item, 0);
+        const amount = transactionIndex === splitCount - 1
+          ? Math.max(0.1, totalAmount - previousAmounts)
+          : preliminaryAmount;
+        return {
+          date: row.date,
+          businessId: `CF-${String((seed + transactionIndex * 7919) % 900000 + 100000).slice(-6)}`,
+          businessType: series.name,
+          counterparty: counterparties[(dateIndex + seriesIndex + transactionIndex) % counterparties.length],
+          direction: value >= 0 ? "资金流入" : "资金流出",
+          amount: Number(amount.toFixed(1)),
+          dailyNet: Number(dailyNet[dateIndex].toFixed(1)),
+          cumulativeNet: Number(cumulativeNet[dateIndex].toFixed(1)),
+        };
+      });
     })
   );
 }
 
-function renderFutureFundingFlowDetailTable(rows, compact = true) {
+function renderFutureFundingFlowDetailTable(rows, compact = true, context = {}) {
   const visibleRows = compact ? rows.slice(0, 8) : rows;
+  const title = context.title || "业务明细";
+  const meta = context.meta || `共 ${rows.length} 笔`;
   return `
     <div class="funding-flow-detail">
       <div class="funding-flow-detail__header">
-        <span>业务明细</span>
-        <span>共 ${rows.length} 笔</span>
+        <span>${title}</span>
+        <span>${meta}</span>
       </div>
       <div class="table-shell funding-flow-detail__table">
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th>日期</th>
+              <th>现金流日</th>
               <th>业务编号</th>
-              <th>业务类型</th>
               <th>交易对手</th>
               <th>资金方向</th>
               <th>金额</th>
-              <th>当日净额</th>
-              <th>累计净额</th>
             </tr>
           </thead>
           <tbody>
@@ -5725,12 +7357,9 @@ function renderFutureFundingFlowDetailTable(rows, compact = true) {
               <tr>
                 <td>${row.date}</td>
                 <td>${row.businessId}</td>
-                <td>${row.businessType}</td>
                 <td>${row.counterparty}</td>
                 <td>${row.direction}</td>
                 <td>${row.amount.toFixed(1)}</td>
-                <td>${row.dailyNet.toFixed(1)}</td>
-                <td>${row.cumulativeNet.toFixed(1)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -5738,6 +7367,28 @@ function renderFutureFundingFlowDetailTable(rows, compact = true) {
       </div>
     </div>
   `;
+}
+
+function getFutureFundingFlowDrilldown(widget, flowState) {
+  const widgetKey = String(widget.seq);
+  const current = appState.futureFundingFlowDrilldowns?.[widgetKey] || {};
+  const hasCurrentDate = flowState.future.businessMatrix.rows.some((row) => row.date === current.date);
+  const hasCurrentType = flowState.future.businessMatrix.series.some((series) => series.name === current.businessType);
+  if (hasCurrentDate && hasCurrentType) return current;
+  const firstRow = flowState.future.businessMatrix.rows[0];
+  const firstSeries = flowState.future.businessMatrix.series[0];
+  return {
+    date: firstRow?.date || "",
+    label: firstRow?.label || "",
+    businessType: firstSeries?.name || "",
+  };
+}
+
+function getFutureFundingFlowRowsForDrilldown(flowState, drilldown) {
+  if (!drilldown?.date || !drilldown?.businessType) return [];
+  return flowState.future.detailRows.filter((row) =>
+    row.date === drilldown.date && row.businessType === drilldown.businessType
+  );
 }
 
 function renderFundingFlowLegend(widgetSeq, legendKey, items) {
@@ -5803,6 +7454,8 @@ function renderFundingFlowScaleChart(widget, chartContext) {
 function renderFutureFundingFlowChart(widget, chartContext) {
   const flowState = buildFundingFlowCompositeState(widget, chartContext);
   const matrix = flowState.future.businessMatrix;
+  const drilldown = getFutureFundingFlowDrilldown(widget, flowState);
+  const drilldownRows = getFutureFundingFlowRowsForDrilldown(flowState, drilldown);
   const allBusinessTypes = getMaturityDistributionSeries().map((item) => item.name);
   const selectedNames = matrix.series.map((item) => item.name);
   const frame = { left: 88, right: 660, top: 24, bottom: 216, width: 572, height: 192 };
@@ -5866,16 +7519,27 @@ function renderFutureFundingFlowChart(widget, chartContext) {
     let positiveOffset = 0;
     let negativeOffset = 0;
     return row.values.map((value, valueIndex) => {
+      const businessType = matrix.series[valueIndex].name;
+      const isActive = drilldown.date === row.date && drilldown.businessType === businessType;
       const height = Math.abs(value) * businessScale;
-      const color = getPaletteColor(matrix.series[valueIndex].name, allBusinessTypes, allBusinessTypes.indexOf(matrix.series[valueIndex].name), "bar");
+      const color = getPaletteColor(businessType, allBusinessTypes, allBusinessTypes.indexOf(businessType), "bar");
+      const attrs = `
+        class="future-funding-flow-segment ${isActive ? "is-active" : ""}"
+        data-future-funding-flow-cell="true"
+        data-widget-seq="${widget.seq}"
+        data-date="${row.date}"
+        data-label="${row.label}"
+        data-business-type="${businessType}"
+        tabindex="0"
+      `;
       if (value >= 0) {
         const y = zeroY - positiveOffset - height;
         positiveOffset += height;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.84"></rect>`;
+        return `<rect ${attrs} x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.84"></rect>`;
       }
       const y = zeroY + negativeOffset;
       negativeOffset += height;
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.64"></rect>`;
+      return `<rect ${attrs} x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="${color}" opacity="0.64"></rect>`;
     }).join("");
   }).join("");
   const renderLine = (label, values, color, strokeWidth = 3.2) => {
@@ -5890,15 +7554,25 @@ function renderFutureFundingFlowChart(widget, chartContext) {
     `;
   };
   return `
-    <div class="chart-shell chart-shell--funding-flow">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        ${axis}
-        ${barsMarkup}
-        ${renderLine("当日净额", flowState.future.dailyNet, SEMANTIC_COLORS.fundingInflow, 3)}
-        ${renderLine("累计净额", flowState.future.cumulativeNet, SEMANTIC_COLORS.fundingCumulative, 3.4)}
-      </svg>
-      ${renderFundingFlowLegend(widget.seq, "__legend_funding_future__", legendItems)}
-      ${renderMaturityDistributionLegend(widget, selectedNames)}
+    <div class="chart-shell chart-shell--funding-flow chart-shell--future-funding-flow">
+      <div class="future-funding-flow-layout">
+        <div class="future-funding-flow-chart">
+          <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            ${axis}
+            ${barsMarkup}
+            ${renderLine("当日净额", flowState.future.dailyNet, SEMANTIC_COLORS.fundingInflow, 3)}
+            ${renderLine("累计净额", flowState.future.cumulativeNet, SEMANTIC_COLORS.fundingCumulative, 3.4)}
+          </svg>
+          ${renderFundingFlowLegend(widget.seq, "__legend_funding_future__", legendItems)}
+          ${renderMaturityDistributionLegend(widget, selectedNames)}
+        </div>
+        <aside class="future-funding-flow-detail">
+          ${renderFutureFundingFlowDetailTable(drilldownRows, true, {
+            title: `${drilldown.businessType || "业务"}资金流明细`,
+            meta: `${drilldown.date || "-"} | 共 ${drilldownRows.length} 笔`,
+          })}
+        </aside>
+      </div>
     </div>
   `;
 }
@@ -5949,11 +7623,20 @@ pageTabsEl.addEventListener("click", (event) => {
   const button = event.target.closest("[data-page-id]");
   if (!button) return;
   appState.currentPageId = button.dataset.pageId;
-  appState.activeBlockId = getCurrentPage()?.blocks[0]?.id || null;
+  appState.activeBlockId = null;
   render();
 });
 
 blockPillsEl.addEventListener("click", (event) => {
+  const filterToggle = event.target.closest("[data-filter-toggle]");
+  if (filterToggle) {
+    const { ownerType, ownerId, filterName } = filterToggle.dataset;
+    const key = buildFilterKey(ownerType, ownerId, filterName);
+    appState.openFilterKey = appState.openFilterKey === key ? null : key;
+    render();
+    return;
+  }
+
   const openSimulationButton = event.target.closest("[data-open-simulation]");
   if (openSimulationButton) {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
@@ -5988,6 +7671,122 @@ if (globalEndInputEl) {
 }
 
 dashboardViewEl.addEventListener("click", (event) => {
+  const repricingMaturityCell = event.target.closest("[data-repricing-maturity-cell]");
+  if (repricingMaturityCell) {
+    const { widgetSeq, bucket, bucketIndex, businessType } = repricingMaturityCell.dataset;
+    appState.repricingMaturityDrilldowns = {
+      ...appState.repricingMaturityDrilldowns,
+      [widgetSeq]: {
+        bucket,
+        bucketIndex: Number(bucketIndex || 0),
+        businessType,
+      },
+    };
+    render();
+    return;
+  }
+
+  const futureFundingFlowCell = event.target.closest("[data-future-funding-flow-cell]");
+  if (futureFundingFlowCell) {
+    const { widgetSeq, date, label, businessType } = futureFundingFlowCell.dataset;
+    appState.futureFundingFlowDrilldowns = {
+      ...appState.futureFundingFlowDrilldowns,
+      [widgetSeq]: {
+        date,
+        label,
+        businessType,
+      },
+    };
+    render();
+    return;
+  }
+
+  const liquidityPoint = event.target.closest("[data-liquidity-point]");
+  if (liquidityPoint) {
+    appState.liquidityMetricPointPopover = {
+      widgetSeq: Number(liquidityPoint.dataset.widgetSeq || 0),
+      kind: liquidityPoint.dataset.liquidityKind || "",
+      dateIndex: Number(liquidityPoint.dataset.dateIndex || 0),
+      labels: String(liquidityPoint.dataset.liquidityLabels || "").split("||").filter(Boolean),
+      signature: Number(liquidityPoint.dataset.liquiditySignature || 0),
+    };
+    render();
+    return;
+  }
+
+  const openLiquidityProcessButton = event.target.closest("[data-open-liquidity-process]");
+  if (openLiquidityProcessButton) {
+    const sourceState = appState.liquidityMetricPointPopover || {};
+    appState.liquidityProcessModal = {
+      widgetSeq: Number(openLiquidityProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 42),
+      kind: openLiquidityProcessButton.dataset.liquidityKind || sourceState.kind || "",
+      dateIndex: Number(openLiquidityProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
+      labels: String(openLiquidityProcessButton.dataset.liquidityLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      signature: Number(openLiquidityProcessButton.dataset.liquiditySignature || sourceState.signature || 0),
+      activeNode: "ratio",
+      numeratorExpanded: false,
+    };
+    render();
+    return;
+  }
+
+  const repricingGapPoint = event.target.closest("[data-repricing-gap-point]");
+  if (repricingGapPoint) {
+    appState.repricingGapPointPopover = {
+      widgetSeq: Number(repricingGapPoint.dataset.widgetSeq || 0),
+      sourceSeq: Number(repricingGapPoint.dataset.sourceWidgetSeq || repricingGapPoint.dataset.widgetSeq || 9),
+      dateIndex: Number(repricingGapPoint.dataset.dateIndex || 0),
+      labels: String(repricingGapPoint.dataset.repricingGapLabels || "").split("||").filter(Boolean),
+      signature: Number(repricingGapPoint.dataset.repricingGapSignature || 0),
+    };
+    render();
+    return;
+  }
+
+  const openRepricingGapProcessButton = event.target.closest("[data-open-repricing-gap-process]");
+  if (openRepricingGapProcessButton) {
+    const sourceState = appState.repricingGapPointPopover || {};
+    appState.repricingGapProcessModal = {
+      widgetSeq: Number(openRepricingGapProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 0),
+      sourceSeq: Number(openRepricingGapProcessButton.dataset.sourceWidgetSeq || sourceState.sourceSeq || 9),
+      dateIndex: Number(openRepricingGapProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
+      labels: String(openRepricingGapProcessButton.dataset.repricingGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      signature: Number(openRepricingGapProcessButton.dataset.repricingGapSignature || sourceState.signature || 0),
+      activeNode: "ratio",
+      numeratorExpanded: false,
+    };
+    render();
+    return;
+  }
+
+  const evePoint = event.target.closest("[data-eve-point]");
+  if (evePoint) {
+    appState.evePointPopover = {
+      widgetSeq: Number(evePoint.dataset.widgetSeq || EVE_RATIO_WIDGET_SEQ),
+      dateIndex: Number(evePoint.dataset.dateIndex || 0),
+      labels: String(evePoint.dataset.eveLabels || "").split("||").filter(Boolean),
+      signature: Number(evePoint.dataset.eveSignature || 0),
+    };
+    render();
+    return;
+  }
+
+  const openEveProcessButton = event.target.closest("[data-open-eve-process]");
+  if (openEveProcessButton) {
+    const sourceState = appState.evePointPopover || {};
+    appState.eveProcessModal = {
+      widgetSeq: Number(openEveProcessButton.dataset.widgetSeq || sourceState.widgetSeq || EVE_RATIO_WIDGET_SEQ),
+      dateIndex: Number(openEveProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
+      labels: String(openEveProcessButton.dataset.eveLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      signature: Number(openEveProcessButton.dataset.eveSignature || sourceState.signature || 0),
+      activeNode: "eve",
+      numeratorExpanded: false,
+      denominatorExpanded: false,
+    };
+    render();
+    return;
+  }
+
   const subtabButton = event.target.closest("[data-area-subtab]");
   if (subtabButton) {
     const { areaSubtab, tabName } = subtabButton.dataset;
@@ -6085,7 +7884,8 @@ dashboardViewEl.addEventListener("click", (event) => {
     else current.add(filterValue);
     stateBucket[filterName] = current.size ? Array.from(current) : [filterValue];
     appState.openFilterKey = buildFilterKey(ownerType, ownerId, filterName);
-    if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
+    if (ownerType === "page") appState.pageFilters[ownerId] = stateBucket;
+    else if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
     else appState.areaFilters[ownerId] = stateBucket;
     render();
     return;
@@ -6275,6 +8075,128 @@ insightModalEl.addEventListener("click", (event) => {
   render();
 });
 
+eveProcessModalEl.addEventListener("input", (event) => {
+  const slider = event.target.closest("[data-eve-process-date-slider]");
+  if (!slider || !appState.eveProcessModal) return;
+  appState.eveProcessModal = {
+    ...appState.eveProcessModal,
+    dateIndex: Number(slider.value || 0),
+  };
+  renderEveProcessModal();
+});
+
+eveProcessModalEl.addEventListener("click", (event) => {
+  const sparkline = event.target.closest("[data-process-sparkline]");
+  if (sparkline) {
+    const payload = decodeProcessPreviewPayload(sparkline.dataset.processPreview);
+    if (payload) {
+      appState.processSparklinePreview = payload;
+      renderProcessSparklinePreview();
+    }
+    return;
+  }
+
+  const closeButton = event.target.closest("[data-close-overlay='eveProcessModal']");
+  if (closeButton) {
+    appState.eveProcessModal = null;
+    render();
+    return;
+  }
+  const nodeButton = event.target.closest("[data-eve-process-node]");
+  if (!nodeButton || !appState.eveProcessModal) return;
+  const nodeKey = nodeButton.dataset.eveProcessNode;
+  appState.eveProcessModal = {
+    ...appState.eveProcessModal,
+    activeNode: nodeKey,
+    numeratorExpanded: appState.eveProcessModal.numeratorExpanded || nodeKey === "numerator",
+    denominatorExpanded: appState.eveProcessModal.denominatorExpanded || nodeKey === "denominator",
+  };
+  renderEveProcessModal();
+});
+
+liquidityProcessModalEl.addEventListener("input", (event) => {
+  const slider = event.target.closest("[data-liquidity-process-date-slider]");
+  if (!slider || !appState.liquidityProcessModal) return;
+  appState.liquidityProcessModal = {
+    ...appState.liquidityProcessModal,
+    dateIndex: Number(slider.value || 0),
+  };
+  renderLiquidityProcessModal();
+});
+
+liquidityProcessModalEl.addEventListener("click", (event) => {
+  const sparkline = event.target.closest("[data-process-sparkline]");
+  if (sparkline) {
+    const payload = decodeProcessPreviewPayload(sparkline.dataset.processPreview);
+    if (payload) {
+      appState.processSparklinePreview = payload;
+      renderProcessSparklinePreview();
+    }
+    return;
+  }
+
+  const closeButton = event.target.closest("[data-close-overlay='liquidityProcessModal']");
+  if (closeButton) {
+    appState.liquidityProcessModal = null;
+    render();
+    return;
+  }
+  const nodeButton = event.target.closest("[data-liquidity-process-node]");
+  if (!nodeButton || !appState.liquidityProcessModal) return;
+  const nodeKey = nodeButton.dataset.liquidityProcessNode;
+  appState.liquidityProcessModal = {
+    ...appState.liquidityProcessModal,
+    activeNode: nodeKey,
+    numeratorExpanded: appState.liquidityProcessModal.numeratorExpanded || nodeKey === "numerator",
+  };
+  renderLiquidityProcessModal();
+});
+
+repricingGapProcessModalEl.addEventListener("input", (event) => {
+  const slider = event.target.closest("[data-repricing-gap-process-date-slider]");
+  if (!slider || !appState.repricingGapProcessModal) return;
+  appState.repricingGapProcessModal = {
+    ...appState.repricingGapProcessModal,
+    dateIndex: Number(slider.value || 0),
+  };
+  renderRepricingGapProcessModal();
+});
+
+repricingGapProcessModalEl.addEventListener("click", (event) => {
+  const sparkline = event.target.closest("[data-process-sparkline]");
+  if (sparkline) {
+    const payload = decodeProcessPreviewPayload(sparkline.dataset.processPreview);
+    if (payload) {
+      appState.processSparklinePreview = payload;
+      renderProcessSparklinePreview();
+    }
+    return;
+  }
+
+  const closeButton = event.target.closest("[data-close-overlay='repricingGapProcessModal']");
+  if (closeButton) {
+    appState.repricingGapProcessModal = null;
+    render();
+    return;
+  }
+  const nodeButton = event.target.closest("[data-repricing-gap-process-node]");
+  if (!nodeButton || !appState.repricingGapProcessModal) return;
+  const nodeKey = nodeButton.dataset.repricingGapProcessNode;
+  appState.repricingGapProcessModal = {
+    ...appState.repricingGapProcessModal,
+    activeNode: nodeKey,
+    numeratorExpanded: appState.repricingGapProcessModal.numeratorExpanded || nodeKey === "numerator",
+  };
+  renderRepricingGapProcessModal();
+});
+
+processSparklinePreviewEl.addEventListener("click", (event) => {
+  const closeButton = event.target.closest("[data-close-process-sparkline]");
+  if (!closeButton) return;
+  appState.processSparklinePreview = null;
+  renderProcessSparklinePreview();
+});
+
 filterPopoverEl.addEventListener("click", (event) => {
   const closeButton = event.target.closest("[data-filter-modal-close]");
   if (closeButton) {
@@ -6291,7 +8213,8 @@ filterPopoverEl.addEventListener("click", (event) => {
     if (current.has(filterValue)) current.delete(filterValue);
     else current.add(filterValue);
     stateBucket[filterName] = current.size ? Array.from(current) : [filterValue];
-    if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
+    if (ownerType === "page") appState.pageFilters[ownerId] = stateBucket;
+    else if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
     else appState.areaFilters[ownerId] = stateBucket;
     render();
   }
@@ -6299,6 +8222,26 @@ filterPopoverEl.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (appState.processSparklinePreview) {
+      appState.processSparklinePreview = null;
+      renderProcessSparklinePreview();
+      return;
+    }
+    if (appState.repricingGapProcessModal) {
+      appState.repricingGapProcessModal = null;
+      render();
+      return;
+    }
+    if (appState.liquidityProcessModal) {
+      appState.liquidityProcessModal = null;
+      render();
+      return;
+    }
+    if (appState.eveProcessModal) {
+      appState.eveProcessModal = null;
+      render();
+      return;
+    }
     if (appState.simulationModalPageId) {
       closeSimulationModal();
       render();
