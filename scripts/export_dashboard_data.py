@@ -22,6 +22,11 @@ GENERIC_SECTION_TITLES = {
 }
 
 BUSINESS_CHANGE_PAGE = "\u4e1a\u52a1\u53d8\u52a8\u5206\u6790"
+PAGE_ID_BY_NAME = {
+    "\u5229\u7387\u98ce\u9669": "interest-risk",
+    "\u6d41\u52a8\u6027\u98ce\u9669": "liquidity-risk",
+    BUSINESS_CHANGE_PAGE: "business-change",
+}
 BUSINESS_CHANGE_BLOCKS = {
     "\u5b58\u91cf\u4e1a\u52a1",
     "\u65b0\u53d1\u751f\u4e1a\u52a1",
@@ -29,6 +34,13 @@ BUSINESS_CHANGE_BLOCKS = {
 }
 
 MERGED_AREA_SCOPE = "\u5408\u5e76\u533a\u57df"
+SOURCE_ONLY_WIDGET_SEQS = {3, 4}
+REMOVED_WIDGET_SEQS = {5, 8, 10, 11, 16, 17}
+CURATED_TITLE_FIXES = {
+    80: "\u5b58\u91cf\u4e1a\u52a1\u660e\u7ec6\u6e05\u5355",
+    85: "\u65b0\u53d1\u751f\u4e1a\u52a1\u660e\u7ec6\u6e05\u5355",
+    97: "\u5230\u671f\u4e1a\u52a1\u660e\u7ec6\u6e05\u5355",
+}
 
 LEGACY_TEXT_REPLACEMENTS = (
     (
@@ -247,7 +259,52 @@ def build_widget(row: dict[str, Any]) -> dict[str, Any]:
         "devNote": row["dev_note"],
         "originPosition": row["origin_pos"],
     }
+    seq = widget["seq"]
+    if seq in CURATED_TITLE_FIXES:
+        widget["title"] = CURATED_TITLE_FIXES[seq]
+    if seq in SOURCE_ONLY_WIDGET_SEQS:
+        widget["renderRole"] = "sourceOnly"
     return {key: value for key, value in widget.items() if value not in (None, "")}
+
+
+def apply_current_dashboard_structure(payload: dict[str, Any]) -> dict[str, Any]:
+    """Keep exported workbook data aligned with the current three-page dashboard IA."""
+    total_widgets = 0
+    for page in payload.get("pages", []):
+        flattened_areas: list[dict[str, Any]] = []
+        for block in page.get("blocks", []):
+            for area in block.get("areas", []):
+                widgets = [
+                    widget
+                    for widget in area.get("widgets", [])
+                    if int(widget.get("seq", -1)) not in REMOVED_WIDGET_SEQS
+                ]
+                if not widgets:
+                    continue
+                next_area = {**area, "widgets": widgets}
+                flattened_areas.append(next_area)
+
+        widget_count = sum(len(area.get("widgets", [])) for area in flattened_areas)
+        total_widgets += widget_count
+        page_id = PAGE_ID_BY_NAME.get(page["name"], page["id"])
+        page["id"] = page_id
+        page["blocks"] = [
+            {
+                "id": f"{page_id}-main",
+                "name": page["name"],
+                "areas": flattened_areas,
+                "areaCount": len(flattened_areas),
+                "widgetCount": widget_count,
+            }
+        ]
+        page["blockCount"] = 1
+        page["areaCount"] = len(flattened_areas)
+        page["widgetCount"] = widget_count
+
+    payload["widgetCount"] = total_widgets
+    payload["sourceMode"] = "curated-prototype"
+    payload["sourceNote"] = "\u5bfc\u51fa\u540e\u5df2\u6309\u5f53\u524d\u9a7e\u9a76\u8231\u7ed3\u6784\u538b\u5e73\u65e7\u5c42\u7ea7\uff0c\u5e76\u79fb\u9664\u5df2\u5e9f\u5f03\u7ec4\u4ef6\u3002"
+    return payload
 
 
 def build_payload(workbook_path: Path) -> dict[str, Any]:
@@ -257,7 +314,11 @@ def build_payload(workbook_path: Path) -> dict[str, Any]:
     for row in rows:
         page = pages.setdefault(
             row["page_name"],
-            {"id": f"page-{len(pages) + 1}", "name": row["page_name"], "blocks": OrderedDict()},
+            {
+                "id": PAGE_ID_BY_NAME.get(row["page_name"], f"page-{len(pages) + 1}"),
+                "name": row["page_name"],
+                "blocks": OrderedDict(),
+            },
         )
         block = page["blocks"].setdefault(
             row["block_name"],
@@ -323,7 +384,7 @@ def build_payload(workbook_path: Path) -> dict[str, Any]:
 def main() -> None:
     args = parse_args()
     workbook_path = detect_workbook(args.workbook)
-    payload = build_payload(workbook_path)
+    payload = apply_current_dashboard_structure(build_payload(workbook_path))
 
     output_path = args.output if args.output.is_absolute() else ROOT / args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)

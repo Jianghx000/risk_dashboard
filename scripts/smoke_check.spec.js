@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+﻿const { test, expect } = require("@playwright/test");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -168,14 +168,14 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     await expect(page.getByRole("button", { name: title, exact: true })).toBeVisible();
   }
   await expect(page.getByRole("button", { name: TEXT.removedPage, exact: true })).toHaveCount(0);
-  const blockPills = page.locator("#blockPills");
+  const globalFilterBar = page.locator("#globalFilterBar");
   for (const removedBlock of ["\u6838\u5fc3\u98ce\u9669\u6307\u6807", "\u7f3a\u53e3\u98ce\u9669"]) {
-    await expect(blockPills.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
+    await expect(globalFilterBar.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: removedBlock, exact: true })).toHaveCount(0);
   }
-  await expect(blockPills.locator(".block-pill")).toHaveCount(0);
-  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
-  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
+  await expect(globalFilterBar.locator(".global-filter-tab")).toHaveCount(0);
+  await expect(globalFilterBar.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
+  await expect(globalFilterBar.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
   await expect(page.locator(".block-section")).toHaveCount(0);
   await expect(page.locator(".area-card")).toHaveCount(0);
   for (const sectionTitle of [
@@ -185,7 +185,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     "\u91cd\u5b9a\u4ef7\u4e45\u671f",
     "\u6295\u8d44\u7ec4\u5408\u4e45\u671f",
   ]) {
-    await expect(blockPills.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
+    await expect(globalFilterBar.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
   }
   await expect(page.locator("#dashboardView").locator('[data-owner-type="area"][data-filter-name="\u673a\u6784"]')).toHaveCount(0);
   await expect(page.locator("#dashboardView").locator('[data-owner-type="area"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(0);
@@ -241,7 +241,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator("#processSparklinePreview")).toContainText("\u5206\u5b50");
   await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
   await page.keyboard.press("Escape");
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toHaveCount(0);
+  await expect(page.locator("#globalFilterBar").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="60"]').getByRole("heading", { name: TEXT.interestPortfolioDurationTitle, exact: true })).toBeVisible();
   expect(await page.locator('article[data-widget-seq="60"] svg polyline').count()).toBeGreaterThan(0);
   for (const title of TEXT.investmentFinanceBondWidgetTitles) {
@@ -254,19 +254,19 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator('article[data-widget-seq="59"] .chart-stage')).toContainText("2026-01");
   await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
   for (const removedBlock of ["\u6838\u5fc3\u98ce\u9669\u6307\u6807", "\u73b0\u91d1\u6d41\u9519\u914d"]) {
-    await expect(blockPills.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
+    await expect(globalFilterBar.getByRole("button", { name: removedBlock, exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: removedBlock, exact: true })).toHaveCount(0);
   }
-  await expect(blockPills.locator(".block-pill")).toHaveCount(0);
-  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
-  await expect(blockPills.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
+  await expect(globalFilterBar.locator(".global-filter-tab")).toHaveCount(0);
+  await expect(globalFilterBar.locator('[data-owner-type="page"][data-filter-name="\u673a\u6784"]')).toHaveCount(1);
+  await expect(globalFilterBar.locator('[data-owner-type="page"][data-filter-name="\u5e01\u79cd"]')).toHaveCount(1);
   for (const sectionTitle of [
     "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR",
     "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u7387NSFR",
     "\u6d41\u52a8\u6027\u6bd4\u4f8b",
     "\u6d41\u52a8\u6027\u7f3a\u53e3",
   ]) {
-    await expect(blockPills.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
+    await expect(globalFilterBar.getByRole("button", { name: sectionTitle, exact: true })).toHaveCount(0);
   }
   for (const title of TEXT.removedLiquidityTitles) {
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
@@ -302,7 +302,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(liquidityGapWidget.locator('[data-filter-name="\u53e3\u5f84"][data-filter-value="\u65f6\u70b9"]')).toHaveClass(/is-active/);
   await liquidityGapWidget.locator('[data-filter-name="\u671f\u9650\u957f\u5ea6"][data-filter-value="1D"]').click();
   await expect(liquidityGapWidget.locator('[data-filter-name="\u53e3\u5f84"]')).toHaveCount(0);
-  await expect(page.locator("#blockPills").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toHaveCount(0);
+  await expect(page.locator("#globalFilterBar").getByRole("button", { name: TEXT.liquidityFundingBlock, exact: true })).toHaveCount(0);
   for (const title of TEXT.liquidityFundingWidgetTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }

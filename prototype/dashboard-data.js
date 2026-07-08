@@ -1,16 +1,16 @@
 window.dashboardData = {
-  "generatedAt": "2026-04-08 16:19",
+  "generatedAt": "2026-07-08 curated",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
   "pageCount": 3,
-  "widgetCount": 34,
+  "widgetCount": 30,
   "pages": [
     {
-      "id": "page-1",
+      "id": "interest-risk",
       "name": "利率风险",
       "blocks": [
         {
-          "id": "block-1",
-          "name": "核心风险指标",
+          "id": "interest-risk-main",
+          "name": "利率风险",
           "areas": [
             {
               "id": "area-1",
@@ -51,7 +51,8 @@ window.dashboardData = {
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；币种筛选器保留但不影响取数，只作为区域内统一交互",
                   "devNote": "组件：折线图；标题需显式体现“本外币合计”",
-                  "originPosition": "原始行3"
+                  "originPosition": "原始行3",
+                  "renderRole": "sourceOnly"
                 },
                 {
                   "seq": 4,
@@ -68,44 +69,14 @@ window.dashboardData = {
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
                   "originPosition": "原始行4",
-                  "layout": "full"
+                  "layout": "full",
+                  "renderRole": "sourceOnly"
                 }
               ],
               "filterPreset": "orgCurrency",
               "scopeMeta": {
                 "snapshotMode": "trend",
                 "timeMode": "monthly"
-              }
-            },
-            {
-              "id": "area-5",
-              "name": "最大经济价值变动比例",
-              "viewScope": "时点",
-              "sharedFilters": [
-                "机构",
-                "币种"
-              ],
-              "widgets": [
-                {
-                  "seq": 5,
-                  "title": "各币种最大经济价值变动",
-                  "componentType": "表格",
-                  "displayDescription": "????????????????????????????????????/??????????????????????????????????????????????????????????????EVE???6????????????????????????????????????????????????????EVE??????????????????????????????????????????????",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "行维度：币种",
-                  "metricDescription": "???EVE???/EVE?????6??????????",
-                  "legendDescription": "列维度：按表头定义",
-                  "responseFields": "row_key, row_label, col_key, col_label, metric_value, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器；支持表头固定、滚动与导出",
-                  "devNote": "?????????????????????",
-                  "originPosition": "???5 / ???6"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
               }
             },
             {
@@ -142,46 +113,6 @@ window.dashboardData = {
               }
             },
             {
-              "id": "area-8",
-              "name": "净利息收入波动率",
-              "viewScope": "时点",
-              "sharedFilters": [
-                "机构",
-                "币种",
-                "利率情景"
-              ],
-              "widgets": [
-                {
-                  "seq": 8,
-                  "title": "各币种净利息收入波动",
-                  "componentType": "表格",
-                  "displayDescription": "筛选项：机构。联动规则：当前表格仅联动机构筛选器；页面保留的币种与利率情景筛选器不影响本表取数。展示口径：时点。原始要求：通过筛选机构，以表格的方式展示所选择的机构下，所有币种（行）在所有利率情景（列）下的净利息收入波动及波动率。开发细化：采用表格组件实现，固定展开全部币种与全部利率情景，支持排序、冻结表头和导出。",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：筛选器保留但不影响本表取数；情景：筛选器保留但不影响本表取数",
-                  "frontendParams": "dashboard_id, area_code, org_ids[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
-                  "metricDescription": "指标：NII波动额/NII波动率",
-                  "legendDescription": "列维度：利率情景",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "当前表格仅联动机构筛选器；币种与利率情景筛选器保留但不影响取数",
-                  "devNote": "组件：表格",
-                  "originPosition": "原始行8"
-                }
-              ],
-              "filterPreset": "orgCurrencyRateScenario",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
-              }
-            }
-          ],
-          "widgetCount": 6,
-          "areaCount": 4
-        },
-        {
-          "id": "block-2",
-          "name": "缺口风险",
-          "areas": [
-            {
               "id": "area-9",
               "name": "重定价缺口率",
               "viewScope": "时点口径 / 月频 / 日频",
@@ -205,38 +136,6 @@ window.dashboardData = {
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
                   "devNote": "组件：折线图",
                   "originPosition": "原始行9"
-                },
-                {
-                  "seq": 10,
-                  "title": "生息资产规模",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种保持一致，展示所选择机构所选择币种的时点生息资产规模走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：规模",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行10"
-                },
-                {
-                  "seq": 11,
-                  "title": "重定价规模与缺口走势",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：与上述所选择的机构、币种一致，展示所选择机构所选择币种口径下的未来一年重定价资产/负债规模与缺口走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：缺口规模/缺口率",
-                  "legendDescription": "图例：币种",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
-                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
-                  "originPosition": "原始行11"
                 },
                 {
                   "seq": 14,
@@ -266,6 +165,7 @@ window.dashboardData = {
             {
               "id": "area-20",
               "name": "重定价久期",
+              "groupKey": "repricing-duration",
               "viewScope": "存量业务 / 时间序列（月频）",
               "sharedFilters": [
                 "机构",
@@ -316,6 +216,7 @@ window.dashboardData = {
             {
               "id": "area-26",
               "name": "重定价久期",
+              "groupKey": "repricing-duration",
               "viewScope": "新发生业务 / 时间序列（月频）",
               "sharedFilters": [
                 "机构",
@@ -392,15 +293,7 @@ window.dashboardData = {
                 "snapshotMode": "trend",
                 "timeMode": "monthly"
               }
-            }
-          ],
-          "widgetCount": 9,
-          "areaCount": 4
-        },
-        {
-          "id": "block-investment-financing-bond-investment",
-          "name": "债券投资",
-          "areas": [
+            },
             {
               "id": "area-investment-financing-bond-investment",
               "name": "债券投资",
@@ -432,21 +325,21 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 1,
-          "areaCount": 1
+          "areaCount": 7,
+          "widgetCount": 12
         }
       ],
-      "blockCount": 3,
-      "areaCount": 9,
-      "widgetCount": 16
+      "blockCount": 1,
+      "areaCount": 7,
+      "widgetCount": 12
     },
     {
-      "id": "page-2",
+      "id": "liquidity-risk",
       "name": "流动性风险",
       "blocks": [
         {
-          "id": "block-1",
-          "name": "核心风险指标",
+          "id": "liquidity-risk-main",
+          "name": "流动性风险",
           "areas": [
             {
               "id": "area-42",
@@ -510,18 +403,11 @@ window.dashboardData = {
               "scopeMeta": {
                 "timeMode": "frequencyToggle"
               }
-            }
-          ],
-          "widgetCount": 2,
-          "areaCount": 2
-        },
-        {
-          "id": "block-2",
-          "name": "现金流错配",
-          "areas": [
+            },
             {
               "id": "area-49",
               "name": "流动性缺口",
+              "groupKey": "liquidity-gap-and-funding-flow",
               "viewScope": "月频 / 日频",
               "sharedFilters": [
                 "机构",
@@ -553,6 +439,7 @@ window.dashboardData = {
             {
               "id": "area-51",
               "name": "流动性缺口",
+              "groupKey": "liquidity-gap-and-funding-flow",
               "viewScope": "时点",
               "sharedFilters": [
                 "机构",
@@ -580,15 +467,7 @@ window.dashboardData = {
               "scopeMeta": {
                 "snapshotMode": "snapshot"
               }
-            }
-          ],
-          "widgetCount": 2,
-          "areaCount": 2
-        },
-        {
-          "id": "block-investment-financing-funding-inflow",
-          "name": "资金融入",
-          "areas": [
+            },
             {
               "id": "area-investment-financing-funding-inflow",
               "name": "资金融入",
@@ -635,21 +514,21 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 2,
-          "areaCount": 1
+          "areaCount": 5,
+          "widgetCount": 6
         }
       ],
-      "blockCount": 3,
+      "blockCount": 1,
       "areaCount": 5,
       "widgetCount": 6
     },
     {
-      "id": "page-4",
+      "id": "business-change",
       "name": "业务变动分析",
       "blocks": [
         {
-          "id": "block-1",
-          "name": "存量业务",
+          "id": "business-change-main",
+          "name": "业务变动分析",
           "areas": [
             {
               "id": "area-stock",
@@ -710,7 +589,7 @@ window.dashboardData = {
                 },
                 {
                   "seq": 80,
-                  "title": "瀛橀噺涓氬姟鏄庣粏娓呭崟",
+                  "title": "存量业务明细清单",
                   "componentType": "琛ㄦ牸",
                   "displayDescription": "",
                   "grain": "鏄庣粏",
@@ -729,15 +608,7 @@ window.dashboardData = {
               "scopeMeta": {
                 "mergeMode": "areaMerged"
               }
-            }
-          ],
-          "widgetCount": 4,
-          "areaCount": 1
-        },
-        {
-          "id": "block-2",
-          "name": "新发生业务",
-          "areas": [
+            },
             {
               "id": "area-new",
               "name": "新发生业务",
@@ -797,7 +668,7 @@ window.dashboardData = {
                 },
                 {
                   "seq": 85,
-                  "title": "鏂板彂鐢熶笟鍔℃槑缁嗘竻鍗?",
+                  "title": "新发生业务明细清单",
                   "componentType": "琛ㄦ牸",
                   "displayDescription": "",
                   "grain": "鏄庣粏",
@@ -816,15 +687,7 @@ window.dashboardData = {
               "scopeMeta": {
                 "mergeMode": "areaMerged"
               }
-            }
-          ],
-          "widgetCount": 4,
-          "areaCount": 1
-        },
-        {
-          "id": "block-3",
-          "name": "到期业务",
-          "areas": [
+            },
             {
               "id": "area-maturity",
               "name": "到期业务",
@@ -884,7 +747,7 @@ window.dashboardData = {
                 },
                 {
                   "seq": 97,
-                  "title": "鍒版湡涓氬姟鏄庣粏娓呭崟",
+                  "title": "到期业务明细清单",
                   "componentType": "琛ㄦ牸",
                   "displayDescription": "",
                   "grain": "鏄庣粏",
@@ -905,13 +768,15 @@ window.dashboardData = {
               }
             }
           ],
-          "widgetCount": 4,
-          "areaCount": 1
+          "areaCount": 3,
+          "widgetCount": 12
         }
       ],
-      "blockCount": 3,
+      "blockCount": 1,
       "areaCount": 3,
       "widgetCount": 12
     }
-  ]
+  ],
+  "sourceMode": "curated-prototype",
+  "sourceNote": "手工整理后的驾驶舱结构；旧分层已压平，废弃组件已从数据层移除。"
 };

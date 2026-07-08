@@ -46,23 +46,6 @@ window.dashboardConfig = {
         "30D",
         "3M"
       ],
-      "业务类型": [
-        "自营贷款",
-        "投资类业务",
-        "同业资产",
-        "自营非标投资",
-        "存放央行",
-        "内部交易资产",
-        "活期存款",
-        "定期存款",
-        "同业负债",
-        "发行债券",
-        "中央行借款",
-        "租赁负债",
-        "内部交易负债",
-        "表外衍生品应付",
-        "表外衍生品应收"
-      ],
       "时间区间": [
         "近1月",
         "近3月",
@@ -89,10 +72,6 @@ window.dashboardConfig = {
       ],
       "币种": [
         "全折人民币"
-      ],
-      "业务类型": [
-        "自营贷款",
-        "投资类业务"
       ]
     },
     "presets": {
@@ -136,37 +115,14 @@ window.dashboardConfig = {
     },
     "流动性风险": {
       "simulationMode": "liquidity"
-    }
-  },
-  "blockDisplay": {},
-  "areaDisplay": {
-    "利率风险": {
-      "核心风险指标": {
-        "最大经济价值变动比例": {
-          "mergeViewGroups": true
-        },
-        "净利息收入波动率": {
-          "mergeViewGroups": true
-        }
-      },
-      "缺口风险": {
-        "重定价缺口率": {}
-      }
     },
-    "流动性风险": {
-      "核心风险指标": {
-        "流动性覆盖率LCR": {
-          "mergeViewGroups": true
-        }
-      }
+    "业务变动分析": {
+      "analysisPerspective": "interestBalanceStructure"
     }
   },
   "managementLimits": [
     {
       "indicator": "最大经济价值变动比例",
-      "matchTitles": [
-        "最大经济价值变动比例"
-      ],
       "values": {
         "法人汇总": 28,
         "境外分行汇总": 25,
@@ -184,9 +140,6 @@ window.dashboardConfig = {
     },
     {
       "indicator": "净利息收入波动率",
-      "matchTitles": [
-        "净利息收入波动"
-      ],
       "values": {
         "法人汇总": 24,
         "境外分行汇总": 22,
@@ -204,9 +157,6 @@ window.dashboardConfig = {
     },
     {
       "indicator": "重定价缺口率",
-      "matchTitles": [
-        "重定价缺口率"
-      ],
       "values": {
         "法人汇总": 38,
         "境外分行汇总": 34,
@@ -224,9 +174,6 @@ window.dashboardConfig = {
     },
     {
       "indicator": "流动性覆盖率LCR",
-      "matchTitles": [
-        "流动性覆盖率LCR"
-      ],
       "values": {
         "法人汇总": 62,
         "境外分行汇总": 58,
@@ -244,9 +191,6 @@ window.dashboardConfig = {
     },
     {
       "indicator": "净稳定资金比例NSFR",
-      "matchTitles": [
-        "净稳定资金比例NSFR"
-      ],
       "values": {
         "法人汇总": 66,
         "境外分行汇总": 62,
@@ -264,9 +208,6 @@ window.dashboardConfig = {
     },
     {
       "indicator": "流动性缺口",
-      "matchTitles": [
-        "流动性缺口"
-      ],
       "values": {
         "法人汇总": 55,
         "境外分行汇总": 50,
@@ -284,6 +225,9 @@ window.dashboardConfig = {
     }
   ],
   "widgetBehavior": {
+    "1": {
+      "chartKind": "eveRatioTrend"
+    },
     "3": {
       "seriesFilters": {
         "suppress": [
@@ -300,9 +244,6 @@ window.dashboardConfig = {
         ]
       }
     },
-    "5": {
-      "tableKind": "eveCombined"
-    },
     "7": {
       "chartKind": "niiVolatility",
       "seriesFilters": {
@@ -312,24 +253,8 @@ window.dashboardConfig = {
         ]
       }
     },
-    "8": {
-      "tableKind": "niiCurrencyMatrix"
-    },
     "9": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "sensitivity": 0.16
-      }
-    },
-    "10": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
-    "11": {
-      "chartKind": "repricingScaleGap",
-      "fullWidth": false,
+      "chartKind": "repricingGapRate",
       "frequencyToggle": true,
       "simulationBehavior": {
         "sensitivity": 0.16
@@ -372,14 +297,19 @@ window.dashboardConfig = {
       }
     },
     "42": {
+      "chartKind": "liquidityDiagnosticRatio",
+      "liquidityDiagnosticKind": "lcr",
       "frequencyToggle": true
     },
     "46": {
+      "chartKind": "liquidityDiagnosticRatio",
+      "liquidityDiagnosticKind": "nsfr",
       "frequencyToggle": true
     },
     "49": {
       "chartKind": "liquidityGapTenor",
       "frequencyToggle": true,
+      "caliberFilterTenor": "30D",
       "simulationBehavior": {
         "directionMode": "gap",
         "sensitivity": 0.16
@@ -418,6 +348,7 @@ window.dashboardConfig = {
     },
     "79": {
       "tableKind": "businessStructure",
+      "structureScope": "stock",
       "drilldownTargetSeq": 80
     },
     "80": {
@@ -439,20 +370,27 @@ window.dashboardConfig = {
     },
     "89": {
       "tableKind": "businessStructure",
+      "structureScope": "new",
+      "showDateFilter": true,
       "drilldownTargetSeq": 85,
       "inlineFilters": [
         "时间区间（起止）"
       ]
     },
     "90": {
-      "chartKind": "balanceScaleGrowth"
+      "chartKind": "balanceScaleGrowth",
+      "maturityTrend": true
     },
     "91": {
       "chartKind": "businessScaleGrowth",
+      "maturityTrend": true,
       "maxSeries": 12
     },
     "96": {
       "tableKind": "businessStructure",
+      "structureScope": "maturity",
+      "showDateFilter": true,
+      "maturityStructure": true,
       "drilldownTargetSeq": 97,
       "inlineFilters": [
         "时间区间（起止）"
@@ -568,66 +506,15 @@ window.dashboardConfig = {
       "name": "业务类型",
       "renderMode": "legend",
       "multi": true,
-      "options": [
-        "自营贷款",
-        "投资类业务",
-        "同业资产",
-        "自营非标投资",
-        "存放央行",
-        "内部交易资产",
-        "活期存款",
-        "定期存款",
-        "同业负债",
-        "发行债券",
-        "中央行借款",
-        "租赁负债",
-        "内部交易负债",
-        "表外衍生品应付",
-        "表外衍生品应收"
-      ],
-      "defaultValues": [
-        "自营贷款",
-        "投资类业务"
-      ]
+      "optionsRef": "businessDurationOptions",
+      "defaultValuesRef": "businessTypeDefaultValues"
     },
     "futureFundingBusinessTypeLegend": {
       "name": "业务类型",
       "renderMode": "legend",
       "multi": true,
-      "options": [
-        "自营贷款",
-        "投资类业务",
-        "同业资产",
-        "自营非标投资",
-        "存放央行",
-        "内部交易资产",
-        "活期存款",
-        "定期存款",
-        "同业负债",
-        "发行债券",
-        "中央行借款",
-        "租赁负债",
-        "内部交易负债",
-        "表外衍生品应付",
-        "表外衍生品应收"
-      ],
-      "defaultValues": [
-        "自营贷款",
-        "投资类业务",
-        "同业资产",
-        "自营非标投资",
-        "存放央行",
-        "内部交易资产",
-        "活期存款",
-        "定期存款",
-        "同业负债",
-        "发行债券",
-        "中央行借款",
-        "租赁负债",
-        "内部交易负债",
-        "表外衍生品应付",
-        "表外衍生品应收"
-      ]
+      "optionsRef": "businessDurationOptions",
+      "defaultValuesRef": "businessDurationOptions"
     },
     "liquidityTenorLegend": {
       "name": "期限长度",
@@ -700,28 +587,9 @@ window.dashboardConfig = {
   },
   "layoutRules": {
     "blocks": {},
-    "areas": {
-      "利率风险/核心风险指标/最大经济价值变动比例": {
-        "mergeViewGroups": true,
-        "sharedFilterPreset": "orgCurrency"
-      },
-      "利率风险/核心风险指标/净利息收入波动率": {
-        "mergeViewGroups": true,
-        "sharedFilterPreset": "orgCurrencyRateScenario"
-      },
-      "利率风险/缺口风险/重定价缺口率": {
-        "sharedFilterPreset": "orgCurrency"
-      },
-      "流动性风险/核心风险指标/流动性覆盖率LCR": {
-        "mergeViewGroups": true,
-        "sharedFilterPreset": "orgCurrency"
-      }
-    },
+    "areas": {},
     "widgets": {
       "4": {
-        "fullWidth": false
-      },
-      "11": {
         "fullWidth": false
       },
       "24": {
@@ -751,13 +619,6 @@ window.dashboardConfig = {
       "liabilityFxSeriesMultiplier": 0.82,
       "variationStep": 0.035
     },
-    "wholesaleLiabilityTypes": [
-      "同业负债",
-      "发行债券",
-      "中央行借款",
-      "租赁负债",
-      "表外衍生品应付"
-    ],
     "modes": {
       "interest": {
         "assetDirection": 1,

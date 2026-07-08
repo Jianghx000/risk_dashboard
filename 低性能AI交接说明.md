@@ -1,282 +1,147 @@
-# 低性能AI交接说明
+# 低性能 AI 交接说明
 
 ## 1. 项目定位
 
-- 项目：ALM 系统前端原型
-- 目录：[E:\招行\资产负债管理部\ALM系统\risk_dashboard](E:\招行\资产负债管理部\ALM系统\risk_dashboard)
-- 入口页：[E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html)
-- 当前已切换为：单套源码直接运行，不再维护 `*.v20260410.js / *.v20260416.css` 这类运行版副本
-- 当前已接入 git，且默认要求：改完并验收通过后，直接 `commit + push`
+- 项目：ALM 风险管理驾驶舱前端原型
+- 当前目录：`E:\招行\资产负债管理部\ALM系统\risk_dashboard`
+- 入口页面：`prototype/index.html`
+- 当前页面结构：利率风险、流动性风险、业务变动分析
+
+## 2. 当前运行文件
+
+- `prototype/index.html`
+- `prototype/dashboard-data.js`
+- `prototype/dashboard-config.js`
+- `prototype/dashboard-domain.js`
+- `prototype/mock-data-adapter.js`
+- `prototype/dashboard-utils.js`
+- `prototype/app.js`
+- `prototype/dashboard-simulation.js`
+- `prototype/dashboard-processes.js`
+- `prototype/dashboard-interest-renderers.js`
+- `prototype/dashboard-business-renderers.js`
+- `prototype/dashboard-liquidity-renderers.js`
+- `prototype/dashboard-renderers.js`
+- `prototype/dashboard-events.js`
+- `prototype/styles.css`
+
+## 3. 文件边界
+
+业务结构和业务口径优先改：
+
+- `prototype/dashboard-data.js`
+- `prototype/dashboard-config.js`
+- `prototype/dashboard-domain.js`
+
+展示、交互和样式再改：
+
+- `prototype/dashboard-utils.js`
+- `prototype/app.js`
+- `prototype/dashboard-simulation.js`
+- `prototype/dashboard-processes.js`
+- `prototype/dashboard-interest-renderers.js`
+- `prototype/dashboard-business-renderers.js`
+- `prototype/dashboard-liquidity-renderers.js`
+- `prototype/dashboard-renderers.js`
+- `prototype/dashboard-events.js`
+- `prototype/styles.css`
+
+mock 造数逻辑放在：
+
+- `prototype/mock-data-adapter.js`
+
+## 4. 当前关键事实
+
+- 一级页面只有三类：利率风险、流动性风险、业务变动分析。
+- 数据结构已经压平，不再保留 `核心风险指标`、`缺口风险`、`现金流错配`。
+- 已删除组件序号：`5 / 8 / 10 / 11 / 16 / 17`。
+- EVE 分子和分母组件 `3 / 4` 只作为计算过程来源节点，不作为普通图表单独展示。
+- 业务类型统一为 15 类，维护在 `dashboard-domain.js`。
+- 模拟测算逻辑已从 `app.js` 拆到 `dashboard-simulation.js`。
+- EVE、LCR/NSFR、重定价缺口率的计算过程拆解已从 `app.js` 拆到 `dashboard-processes.js`。
+- 利率风险图表渲染已从 `app.js` 拆到 `dashboard-interest-renderers.js`。
+- 业务变动分析图表和表格渲染已从 `app.js` 拆到 `dashboard-business-renderers.js`。
+- 流动性、资金融入和债券投资图表渲染已从 `app.js` 拆到 `dashboard-liquidity-renderers.js`。
+- 图表/数据/表格渲染注册在 `dashboard-renderers.js`。
+- `dashboard-renderers.js` 只做注册表，不能保留未被 `dashboard-config.js` 使用的旧 renderer kind。
+- DOM 事件绑定在 `dashboard-events.js`。
+- 共享工具函数已从 `app.js` 拆到 `dashboard-utils.js`。
+- `dashboard-config.js` 不再使用 `blockDisplay` 和 `areaDisplay` 承载结构补丁。
+- 同一 block 下需要合并展示的同名区域必须在 `dashboard-data.js` 配置相同 `groupKey`。
+- 管理限额只通过 `managementLimits[].widgetSeqs` 绑定图表，不再使用 `matchTitles`。
+- 除 `sourceOnly` 节点外，所有 widget 都必须在 `widgetBehavior` 中声明 `chartKind` 或 `tableKind`。
+- 旧的独立 EVE demo 已删除，正式 EVE 拆解能力在主页面内。
+- 业务变动分析当前采用利率风险资产负债结构口径，配置为 `pageBehavior.业务变动分析.analysisPerspective = "interestBalanceStructure"`；流动性口径的业务流、现金流和资金融入分析在流动性风险页面内表达，不复用业务变动分析表格。
+
+## 5. 当前页面能力
+
+利率风险：
+
+- 最大经济价值变动比例
+- 净利息收入波动
+- 重定价缺口率（月频、日频）
+- 分业务重定价期限分布及右侧明细
+- 重定价久期
+- 债券修正久期
+- 债券投资规模
+- EVE 和重定价缺口率可做计算过程拆解
+- 模拟测算包含新业务模拟、套期交易模拟，以及预留的净利息收入入口
+
+流动性风险：
+
+- 流动性覆盖率 LCR
+- 净稳定资金比率 NSFR
+- 流动性缺口
+- 未来逐日资金流及右侧明细
+- 同业融入最长期限
+- 同业融入期限结构
+- LCR 和 NSFR 可做计算过程拆解
+- 模拟测算包含新业务模拟，以及预留的流动性压力测试入口
+
+业务变动分析：
+
+- 存量业务
+- 新发生业务
+- 到期业务
+- 资产负债结构表支持明细穿透
 
-## 2. 最高优先级原则
+## 6. 验证命令
 
-- 所有改动都以“逻辑简洁、内容简洁、交接简洁、真实数据替换简洁”为第一原则
-- 不要为了视觉效果引入复杂状态、复杂抽象、复杂构建
-- 后续 IT 要替换真实数据，所以业务结构要清楚、稳定、可追踪
-- 结构性变化要改源数据定义，不要在渲染层偷偷补丁
-
-## 3. 当前运行文件
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\app.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\app.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\styles.css](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\styles.css)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-data.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-data.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-config.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-config.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\mock-data-adapter.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\mock-data-adapter.js)
-
-## 4. 文件边界
-
-### 4.1 业务结构和业务配置
-
-以下内容必须优先改：
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-data.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-data.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-config.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\dashboard-config.js)
-
-这里负责：
-
-- 一级页面 / 板块 / 区域 / 图表表格 的层级结构
-- 图表是否存在、顺序如何、归属哪个区域
-- 图表标题、表格标题、区域标题
-- 哪些区域应合并，哪些旧区域应直接删除
-- 共享筛选和局部筛选的归属位置
-- 筛选项 `options`、`defaultValues`、`multi`
-- 哪些图和哪些筛选联动，哪些不联动
-
-### 4.2 渲染和交互
-
-以下内容再改：
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\app.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\app.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\styles.css](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\styles.css)
-
-这里负责：
-
-- 页面渲染
-- 图表绘制
-- 图例点击联动
-- 图表 / 数据切换
-- 模拟测算弹窗
-- AI 分析弹窗
-- 月频 / 日频小 tab
-- 样式和布局
-
-### 4.3 明确禁止
-
-不要在 `app.js` 里做这些事：
-
-- 临时拼业务结构
-- 临时新增或删除业务图表
-- 临时重命名业务标题
-- 临时把两个区域“视觉合并”但源数据不改
-- 临时补 widget 的业务配置
-
-一句话：  
-`dashboard-data.js / dashboard-config.js` 决定“有什么”；`app.js / styles.css` 决定“怎么显示”。
-
-## 5. 当前页面结构
-
-一级页面共 4 个：
-
-- 利率风险
-- 流动性风险
-- 汇率风险
-- 业务变动分析
-
-项目遵循四层结构：
-
-- 第一层：一级页面
-- 第二层：板块
-- 第三层：区域
-- 第四层：图表 / 表格
-
-## 6. 当前已经稳定的关键规则
-
-- 顶部全局时间选择是“开始时间 + 结束时间”
-- 图例统一为可点击胶囊式图例
-- 很多局部筛选放在图卡左上角或图卡内部，不做复杂弹层
-- 多数图卡保留“图表 / 数据”切换
-- AI 分析弹窗当前只保留“智能结论”
-- 模拟测算已经按风险类型区分字段
-
-## 7. 业务变动分析页当前正确状态
-
-这一页已经是源数据正确，不要再误改回旧版。
-
-### 7.1 结构规则
-
-- `时间序列 / 时点 / 时间区间` 不是隐藏，而是已经应在源数据中直接删除
-- 同属第三层级的内容应在源数据中直接合并为一个区域，不要靠渲染层拼
-
-### 7.2 当前三块内容
-
-存量业务：
-
-- 资产负债规模及增速
-- 分业务规模及增速
-- 资产负债结构一览表
-
-新发生业务：
-
-- 新发生资产负债规模及增速
-- 分业务新发生规模及增速
-- 新发生业务资产负债结构一览表
-
-到期业务（含静态未来到期）：
-
-- 到期资产负债规模及增速
-- 分业务到期规模及增速
-- 到期业务资产负债结构一览表
-
-### 7.3 特别规则
-
-- 新发生业务和到期业务里的“时间区间（起止）”只针对各自的一览表，不是顶层共享筛选
-
-## 8. 风险页当前正确状态
-
-### 8.1 模拟测算
-
-- 风险页顶部有“模拟测算”入口
-- 利率风险有：
-  - 业务发生日期
-  - 机构
-  - 币种
-  - 业务类型
-  - 规模
-  - 期限
-  - 重定价频率
-  - 定价方式
-- 流动性风险、汇率风险没有“重定价频率 / 定价方式”
-- 弹窗里已经删除“模拟预判”
-- 模拟结果会叠加到图表最新值位置
-
-### 8.2 AI 分析
-
-- 每张图卡右上有 `AI` 按钮
-- 点击后弹出 AI 智能分析弹窗
-- 当前只保留“智能结论”
-
-### 8.3 月频 / 日频
-
-之前的混合时间轴已经废弃，不要再往回做。
-
-当前方式是：
-
-- 某些图卡内部有两个小 tab：`月频`、`日频`
-- `月频` 走普通月频图逻辑
-- `日频` 显示近 33 天逐日数据
-
-## 9. 流动性风险里的一个重要纠正
-
-`资金流入流出规模` 和 `未来逐日资金流` 现在必须理解为：
-
-- 两个独立 widget
-- 同一行并排展示
-- 不是一个特殊“复合区域”
-
-不要再把它们做回一个特殊拼装图卡。
-
-## 10. 当前新增的护栏
-
-### 10.1 数据 / 配置校验
-
-脚本：
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\validate_dashboard.py](E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\validate_dashboard.py)
-
-命令：
-
-```powershell
-npm run validate:dashboard
-```
-
-作用：
-
-- 检查 `dashboard-data.js` 结构是否合法
-- 检查 `page/block/area/widget` 必需字段
-- 检查 `widget seq` 是否重复
-- 检查 `dashboard-config.js` 里引用的 widget 是否真实存在
-- 检查 `widgetCount` 等统计值是否一致
-
-### 10.2 最小 smoke check
-
-脚本：
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\smoke_check.spec.js](E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\smoke_check.spec.js)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\run_smoke_check.ps1](E:\招行\资产负债管理部\ALM系统\risk_dashboard\scripts\run_smoke_check.ps1)
-
-命令：
-
-```powershell
-npm run smoke
-```
-
-作用：
-
-- 打开入口页
-- 检查四个一级页面存在
-- 检查业务变动分析 9 个关键标题存在
-- 检查模拟测算能打开
-- 检查 AI 弹窗能打开
-
-### 10.3 一键检查
+常规检查：
 
 ```powershell
 npm run check
 ```
 
-## 11. 后续每次修改的标准流程
-
-1. 先判断这是“结构变化”还是“展示变化”
-2. 结构变化先改 `dashboard-data.js / dashboard-config.js`
-3. 展示变化再改 `app.js / styles.css`
-4. 跑：
+单独结构校验：
 
 ```powershell
 npm run validate:dashboard
+```
+
+单独页面冒烟检查：
+
+```powershell
 npm run smoke
 ```
 
-5. 重新打开 [E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html](E:\招行\资产负债管理部\ALM系统\risk_dashboard\prototype\index.html) 做实际页面检查
-6. 看 `git status`
-7. 验收通过后 `commit + push`
+## 7. 后续修改标准流程
 
-## 12. 目前最容易犯错的地方
+1. 判断是结构变化还是展示变化。
+2. 结构变化先改 `dashboard-data.js`、`dashboard-config.js`、`dashboard-domain.js`。
+3. 展示变化再改 `dashboard-utils.js`、`app.js`、`dashboard-simulation.js`、`dashboard-processes.js`、`dashboard-renderers.js`、`dashboard-events.js`、`styles.css`。
+4. 跑 `npm run check`。
+5. 打开 `prototype/index.html` 做页面检查。
+6. 看 `git status`，确认没有无关文件混入。
+7. 按用户要求提交和推送。
 
-- 把结构问题放到 `app.js` 里临时补
-- 误把“视觉上看起来对”当成“源数据已经正确”
-- 改了标题或筛选归属，但只改了页面渲染，没改数据定义
-- 把 `资金流入流出规模` 和 `未来逐日资金流` 又拼回一个特殊卡片
-- 把月频 / 日频又改回复杂混合时间轴
-- 改完不跑校验和 smoke
+## 8. 最容易犯错的地方
 
-## 13. 如果只做细节优化，优先改什么
-
-可以做：
-
-- 文案微调
-- 样式细调
-- 按钮位置微调
-- 图卡间距微调
-- 标题和说明文字对齐
-- 不改变业务结构前提下的交互优化
-
-不要轻易做：
-
-- 大规模重构 `app.js`
-- 重新设计数据结构
-- 上框架
-- 引入复杂构建流程
-- 把当前稳定结构再“抽象”一层
-
-## 14. 相关文档
-
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\AI操作守则.md](E:\招行\资产负债管理部\ALM系统\risk_dashboard\AI操作守则.md)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\前后端边界说明.md](E:\招行\资产负债管理部\ALM系统\risk_dashboard\前后端边界说明.md)
-- [E:\招行\资产负债管理部\ALM系统\risk_dashboard\最高优先级原则.md](E:\招行\资产负债管理部\ALM系统\risk_dashboard\最高优先级原则.md)
-
----
-
-一句话交接：
-
-先分清“结构”还是“展示”；结构改 `dashboard-data/config`，展示改 `app/styles`；改完必须跑 `npm run check`，再打开入口页看实物，最后 `commit + push`。
+- 把已经删除的旧层级重新加回来。
+- 把已删除组件序号重新放回数据里。
+- 在 `app.js` 里临时隐藏图表，而不是从数据层删除。
+- 在 `app.js` 里新增领域图表渲染，而不是放到对应的 `dashboard-*-renderers.js`。
+- 在 `dashboard-renderers.js` 注册没有被 `dashboard-config.js` 使用的旧 renderer kind。
+- 修改业务类型时只改一个文件，忘记同步 `dashboard-domain.js` 和图例配置。
+- 修改样式时依赖历史覆盖层，导致系统风格回退。
+- 改完没有跑 `npm run check`。

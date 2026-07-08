@@ -16,7 +16,7 @@ window.dashboardMockAdapter = {
       name: label,
       value1: `${((seed * 13 + modifier + index * 7) % 320) + 60}`,
       value2: `${(((seed * 9 + modifier + index * 11) % 100) / 10).toFixed(1)}%`,
-      flag: (index + modifier) % 2 === 0 ? "关注" : "稳定",
+      flag: (index + modifier) % 2 === 0 ? "\u5173\u6ce8" : "\u7a33\u5b9a",
     };
   },
 };
