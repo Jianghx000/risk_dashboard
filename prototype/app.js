@@ -5,7 +5,7 @@ const FILTER_OPTIONS = config.filters?.options || config.filterOptions || {};
 const FILTER_PRESET_CONFIG = config.filters?.presets || {};
 const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
-const PAGE_SHARED_FILTER_LABELS = ["机构（多选）", "币种（多选）"];
+const PAGE_SHARED_FILTER_LABELS = ["机构", "币种"];
 const PAGE_SHARED_FILTER_NAMES = new Set(["机构", "币种"]);
 const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
 const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
@@ -21,7 +21,7 @@ const SIMULATION_RULE_CONFIG = config.simulationRules || {};
 const TABLE_TEMPLATE_CONFIG = config.tableTemplates || {};
 const DETAIL_TABLE_CONFIG = config.detailTables || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
-const BUSINESS_DURATION_OPTIONS = ["自营贷款", "债券投资", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "中央行借款", "租赁负债", "内部交易负债", "表外衍生品应付", "表外衍生品应收"];
+const BUSINESS_DURATION_OPTIONS = ["自营贷款", "投资类业务", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "活期存款", "定期存款", "同业负债", "发行债券", "中央行借款", "租赁负债", "内部交易负债", "表外衍生品应付", "表外衍生品应收"];
 const LIQUIDITY_GAP_TENOR_OPTIONS = ["1D", "7D", "30D", "3M"];
 const DEFAULT_SERIES_DIMENSION_ORDER = ["利率情景", "情景", "机构", "币种", "贷款类型", "存款类型", "期限长度", "业务类型"];
 const DEFAULT_SERIES_LABEL_MAP = {
@@ -84,7 +84,7 @@ const REPRICING_FREQUENCY_OPTIONS = [
 ];
 const BUSINESS_SIDE_MAP = {
   自营贷款: "asset",
-  债券投资: "asset",
+  投资类业务: "asset",
   同业资产: "asset",
   自营非标投资: "asset",
   存放央行: "asset",
@@ -120,7 +120,7 @@ const HEDGEABLE_ITEM_OPTIONS = [
   {
     id: "HT-BOND-2026-014",
     type: "债券",
-    businessType: "债券投资",
+    businessType: "投资类业务",
     org: "纽约分行",
     currency: "美元",
     balance: 92.8,
@@ -156,7 +156,7 @@ const HEDGEABLE_ITEM_OPTIONS = [
   {
     id: "HT-BOND-2026-038",
     type: "债券",
-    businessType: "债券投资",
+    businessType: "投资类业务",
     org: "卢森堡分行",
     currency: "欧元",
     balance: 128.6,
@@ -176,7 +176,7 @@ const HEDGEABLE_ITEM_OPTIONS = [
 const BUSINESS_STRUCTURE_GROUPS = [
   {
     category: "生息资产",
-    items: ["自营贷款", "债券投资", "同业资产", "自营非标投资", "存放央行", "内部交易资产"],
+    items: ["自营贷款", "投资类业务", "同业资产", "自营非标投资", "存放央行", "内部交易资产"],
   },
   {
     category: "付息负债",
@@ -649,13 +649,14 @@ function getAreaFilterOptions(areaGroup, filterLabel) {
 
 function renderFilterGroup(ownerType, ownerId, filterLabel, selectedValues, optionValues = null) {
   const name = normalizeFilterName(filterLabel);
+  const displayLabel = formatFilterDisplayLabel(filterLabel);
   const openKey = buildFilterKey(ownerType, ownerId, name);
   const isOpen = appState.openFilterKey === openKey;
   const serializedOptions = (optionValues || FILTER_OPTIONS[name] || ["默认口径"]).join("||");
   return `
     <div class="filter-group filter-group--dropdown ${isOpen ? "is-open" : ""}">
       <div class="filter-group__row">
-        <div class="filter-group__label">${filterLabel}</div>
+        <div class="filter-group__label">${displayLabel}</div>
         <button
           class="filter-select"
           type="button"
@@ -3024,7 +3025,7 @@ function getBusinessDrilldown(widgetSeq) {
 function getBusinessDetailColumns(widget, drilldown = null) {
   const behavior = getConfiguredWidgetBehavior(widget);
   const detailScope = behavior.detailScope || "stock";
-  if (drilldown?.businessType === "债券投资") {
+  if (drilldown?.businessType === "投资类业务") {
     const bondColumns = [
       { key: "bondCode", label: "债券代码" },
       { key: "issuer", label: "发行人" },
@@ -3683,7 +3684,7 @@ function renderBondInvestmentScaleLimitDataTable(widget, chartContext) {
 function renderBondInvestmentDurationLimitChart(widget, chartContext) {
   return renderLimitedLineMetricChart(widget, chartContext, {
     yLabel: "久期",
-    valueLabel: "投资组合久期",
+    valueLabel: "债券修正久期",
     minValue: 2.4,
     maxValue: 5.6,
     limitBase: 5.8,
@@ -3696,7 +3697,7 @@ function renderBondInvestmentDurationLimitChart(widget, chartContext) {
 
 function renderBondInvestmentDurationLimitDataTable(widget, chartContext) {
   return renderLimitedLineMetricDataTable(widget, chartContext, {
-    valueLabel: "投资组合久期",
+    valueLabel: "债券修正久期",
     minValue: 2.4,
     maxValue: 5.6,
     limitBase: 5.8,
@@ -4551,7 +4552,7 @@ function getMaturityDistributionBuckets() {
 function getMaturityDistributionSeries() {
   return [
     { name: "自营贷款", direction: 1 },
-    { name: "债券投资", direction: 1 },
+    { name: "投资类业务", direction: 1 },
     { name: "同业资产", direction: 1 },
     { name: "自营非标投资", direction: 1 },
     { name: "存放央行", direction: 1 },
@@ -5858,6 +5859,7 @@ function getAreaSubpageConfig(areaGroup) {
 }
 
 function getAreaSubpageTabs(areaGroup, areaState = ensureAreaFilterState(areaGroup)) {
+  if (areaGroup?.name === "重定价缺口率") return [];
   const areaTabs = getAreaSubpageConfig(areaGroup);
   if (!areaTabs) return [];
   const selectedInstitutions = (areaState["机构"] || []).filter(Boolean);
@@ -5886,6 +5888,14 @@ function getAreaSubpageMatch(areaGroup, viewScope) {
 }
 
 function getVisibleAreaViewGroups(areaGroup, areaSubpage, block) {
+  if (areaGroup?.name === "重定价缺口率") {
+    return areaGroup.viewGroups.filter((viewGroup) => {
+      const tabKey = viewGroup?.scopeMeta?.tabKey || "";
+      const viewScope = typeof viewGroup?.viewScope === "string" ? viewGroup.viewScope : "";
+      return tabKey === "时点口径" || viewScope.includes("时点口径");
+    });
+  }
+
   const areaDisplay = getAreaDisplayConfig(areaGroup, block);
   if (areaDisplay.mergeViewGroups && !areaSubpage.tabs.length) {
     return [mergeAreaViewGroups(areaGroup)];
@@ -6133,6 +6143,13 @@ function normalizeFilterName(filterLabel) {
   return String(filterLabel || "")
     .replace(/（.*?）/g, "")
     .replace(/\(.*?\)/g, "")
+    .trim();
+}
+
+function formatFilterDisplayLabel(filterLabel) {
+  return String(filterLabel || "")
+    .replace(/（多选）/g, "")
+    .replace(/\(多选\)/g, "")
     .trim();
 }
 

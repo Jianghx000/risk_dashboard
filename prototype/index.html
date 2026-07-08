@@ -7,67 +7,109 @@
     <link rel="stylesheet" href="./styles.css?v=202604201130" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <section class="panel sidebar__panel">
-          <div class="sidebar__brand">
-            <div class="sidebar__brand-mark" aria-hidden="true">
-              <img class="sidebar__brand-icon" src="./插图2.png" alt="" />
-            </div>
-            <div class="sidebar__brand-copy">
-              <div class="panel__kicker">ALM RISK</div>
-              <strong>风险管理驾驶舱</strong>
-            </div>
-          </div>
+    <div class="system-frame">
+      <header class="system-topbar">
+        <div class="system-brand">
+          <span class="system-brand__mark" aria-hidden="true"></span>
+          <span class="system-brand__copy">
+            <strong>ALM</strong>
+            <small>资产负债管理系统</small>
+          </span>
+        </div>
+        <nav class="system-topnav" aria-label="系统主导航">
+          <button class="system-topnav__item" type="button">首页</button>
+          <button class="system-topnav__item is-active" type="button">风险管理</button>
+          <button class="system-topnav__item" type="button">报表管理</button>
+          <button class="system-topnav__item" type="button">数据探索</button>
+          <button class="system-topnav__item" type="button">投资管理</button>
+          <button class="system-topnav__item" type="button">计量管理</button>
+          <button class="system-topnav__item" type="button">权限配置</button>
+        </nav>
+        <div class="system-user">姜洪祥，您好！</div>
+      </header>
 
-          <div class="sidebar__nav">
-            <div class="panel__heading">
-              <h2>一级导航</h2>
-            </div>
-            <div class="page-tabs" id="pageTabs"></div>
-          </div>
-
-          <div class="sidebar__illustration" aria-hidden="true">
-            <img class="sidebar__illustration-image" src="./插图1.png" alt="" />
-          </div>
-        </section>
-      </aside>
-
-      <div class="workspace">
-        <header class="hero">
-          <div class="hero__content">
-            <div class="hero__title-card">
-              <div class="hero__title-row">
-              <div class="hero__title-copy">
-                <h1>风险管理驾驶舱</h1>
+      <div class="app-shell app-shell--system">
+        <aside class="sidebar system-sidebar">
+          <section class="panel sidebar__panel system-sidebar__panel">
+            <nav class="system-menu" aria-label="风险管理菜单">
+              <button class="system-menu__item is-active" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>风险管理驾驶舱</span>
+                <span class="system-menu__arrow system-menu__arrow--open" aria-hidden="true">›</span>
+              </button>
+              <div class="system-menu__subnav">
+                <div class="page-tabs" id="pageTabs"></div>
               </div>
-              <div class="hero__meta">
-                  <div class="hero__controls">
-                    <div class="hero__control-group">
-                      <label class="hero__control-label" for="globalStartDate">开始时间</label>
-                      <input class="hero__control-input" id="globalStartDate" type="date" />
-                    </div>
-                    <div class="hero__control-group">
-                      <label class="hero__control-label" for="globalEndDate">结束时间</label>
-                      <input class="hero__control-input" id="globalEndDate" type="date" />
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>市场数据管理</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>银行账簿利率风险</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>市场数据分析</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>附属机构管理</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>限额管理</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>套期保值申请</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="system-menu__item" type="button">
+                <span class="system-menu__icon" aria-hidden="true"></span>
+                <span>套期保值审核</span>
+                <span class="system-menu__arrow" aria-hidden="true">›</span>
+              </button>
+            </nav>
+          </section>
+        </aside>
+
+        <div class="workspace system-workspace">
+          <header class="hero system-page-header">
+            <div class="hero__content">
+              <div class="hero__title-card">
+                <div class="hero__title-row">
+                  <div class="hero__title-copy">
+                    <h1>风险管理驾驶舱</h1>
+                  </div>
+                  <div class="content__toolbar system-header-filters">
+                    <div class="block-pills" id="blockPills"></div>
+                  </div>
+                  <div class="hero__meta">
+                    <div class="hero__controls">
+                      <div class="hero__control-group">
+                        <label class="hero__control-label" for="globalStartDate">开始时间</label>
+                        <input class="hero__control-input" id="globalStartDate" type="date" />
+                      </div>
+                      <div class="hero__control-group">
+                        <label class="hero__control-label" for="globalEndDate">结束时间</label>
+                        <input class="hero__control-input" id="globalEndDate" type="date" />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <section class="content">
-          <div class="content__toolbar">
-            <div class="block-pills" id="blockPills"></div>
-          </div>
-          <div id="dashboardView" class="dashboard-view"></div>
-        </section>
-      </div>
-
-      <div class="hero__art" aria-hidden="true">
-        <img class="hero__art-image" src="./插图（透明背景）.png" alt="" />
+          <section class="content">
+            <div id="dashboardView" class="dashboard-view"></div>
+          </section>
+        </div>
       </div>
     </div>
 

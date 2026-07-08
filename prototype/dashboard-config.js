@@ -48,7 +48,7 @@ window.dashboardConfig = {
       ],
       "业务类型": [
         "自营贷款",
-        "债券投资",
+        "投资类业务",
         "同业资产",
         "自营非标投资",
         "存放央行",
@@ -92,7 +92,7 @@ window.dashboardConfig = {
       ],
       "业务类型": [
         "自营贷款",
-        "债券投资"
+        "投资类业务"
       ]
     },
     "presets": {
@@ -111,24 +111,6 @@ window.dashboardConfig = {
     }
   },
   "tabs": {
-    "重定价缺口率": [
-      {
-        "label": "时点口径",
-        "matchViewScope": "时点口径",
-        "matchScopeMeta": {
-          "tabGroup": "repricingGapCaliber",
-          "tabKey": "时点口径"
-        }
-      },
-      {
-        "label": "月日均口径",
-        "matchViewScope": "月日均口径",
-        "matchScopeMeta": {
-          "tabGroup": "repricingGapCaliber",
-          "tabKey": "月日均口径"
-        }
-      }
-    ],
     "重定价久期": [
       {
         "label": "存量",
@@ -168,8 +150,7 @@ window.dashboardConfig = {
         }
       },
       "缺口风险": {
-        "重定价缺口率": {
-        }
+        "重定价缺口率": {}
       }
     },
     "流动性风险": {
@@ -356,26 +337,6 @@ window.dashboardConfig = {
     },
     "14": {
       "chartKind": "maturityDistribution"
-    },
-    "15": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "sensitivity": 0.16
-      }
-    },
-    "16": {
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "sensitivity": 0.11
-      }
-    },
-    "17": {
-      "chartKind": "repricingScaleGap",
-      "fullWidth": true,
-      "frequencyToggle": true,
-      "simulationBehavior": {
-        "sensitivity": 0.16
-      }
     },
     "21": {
       "chartKind": "durationGapCombo",
@@ -609,7 +570,7 @@ window.dashboardConfig = {
       "multi": true,
       "options": [
         "自营贷款",
-        "债券投资",
+        "投资类业务",
         "同业资产",
         "自营非标投资",
         "存放央行",
@@ -626,7 +587,7 @@ window.dashboardConfig = {
       ],
       "defaultValues": [
         "自营贷款",
-        "债券投资"
+        "投资类业务"
       ]
     },
     "futureFundingBusinessTypeLegend": {
@@ -635,7 +596,7 @@ window.dashboardConfig = {
       "multi": true,
       "options": [
         "自营贷款",
-        "债券投资",
+        "投资类业务",
         "同业资产",
         "自营非标投资",
         "存放央行",
@@ -652,7 +613,7 @@ window.dashboardConfig = {
       ],
       "defaultValues": [
         "自营贷款",
-        "债券投资",
+        "投资类业务",
         "同业资产",
         "自营非标投资",
         "存放央行",
@@ -762,9 +723,6 @@ window.dashboardConfig = {
       },
       "11": {
         "fullWidth": false
-      },
-      "17": {
-        "fullWidth": true
       },
       "24": {
         "fullWidth": false

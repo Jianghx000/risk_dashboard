@@ -57,7 +57,7 @@ FORBIDDEN_LEGACY_TEXT_SNIPPETS = [
     "\u5386\u53f2\u533a\u95f4\u6309\u6708\u5c55\u793a\uff0c\u672c\u6708\u6309\u65e5\u5c55\u793a",
 ]
 
-ALLOWED_SIMULATION_WIDGET_SEQS = {9, 10, 11, 15, 16, 17, 49}
+ALLOWED_SIMULATION_WIDGET_SEQS = {9, 10, 11, 49}
 
 
 def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:

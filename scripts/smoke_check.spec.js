@@ -27,11 +27,10 @@ const TEXT = {
   removedInterestTitles: [
     "\u57fa\u51c6\u98ce\u9669",
     "\u671f\u6743\u6027\u98ce\u9669",
-    "\u503a\u5238\u4fee\u6b63\u4e45\u671f",
     "\u5404\u5e01\u79cd\u89c4\u6a21\u53ca\u5360\u6bd4",
   ],
   interestBondBlock: "\u503a\u5238\u6295\u8d44",
-  interestPortfolioDurationTitle: "\u6295\u8d44\u7ec4\u5408\u4e45\u671f",
+  interestPortfolioDurationTitle: "\u503a\u5238\u4fee\u6b63\u4e45\u671f",
   investmentFinanceBondWidgetTitles: [
     "\u503a\u5238\u6295\u8d44\u89c4\u6a21",
   ],
@@ -54,7 +53,7 @@ const TEXT = {
   ],
   businessTypes: [
     "\u81ea\u8425\u8d37\u6b3e",
-    "\u503a\u5238\u6295\u8d44",
+    "\u6295\u8d44\u7c7b\u4e1a\u52a1",
     "\u540c\u4e1a\u8d44\u4ea7",
     "\u81ea\u8425\u975e\u6807\u6295\u8d44",
     "\u5b58\u653e\u592e\u884c",
@@ -200,7 +199,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.getByRole("heading", { name: TEXT.mergedEveTableTitle, exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "\u5404\u5e01\u79cd\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8", exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="13"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "\u65f6\u70b9\u53e3\u5f84", exact: true }).first()).toHaveClass(/is-active/);
+  await expect(page.getByRole("button", { name: "\u6708\u65e5\u5747\u53e3\u5f84", exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="901"]')).toBeVisible();
   await expect(page.locator('article[data-widget-seq="902"]')).toBeVisible();
   const maturityDistributionWidget = page.locator('article[data-widget-seq="14"]');
@@ -209,8 +208,8 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(maturityDistributionWidget.locator(".area-subtab")).toHaveCount(0);
   await expect(maturityDistributionWidget).toContainText("\u9010\u7b14\u91cd\u5b9a\u4ef7\u660e\u7ec6");
   expect(await maturityDistributionWidget.locator("[data-repricing-maturity-cell]").count()).toBeGreaterThan(0);
-  await maturityDistributionWidget.locator('[data-repricing-maturity-cell][data-business-type="\u503a\u5238\u6295\u8d44"]').first().click();
-  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u503a\u5238\u6295\u8d44");
+  await maturityDistributionWidget.locator('[data-repricing-maturity-cell][data-business-type="\u6295\u8d44\u7c7b\u4e1a\u52a1"]').first().click();
+  await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u6295\u8d44\u7c7b\u4e1a\u52a1");
   await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u5ba2\u6237/\u53d1\u884c\u4eba");
   await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u91cd\u5b9a\u4ef7\u91d1\u989d");
   await expect(maturityDistributionWidget.locator(".repricing-maturity-detail")).toContainText("\u4e0b\u4e00\u91cd\u5b9a\u4ef7\u65e5");
@@ -326,8 +325,8 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u8d44\u91d1\u6d41\u660e\u7ec6");
   await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u73b0\u91d1\u6d41\u65e5");
   await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u4ea4\u6613\u5bf9\u624b");
-  await futureFundingFlowWidget.locator('[data-future-funding-flow-cell][data-business-type="\u503a\u5238\u6295\u8d44"]').first().click();
-  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u503a\u5238\u6295\u8d44\u8d44\u91d1\u6d41\u660e\u7ec6");
+  await futureFundingFlowWidget.locator('[data-future-funding-flow-cell][data-business-type="\u6295\u8d44\u7c7b\u4e1a\u52a1"]').first().click();
+  await expect(futureFundingFlowWidget.locator(".future-funding-flow-detail")).toContainText("\u6295\u8d44\u7c7b\u4e1a\u52a1\u8d44\u91d1\u6d41\u660e\u7ec6");
   await futureFundingFlowWidget.getByRole("button", { name: "\u6570\u636e", exact: true }).click();
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u660e\u7ec6");
   await expect(futureFundingFlowWidget).toContainText("\u4e1a\u52a1\u7f16\u53f7");
@@ -372,8 +371,8 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   expect(crossBoundaryRange[0]).toBe(crossBoundaryRange[1]);
   await page.evaluate(() => {
     appState.businessDrilldowns = {
-      "80": { businessType: "\u503a\u5238\u6295\u8d44", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 79 },
-      "85": { businessType: "\u503a\u5238\u6295\u8d44", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 89 },
+      "80": { businessType: "\u6295\u8d44\u7c7b\u4e1a\u52a1", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 79 },
+      "85": { businessType: "\u6295\u8d44\u7c7b\u4e1a\u52a1", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 89 },
       "97": { businessType: "\u81ea\u8425\u8d37\u6b3e", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 96 },
     };
     render();
