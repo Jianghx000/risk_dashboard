@@ -21,7 +21,7 @@ const DETAIL_TABLE_CONFIG = config.detailTables || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
 const DOMAIN_CONFIG = window.dashboardDomainConfig || {};
 const BUSINESS_DURATION_OPTIONS = DOMAIN_CONFIG.businessDurationOptions || WIDGET_FILTER_PRESET_CONFIG.businessTypeLegend?.options || FILTER_OPTIONS["\u4e1a\u52a1\u7c7b\u578b"] || [];
-const LIQUIDITY_GAP_TENOR_OPTIONS = DOMAIN_CONFIG.liquidityGapTenorOptions || ["1D", "7D", "30D", "3M"];
+const LIQUIDITY_GAP_TENOR_OPTIONS = DOMAIN_CONFIG.liquidityGapTenorOptions || ["1D", "7D", "30D", "3M", "1Y"];
 const DEFAULT_SERIES_DIMENSION_ORDER = Array.isArray(SERIES_RULE_CONFIG.dimensionOrder) ? SERIES_RULE_CONFIG.dimensionOrder : [];
 const DEFAULT_SERIES_LABEL_MAP = SERIES_RULE_CONFIG.labelMap || {};
 const DEFAULT_LINE_SERIES_PALETTE = ["#C36E49", "#3F76B7", "#4F978B", "#C8943A", "#7D72AF", "#B86556", "#5E463A", "#6F9688"];
@@ -56,6 +56,8 @@ const EVE_COLOR_WORST = DOMAIN_CONFIG.eveColors?.worst || "#C86F43";
 const DOMAIN_OPTION_LISTS = {
   businessDurationOptions: DOMAIN_CONFIG.businessDurationOptions || [],
   businessTypeDefaultValues: DOMAIN_CONFIG.businessTypeDefaultValues || [],
+  liquidityBusinessTypes: DOMAIN_CONFIG.liquidityBusinessTypes || [],
+  liquidityBusinessTypeDefaultValues: DOMAIN_CONFIG.liquidityBusinessTypeDefaultValues || [],
   liquidityGapTenorOptions: DOMAIN_CONFIG.liquidityGapTenorOptions || [],
   rateTypeOptions: DOMAIN_CONFIG.rateTypeOptions || [],
   simulationFundingRoleOptions: DOMAIN_CONFIG.simulationFundingRoleOptions || [],
@@ -73,11 +75,13 @@ const SIMULATION_DEFAULT_BUSINESS_TYPES = DOMAIN_CONFIG.simulationDefaultBusines
 const WHOLESALE_LIABILITY_TYPES = DOMAIN_CONFIG.wholesaleLiabilityTypes || [];
 const HEDGEABLE_ITEM_OPTIONS = DOMAIN_CONFIG.hedgeableItemOptions || [];
 const BUSINESS_STRUCTURE_GROUPS = DOMAIN_CONFIG.businessStructureGroups || [];
+const BUSINESS_ANALYSIS_PERSPECTIVES = DOMAIN_CONFIG.businessAnalysisPerspectives || {};
 const BUSINESS_DETAIL_SCOPE_META = DOMAIN_CONFIG.businessDetailScopeMeta || {};
 
 const appState = {
   currentPageId: data.pages[0]?.id || null,
   pageFilters: {},
+  pageAnalysisPerspectives: {},
   areaFilters: {},
   areaSubpages: {},
   widgetFilters: {},
@@ -87,6 +91,7 @@ const appState = {
   globalEndDate: null,
   pageSimulations: {},
   simulationModalPageId: null,
+  simulationModalWidgetSeq: null,
   simulationDraftMode: SIMULATION_MODE_NEW_BUSINESS,
   simulationDraft: null,
   hedgeSimulationDraft: null,
@@ -97,10 +102,13 @@ const appState = {
   liquidityProcessModal: null,
   repricingGapPointPopover: null,
   repricingGapProcessModal: null,
+  repricingDurationGapPointPopover: null,
+  repricingDurationGapProcessModal: null,
   processSparklinePreview: null,
   repricingMaturityDrilldowns: {},
   futureFundingFlowDrilldowns: {},
   businessDrilldowns: {},
+  businessMethodologyModal: null,
 };
 
 const pageTabsEl = document.getElementById("pageTabs");
@@ -114,7 +122,9 @@ const insightModalEl = ensureOverlayRoot("insightModal");
 const eveProcessModalEl = ensureOverlayRoot("eveProcessModal");
 const liquidityProcessModalEl = ensureOverlayRoot("liquidityProcessModal");
 const repricingGapProcessModalEl = ensureOverlayRoot("repricingGapProcessModal");
+const repricingDurationGapProcessModalEl = ensureOverlayRoot("repricingDurationGapProcessModal");
 const processSparklinePreviewEl = ensureOverlayRoot("processSparklinePreview");
+const businessMethodologyModalEl = ensureOverlayRoot("businessMethodologyModal");
 
 function render() {
   ensureGlobalDateRange();
@@ -127,7 +137,9 @@ function render() {
   renderEveProcessModal();
   renderLiquidityProcessModal();
   renderRepricingGapProcessModal();
+  renderRepricingDurationGapProcessModal();
   renderProcessSparklinePreview();
+  renderBusinessChangeMethodologyModal();
 }
 
 function ensureOverlayRoot(id) {
@@ -143,6 +155,75 @@ function ensureOverlayRoot(id) {
 
 function isSimulationPage(page = getCurrentPage()) {
   return Boolean(getPageBehavior(page).simulationMode);
+}
+
+function getActiveAnalysisPerspective(page = getCurrentPage()) {
+  const behavior = getPageBehavior(page);
+  const options = Array.isArray(behavior.analysisPerspectiveOptions) ? behavior.analysisPerspectiveOptions : [];
+  if (!behavior.analysisPerspective || !options.length) return "";
+  const selected = appState.pageAnalysisPerspectives[page.id];
+  return options.includes(selected) ? selected : behavior.analysisPerspective;
+}
+
+function getBusinessAnalysisPerspectiveDefinition(perspective = getActiveAnalysisPerspective()) {
+  const fallback = {
+    label: "利率风险",
+    businessTypes: BUSINESS_DURATION_OPTIONS,
+    defaultBusinessTypes: DOMAIN_CONFIG.businessTypeDefaultValues || [],
+    groups: BUSINESS_STRUCTURE_GROUPS,
+    sideMap: BUSINESS_SIDE_MAP,
+    sideLabels: { asset: "资产", liability: "负债" },
+    totalCategories: ["生息资产", "付息负债"],
+    totalRowLabels: {},
+    balanceMetricLabels: ["资产规模", "负债规模", "资产增速", "负债增速"],
+    cashFlowDirectionMap: {},
+    structureMetricColumns: [],
+    structureMetricColumnsByScope: {},
+    widgetTitles: {},
+  };
+  const definition = BUSINESS_ANALYSIS_PERSPECTIVES[perspective] || BUSINESS_ANALYSIS_PERSPECTIVES.interestBalanceStructure;
+  if (!definition) return fallback;
+  const resolveDomainValue = (valueKey, refKey, defaultValue) => {
+    if (definition[valueKey] != null) return definition[valueKey];
+    const refName = definition[refKey];
+    return refName && DOMAIN_CONFIG[refName] != null ? DOMAIN_CONFIG[refName] : defaultValue;
+  };
+  return {
+    ...fallback,
+    ...definition,
+    businessTypes: resolveDomainValue("businessTypes", "businessTypesRef", fallback.businessTypes),
+    defaultBusinessTypes: resolveDomainValue("defaultBusinessTypes", "defaultBusinessTypesRef", fallback.defaultBusinessTypes),
+    groups: resolveDomainValue("groups", "groupsRef", fallback.groups),
+    sideMap: resolveDomainValue("sideMap", "sideMapRef", fallback.sideMap),
+  };
+}
+
+function renderPageAnalysisPerspectiveSwitch(page = getCurrentPage()) {
+  const behavior = getPageBehavior(page);
+  const options = Array.isArray(behavior.analysisPerspectiveOptions) ? behavior.analysisPerspectiveOptions : [];
+  if (!behavior.analysisPerspective || options.length < 2) return "";
+  const activePerspective = getActiveAnalysisPerspective(page);
+  return `
+    <div class="page-analysis-perspective" aria-label="业务变动分析视角">
+      <span class="page-analysis-perspective__label">分析视角</span>
+      <div class="page-analysis-perspective__group" role="tablist" aria-label="业务变动分析视角">
+        ${options.map((perspective) => {
+          const definition = getBusinessAnalysisPerspectiveDefinition(perspective);
+          const isActive = perspective === activePerspective;
+          return `
+            <button
+              class="page-analysis-perspective__btn ${isActive ? "is-active" : ""}"
+              type="button"
+              role="tab"
+              aria-selected="${isActive}"
+              data-analysis-perspective="${perspective}"
+              data-page-id="${page.id}"
+            >${definition.label}</button>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderPageTabs() {
@@ -162,16 +243,12 @@ function renderCurrentPage() {
   if (!page) return;
   ensurePageFilterState(page);
 
-  const simulationButton = isSimulationPage(page)
-    ? `<button class="toolbar-action toolbar-action--primary" type="button" data-open-simulation="${page.id}">模拟测算</button>`
-    : "";
   globalFilterBarEl.innerHTML = `
     <div class="page-shared-filterbar">
       <div class="filter-panel filter-panel--inline page-shared-filterbar__filters">
         ${renderPageSharedFilters(page)}
       </div>
     </div>
-    ${simulationButton}
   `;
 
   dashboardViewEl.innerHTML = renderFlatDashboardPage(page);
@@ -208,9 +285,12 @@ function applyPageSharedFiltersToState(state, page = getCurrentPage()) {
 
 function renderFlatDashboardPage(page = getCurrentPage()) {
   const cards = [];
-  const simulationSummary = renderSimulationSummary();
+  const businessSections = [];
+  const isBusinessAnalysisPage = page?.id === "business-change";
+  const analysisPerspectiveSwitch = renderPageAnalysisPerspectiveSwitch(page);
   (page?.blocks || []).forEach((block) => {
     groupBlockAreas(block).forEach((areaGroup) => {
+      const areaCards = [];
       const baseAreaState = ensureAreaFilterState(areaGroup);
       const areaState = applyPageSharedFiltersToState(cloneFilterState(baseAreaState), page);
       const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
@@ -233,22 +313,48 @@ function renderFlatDashboardPage(page = getCurrentPage()) {
               widgetStateOverride: widget.__forcedFrequency ? { 频率: [widget.__forcedFrequency] } : null,
               hiddenLocalFilterNames: widget.__forcedFrequency ? ["频率"] : [],
             };
-            cards.push(renderWidgetCard(areaGroup, widget, viewScopedState, cardOptions));
+            areaCards.push(renderWidgetCard(areaGroup, widget, viewScopedState, cardOptions));
           });
       });
+      if (isBusinessAnalysisPage && areaCards.length) {
+        businessSections.push({
+          id: areaGroup.viewGroups[0]?.id || areaGroup.id,
+          name: areaGroup.name,
+          cards: areaCards,
+        });
+      } else {
+        cards.push(...areaCards);
+      }
     });
   });
+  const dashboardContent = isBusinessAnalysisPage
+    ? `
+      <div class="business-analysis-sections">
+        ${businessSections.map((section) => `
+          <section class="business-analysis-section" data-business-section="${section.id}" aria-labelledby="${section.id}-title">
+            <header class="business-analysis-section__header">
+              <h2 id="${section.id}-title">${section.name}</h2>
+            </header>
+            <div class="flat-dashboard-grid business-analysis-section__grid">
+              ${section.cards.join("")}
+            </div>
+          </section>
+        `).join("")}
+      </div>
+    `
+    : `
+      <section class="flat-dashboard-grid">
+        ${cards.join("")}
+      </section>
+    `;
   return `
-    ${simulationSummary}
-    <section class="flat-dashboard-grid">
-      ${cards.join("")}
-    </section>
+    ${analysisPerspectiveSwitch ? `<div class="business-analysis-viewbar">${analysisPerspectiveSwitch}</div>` : ""}
+    ${dashboardContent}
   `;
 }
 
 function getFlatRenderableWidgets(widget) {
   if (shouldOmitStandaloneWidget(widget)) return [];
-  if (isBaseRepricingGapRateWidget(widget)) return createRepricingGapFrequencyWidgets(widget);
   return [widget];
 }
 
@@ -335,7 +441,6 @@ function getRenderablePageSections(page = getCurrentPage()) {
 function renderBlockSection(block, sectionIndex = 0) {
   const groupedAreas = groupBlockAreas(block);
   const areaLayoutClass = shouldRenderAreasInPairs(block, groupedAreas) ? " block-section__areas--paired" : "";
-  const simulationSummary = sectionIndex === 0 ? renderSimulationSummary() : "";
   const sectionHeaderControls = block.moveAreaHeaderToSection && groupedAreas.length === 1
     ? renderAreaHeaderChrome(groupedAreas[0], "block-section")
     : "";
@@ -349,7 +454,6 @@ function renderBlockSection(block, sectionIndex = 0) {
         </div>
         ${sectionHeaderControls}
       </div>
-      ${simulationSummary}
       <div class="block-section__body">
         <div class="block-section__rail" aria-hidden="true"></div>
         <div class="block-section__areas${areaLayoutClass}">
@@ -585,6 +689,8 @@ function renderWidgetCard(areaGroup, widget, areaState, options = {}) {
     options.hiddenLocalFilterNames || []
   );
   const widgetCardClass = `${shouldSpanFullWidth(widget) ? " widget-card--full" : ""}${options.flatMode ? " widget-card--flat" : ""}${isRepricingMaturityDistributionWidget(widget) ? " widget-card--repricing-maturity" : ""}`;
+  const methodologyButton = renderBusinessChangeMethodologyButton(widget);
+  const simulationButton = renderWidgetSimulationButton(widget);
   const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.sourceSeq || widget.seq}">AI</button>`;
   const modeSwitch = supportsDisplayToggle(widget)
     ? `
@@ -599,16 +705,19 @@ function renderWidgetCard(areaGroup, widget, areaState, options = {}) {
       <div class="widget-card__header widget-card__header--clean">
         <div class="widget-card__lead">
           <h4 class="widget-card__title">${getWidgetDisplayTitle(widget)}</h4>
+          ${methodologyButton}
           ${renderMaturityStructureHeaderTabs(widget)}
           ${options.contextControls || ""}
           ${widgetHeaderTabs}
         </div>
         <div class="widget-card__actions">
+          ${simulationButton}
           ${insightButton}
           ${modeSwitch}
         </div>
       </div>
       ${widgetLocalFilters}
+      ${renderWidgetSimulationSummary(widget)}
       <div class="chart-stage">${renderWidgetStage(widget, chartContext, displayMode)}</div>
     </article>
   `;
@@ -644,6 +753,8 @@ function buildChartContext(widget, areaState, widgetState = {}) {
   Object.keys(widgetState).forEach((key) => {
     normalizedState[key] = [...(widgetState[key] || [])];
   });
+  const analysisPerspective = getActiveAnalysisPerspective();
+  if (analysisPerspective) normalizedState.__analysisPerspective = [analysisPerspective];
 
   const widgetBehavior = getWidgetBehavior(widget);
   const seriesSelection = chooseSeriesSelection(widget, normalizedState);
@@ -668,6 +779,7 @@ function buildChartContext(widget, areaState, widgetState = {}) {
   const xLabels = applyGlobalDateRangeToLabels(widget, inferXAxisLabels(widget, normalizedState), normalizedState);
   return {
     pageId: appState.currentPageId,
+    analysisPerspective,
     filterState: normalizedState,
     signature: createSignature(widget.seq, normalizedState),
     seriesList: legendSeriesList.length ? legendSeriesList : allSeriesList.slice(0, 1),
@@ -705,6 +817,15 @@ function getWidgetBehavior(widget) {
       options: ["月频", "日频"],
       defaultValues: ["月频"],
       renderMode: "segmented",
+    });
+  }
+
+  if (configuredBehavior.chartKind === "businessScaleGrowth" && localFilterMap.has("业务类型")) {
+    const perspective = getBusinessAnalysisPerspectiveDefinition();
+    localFilterMap.set("业务类型", {
+      ...localFilterMap.get("业务类型"),
+      options: [...(perspective.businessTypes || [])],
+      defaultValues: [...(perspective.defaultBusinessTypes || [])],
     });
   }
 
@@ -1109,9 +1230,16 @@ function renderScaledAxes(frame, xLabels, yLabel, maxValue, xTitle = inferXAxisT
   `;
 }
 
-function renderDualAxis(frame, xLabels, leftLabel, rightLabel, leftMax, rightMax) {
-  const leftTicks = buildAxisTicks(leftMax);
-  const rightTicks = buildAxisTicks(rightMax);
+function renderDualAxis(frame, xLabels, leftLabel, rightLabel, leftMax, rightMax, options = {}) {
+  const leftMin = Number.isFinite(Number(options.leftMin)) ? Number(options.leftMin) : 0;
+  const rightMin = Number.isFinite(Number(options.rightMin)) ? Number(options.rightMin) : 0;
+  const buildRangeTicks = (minValue, maxValue) => Array.from({ length: 5 }, (_, index) =>
+    Number((minValue + ((maxValue - minValue) * index) / 4).toFixed(2))
+  );
+  const leftTicks = leftMin === 0 ? buildAxisTicks(leftMax) : buildRangeTicks(leftMin, leftMax);
+  const rightTicks = rightMin === 0 ? buildAxisTicks(rightMax) : buildRangeTicks(rightMin, rightMax);
+  const leftRange = Math.max(0.0001, leftMax - leftMin);
+  const rightRange = Math.max(0.0001, rightMax - rightMin);
   const xTickMarkup = xLabels
     .map((label, index) => {
       const x = getFrameXPosition(frame, index, xLabels.length);
@@ -1124,27 +1252,31 @@ function renderDualAxis(frame, xLabels, leftLabel, rightLabel, leftMax, rightMax
     .join("");
   const gridMarkup = leftTicks
     .map((tick) => {
-      const y = frame.bottom - (frame.height * tick) / leftMax;
+      const y = frame.bottom - (frame.height * (tick - leftMin)) / leftRange;
       return `<line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.14)" stroke-width="1"></line>`;
     })
     .join("");
   const leftTickMarkup = leftTicks
     .map((tick) => {
-      const y = frame.bottom - (frame.height * tick) / leftMax;
+      const y = frame.bottom - (frame.height * (tick - leftMin)) / leftRange;
       return `<text x="${frame.left - 14}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${formatAxisTickValue(tick)}</text>`;
     })
     .join("");
   const rightTickMarkup = rightTicks
     .map((tick) => {
-      const y = frame.bottom - (frame.height * tick) / rightMax;
+      const y = frame.bottom - (frame.height * (tick - rightMin)) / rightRange;
       return `<text x="${frame.right + 14}" y="${y + 4}" text-anchor="start" class="axis-label axis-label--y">${formatAxisTickValue(tick)}</text>`;
     })
     .join("");
+  const zeroY = leftMin < 0 && leftMax > 0
+    ? frame.bottom - (frame.height * (0 - leftMin)) / leftRange
+    : frame.bottom;
   return `
     <text x="${frame.left - 52}" y="${frame.top - 6}" class="axis-title">${leftLabel}</text>
     <text x="${frame.right - 4}" y="${frame.top - 6}" text-anchor="end" class="axis-title">${rightLabel}</text>
     <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 46}" text-anchor="middle" class="axis-title">${inferXAxisTitle(xLabels)}</text>
     <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
+    ${leftMin < 0 && leftMax > 0 ? `<line x1="${frame.left}" y1="${zeroY}" x2="${frame.right}" y2="${zeroY}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>` : ""}
     <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
     <line x1="${frame.right}" y1="${frame.top}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.32)" stroke-width="1.2"></line>
     ${gridMarkup}
@@ -1673,11 +1805,11 @@ function supportsFrequencyToggle(widget) {
   return Boolean(getConfiguredWidgetBehavior(widget).frequencyToggle);
 }
 
-function getManagementLimitConfig(widget) {
+function getManagementLimitConfigs(widget) {
   const widgetSeq = Number(widget?.sourceSeq || widget?.seq);
-  return MANAGEMENT_LIMIT_CONFIG.find((item) =>
+  return MANAGEMENT_LIMIT_CONFIG.filter((item) =>
     Array.isArray(item.widgetSeqs) && item.widgetSeqs.includes(widgetSeq)
-  ) || null;
+  );
 }
 
 function getSelectedOrganizations(chartContext) {
@@ -1704,19 +1836,108 @@ function shortenOrgLabel(name) {
   return String(name || "").replace("汇总", "").replace("分行", "");
 }
 
-function renderManagementLimitOverlay(widget, chartContext, frame) {
-  const limitConfig = getManagementLimitConfig(widget);
-  if (!limitConfig?.values) return "";
+function matchesManagementLimitFilters(entry, filterState = {}) {
+  const filters = entry?.filters && typeof entry.filters === "object" ? entry.filters : {};
+  return Object.entries(filters).every(([filterName, expectedValue]) => {
+    const selectedValues = (filterState[filterName] || []).filter(Boolean);
+    const expectedValues = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
+    return selectedValues.length === 1 && expectedValues.includes(selectedValues[0]);
+  });
+}
+
+function getMatchingManagementLimits(widget, chartContext, options = {}) {
   const orgs = getSelectedOrganizations(chartContext);
-  const colors = ["#2F6FA3", "#8A5A44", "#5F8F84", "#8F6AC8", "#D09147"];
-  const lines = orgs
-    .map((org, index) => {
-      const value = Number(limitConfig.values[org]);
+  const currencies = getSelectedCurrencies(chartContext);
+  if (orgs.length !== 1 || !currencies.length) return [];
+  const [organization] = orgs;
+  return getManagementLimitConfigs(widget)
+    .filter((item) => !options.metricKey || item.metricKey === options.metricKey)
+    .flatMap((item) => (Array.isArray(item.entries) ? item.entries : []).map((entry) => ({
+      ...entry,
+      indicator: item.indicator,
+      metricKey: item.metricKey || "",
+    })))
+    .filter((entry) =>
+      entry.organization === organization
+      && currencies.includes(entry.currency)
+      && matchesManagementLimitFilters(entry, chartContext?.filterState || {})
+    );
+}
+
+function formatManagementLimitNumber(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
+  return Number.isInteger(numericValue) ? numericValue.toFixed(0) : numericValue.toFixed(1).replace(/\.0$/, "");
+}
+
+function formatManagementLimitLabel(entry, options = {}) {
+  const filterSuffix = entry?.filters?.口径 ? ` / ${entry.filters.口径}` : "";
+  const scopeLabel = `${shortenOrgLabel(entry?.organization)} / ${entry?.currency}${filterSuffix}`;
+  const indicatorLabel = options.includeIndicator ? `${entry?.indicator} ` : "";
+  return `${scopeLabel} ${indicatorLabel}限额 ${entry?.operator || ""}${formatManagementLimitNumber(entry?.value)}${entry?.unit || ""}`;
+}
+
+function getCurrencyAmountUnit(chartContext) {
+  const currencies = getSelectedCurrencies(chartContext);
+  if (currencies.length !== 1) return "亿元";
+  const currency = currencies[0];
+  if (["全折美元", "外币折美元", "美元"].includes(currency)) return "亿美元";
+  if (["全折欧元", "欧元"].includes(currency)) return "亿欧元";
+  if (currency === "港币") return "亿港币";
+  if (currency === "澳元") return "亿澳元";
+  if (currency === "新加坡元") return "亿新加坡元";
+  if (currency === "英镑") return "亿英镑";
+  if (currency === "日元") return "亿日元";
+  return "亿元";
+}
+
+function getManagementLimitColor(entry, chartContext, fallbackIndex = 0) {
+  const currencies = getSelectedCurrencies(chartContext);
+  const currencyIndex = currencies.indexOf(entry?.currency);
+  const index = currencyIndex >= 0 ? currencyIndex : fallbackIndex;
+  return getPaletteColor(entry?.currency || `limit-${index}`, currencies, index, "line");
+}
+
+function renderManagementLimitLegend(widget, chartContext, options = {}) {
+  const matchedLimits = getMatchingManagementLimits(widget, chartContext, options);
+  if (!matchedLimits.length) return "";
+  return `
+    <div class="chart-legend chart-legend--limits" aria-label="管理限额">
+      ${matchedLimits.map((entry, index) => `
+        <span class="chart-legend__item chart-legend__item--limit">
+          <i class="chart-legend__limit-line" style="border-color:${getManagementLimitColor(entry, chartContext, index)}"></i>
+          ${formatManagementLimitLabel(entry, options)}
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderManagementLimitOverlay(widget, chartContext, frame, options = {}) {
+  const matchedLimits = getMatchingManagementLimits(widget, chartContext, options);
+  if (!matchedLimits.length) return "";
+  const minValue = Number.isFinite(Number(options.minValue)) ? Number(options.minValue) : 0;
+  const maxValue = Number.isFinite(Number(options.maxValue)) ? Number(options.maxValue) : 100;
+  const valueRange = Math.max(0.0001, maxValue - minValue);
+  const showInlineLabels = matchedLimits.length === 1 || options.showInlineLabelsForMultiple;
+  const lines = matchedLimits
+    .map((entry, index) => {
+      const value = Number(entry.value);
       if (!Number.isFinite(value)) return null;
-      const y = Number((frame.bottom - (frame.height * value) / 100).toFixed(1));
-      const label = `${shortenOrgLabel(org)}限额 ${value.toFixed(0)}`;
-      const labelY = Math.max(frame.top + 14, Math.min(frame.bottom - 8, y - 8 - (index % 2) * 12));
-      return { y, color: colors[index % colors.length], label, labelY };
+      const y = Number((frame.bottom - (frame.height * (value - minValue)) / valueRange).toFixed(1));
+      const label = formatManagementLimitLabel(entry, options);
+      const topRightLabel = options.labelPlacement === "topRight";
+      const labelY = topRightLabel
+        ? frame.top + 16 + index * 16
+        : Math.max(frame.top + 14, Math.min(frame.bottom - 8, y - 8 - (index % 2) * 12));
+      return {
+        y,
+        color: getManagementLimitColor(entry, chartContext, index),
+        label,
+        labelY,
+        labelX: topRightLabel ? frame.right - 8 : frame.left + 8,
+        textAnchor: topRightLabel ? "end" : "start",
+      };
     })
     .filter(Boolean);
   if (!lines.length) return "";
@@ -1724,7 +1945,7 @@ function renderManagementLimitOverlay(widget, chartContext, frame) {
     .map(
       (line) => `
         <line x1="${frame.left}" y1="${line.y}" x2="${frame.right}" y2="${line.y}" stroke="${hexToRgba(line.color, 0.8)}" stroke-width="2" stroke-dasharray="8 6"></line>
-        <text x="${frame.left + 8}" y="${line.labelY}" class="axis-title axis-title--minor" fill="${line.color}">${line.label}</text>
+        ${showInlineLabels ? `<text x="${line.labelX}" y="${line.labelY}" text-anchor="${line.textAnchor}" class="axis-title axis-title--minor" fill="${line.color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${line.label}</text>` : ""}
       `
     )
     .join("");
@@ -2090,7 +2311,6 @@ function getWidgetTableTemplateKey(widget, fallbackKey = "compact") {
   if (behavior.tableKind === "businessDetail") return "businessDetail";
   if (behavior.chartKind === "futureFundingFlow") return "compact";
   if (behavior.chartKind === "businessScaleGrowth" || behavior.chartKind === "balanceScaleGrowth") return "timeSeries";
-  if (behavior.chartKind === "businessDurationRepricing") return "timeSeries";
   return fallbackKey;
 }
 
@@ -2148,10 +2368,6 @@ function isInlineWidgetFilter(widgetSeq, filterName) {
   return (getConfiguredWidgetBehaviorBySeq(widgetSeq).inlineFilters || []).includes(filterName);
 }
 
-function isDurationGapComboWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "durationGapCombo";
-}
-
 function isBalanceScaleGrowthWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "balanceScaleGrowth";
 }
@@ -2162,10 +2378,6 @@ function isBusinessScaleGrowthWidget(widget) {
 
 function isFutureFundingFlowWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "futureFundingFlow";
-}
-
-function isBusinessDurationRepricingWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "businessDurationRepricing";
 }
 
 function isEveRatioTrendWidget(widget) {
@@ -2207,6 +2419,8 @@ function isDonutWidget(widget) {
 function getWidgetDisplayTitle(widget) {
   if (widget?.displayTitle) return widget.displayTitle;
   const behavior = getConfiguredWidgetBehavior(widget);
+  const perspectiveTitle = getBusinessAnalysisPerspectiveDefinition().widgetTitles?.[String(widget?.sourceSeq || widget?.seq)];
+  if (perspectiveTitle) return perspectiveTitle;
   if (behavior.tableKind === "businessDetail") {
     const scopeMeta = BUSINESS_DETAIL_SCOPE_META[behavior.detailScope || "stock"] || BUSINESS_DETAIL_SCOPE_META.stock;
     return `${scopeMeta.label}明细清单`;
@@ -2324,7 +2538,7 @@ function findWidgetBySeq(widgetSeq) {
 
 function getFutureFundingFlowBusinessSelection(chartContext) {
   const selected = (chartContext.filterState["业务类型"] || []).filter(Boolean);
-  const all = getMaturityDistributionSeries().map((item) => item.name);
+  const all = getBusinessAnalysisPerspectiveDefinition("liquidityBalanceStructure").businessTypes || [];
   return selected.length ? selected : all;
 }
 

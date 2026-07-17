@@ -2,6 +2,7 @@
 function buildLimitedLineSeries(widget, chartContext, config) {
   const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : chartContext.seriesList;
   const selectedSeries = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 1);
+  const matchedLimits = getMatchingManagementLimits(widget, chartContext);
   return selectedSeries.map((label, seriesIndex) => {
     const allIndex = Math.max(0, allSeries.indexOf(label));
     const values = buildMetricValues(widget.seq + allIndex * 19, chartContext.xLabels.length, chartContext.signature + allIndex * 37)
@@ -9,11 +10,16 @@ function buildLimitedLineSeries(widget, chartContext, config) {
         const wave = ((value + pointIndex * 7 + allIndex * 11) % 100) / 100;
         return Number((config.minValue + wave * (config.maxValue - config.minValue)).toFixed(config.decimals || 1));
       });
-    const limit = Number((config.limitBase + (allIndex % 3) * config.limitStep).toFixed(config.decimals || 1));
+    const limitEntry = matchedLimits.find((entry) => [
+      `${entry.organization} / ${entry.currency}`,
+      `${shortenOrgLabel(entry.organization)} / ${entry.currency}`,
+      entry.currency,
+    ].includes(label)) || null;
     return {
       label,
       values,
-      limit,
+      limit: limitEntry ? Number(limitEntry.value) : null,
+      limitEntry,
       color: getPaletteColor(label, allSeries, allIndex, "line"),
     };
   });
@@ -22,14 +28,16 @@ function buildLimitedLineSeries(widget, chartContext, config) {
 function renderLimitedLineMetricChart(widget, chartContext, config) {
   const seriesData = buildLimitedLineSeries(widget, chartContext, config);
   const frame = createFrame(chartContext.xLabels.length);
-  const maxValue = Math.ceil(Math.max(config.axisMin || 0, ...seriesData.flatMap((series) => [...series.values, series.limit])) / config.roundTo) * config.roundTo;
+  const limitValues = seriesData.map((series) => series.limit).filter(Number.isFinite);
+  const maxValue = Math.ceil(Math.max(config.axisMin || 0, ...seriesData.flatMap((series) => series.values), ...limitValues) / config.roundTo) * config.roundTo;
   const axis = renderScaledAxes(frame, chartContext.xLabels, config.yLabel, maxValue);
-  const limitLines = seriesData.slice(0, 4).map((series, index) => {
+  const limitedSeries = seriesData.filter((series) => Number.isFinite(series.limit)).slice(0, 4);
+  const limitLines = limitedSeries.map((series, index) => {
     const y = frame.bottom - (frame.height * series.limit) / maxValue;
-    const label = `${series.label.split(" / ")[0]}限额 ${formatAxisTickValue(series.limit)}${config.unit || ""}`;
+    const label = formatManagementLimitLabel(series.limitEntry);
     return `
       <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="${hexToRgba(series.color, 0.62)}" stroke-width="2" stroke-dasharray="8 6"></line>
-      <text x="${frame.left + 8}" y="${Math.max(frame.top + 14, y - 8 - index * 12)}" class="axis-title axis-title--minor" fill="${series.color}">${label}</text>
+      ${limitedSeries.length === 1 ? `<text x="${frame.left + 8}" y="${Math.max(frame.top + 14, y - 8 - index * 12)}" class="axis-title axis-title--minor" fill="${series.color}" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${label}</text>` : ""}
     `;
   }).join("");
   const lines = seriesData.map((series) => {
@@ -50,12 +58,14 @@ function renderLimitedLineMetricChart(widget, chartContext, config) {
         ${lines}
       </svg>
       ${renderSeriesLegend(widget, chartContext)}
+      ${renderManagementLimitLegend(widget, chartContext)}
     </div>
   `;
 }
 
 function renderLimitedLineMetricDataTable(widget, chartContext, config) {
   const seriesData = buildLimitedLineSeries(widget, chartContext, config);
+  const hasLimits = seriesData.some((series) => Number.isFinite(series.limit));
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
@@ -63,98 +73,19 @@ function renderLimitedLineMetricDataTable(widget, chartContext, config) {
           <thead>
             <tr>
               <th rowspan="2">${inferXAxisTitle(chartContext.xLabels)}</th>
-              ${seriesData.map((series) => `<th colspan="2">${series.label}</th>`).join("")}
+              ${seriesData.map((series) => `<th colspan="${hasLimits ? 2 : 1}">${series.label}</th>`).join("")}
             </tr>
             <tr>
-              ${seriesData.map(() => `<th>${config.valueLabel}</th><th>限额</th>`).join("")}
+              ${seriesData.map(() => `<th>${config.valueLabel}</th>${hasLimits ? "<th>限额</th>" : ""}`).join("")}
             </tr>
           </thead>
           <tbody>
             ${chartContext.xLabels.map((label, index) => `
               <tr>
                 <td>${label}</td>
-                ${seriesData.map((series) => `<td>${series.values[index].toFixed(config.decimals || 1)}</td><td>${series.limit.toFixed(config.decimals || 1)}</td>`).join("")}
+                ${seriesData.map((series) => `<td>${series.values[index].toFixed(config.decimals || 1)}</td>${hasLimits ? `<td>${Number.isFinite(series.limit) ? `${series.limitEntry.operator}${formatManagementLimitNumber(series.limit)}${series.limitEntry.unit || ""}` : "-"}</td>` : ""}`).join("")}
               </tr>
             `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function renderInterbankFundingMaxTenorChart(widget, chartContext) {
-  return renderLimitedLineMetricChart(widget, chartContext, {
-    yLabel: "期限（天）",
-    valueLabel: "最长期限",
-    minValue: 120,
-    maxValue: 330,
-    limitBase: 360,
-    limitStep: -30,
-    roundTo: 60,
-    axisMin: 420,
-    unit: "天",
-    decimals: 0,
-  });
-}
-
-function renderInterbankFundingMaxTenorDataTable(widget, chartContext) {
-  return renderLimitedLineMetricDataTable(widget, chartContext, {
-    valueLabel: "最长期限",
-    minValue: 120,
-    maxValue: 330,
-    limitBase: 360,
-    limitStep: -30,
-    roundTo: 60,
-    decimals: 0,
-  });
-}
-
-function buildInterbankFundingBucketRows(widget, chartContext) {
-  const buckets = ["1M以内", "1-3M", "3-6M", "6-12M", "1年以上"];
-  const rawValues = buildBarValues(widget.seq, buckets.length, chartContext.signature).map((value, index) => 12 + (value % (index === 0 ? 24 : 34)));
-  const total = rawValues.reduce((sum, value) => sum + value, 0);
-  return buckets.map((bucket, index) => ({
-    bucket,
-    value: Number(((rawValues[index] / total) * 100).toFixed(1)),
-  }));
-}
-
-function renderInterbankFundingTenorBucketChart(widget, chartContext) {
-  const rows = buildInterbankFundingBucketRows(widget, chartContext);
-  const labels = rows.map((row) => row.bucket);
-  const frame = createFrame(labels.length);
-  const maxValue = Math.max(40, Math.ceil(Math.max(...rows.map((row) => row.value)) / 10) * 10);
-  const axis = renderScaledAxes(frame, labels, "规模占比(%)", maxValue, "原始期限 bucket");
-  const barWidth = Math.max(34, getFrameMinStep(frame, labels.length) * 0.34);
-  const bars = rows.map((row, index) => {
-    const x = getFrameXPosition(frame, index, labels.length) - barWidth / 2;
-    const height = (frame.height * row.value) / maxValue;
-    const y = frame.bottom - height;
-    return `
-      <rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="9" fill="${getBarFillColor(row.bucket, labels, index, 0.86)}" stroke="${getBarStrokeColor(row.bucket, labels, index, 0.28)}" stroke-width="1.2"></rect>
-      <text x="${x + barWidth / 2}" y="${Math.max(frame.top + 14, y - 8)}" text-anchor="middle" class="axis-title axis-title--minor">${row.value.toFixed(1)}%</text>
-    `;
-  }).join("");
-  return `
-    <div class="chart-shell">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        ${axis}
-        ${bars}
-      </svg>
-    </div>
-  `;
-}
-
-function renderInterbankFundingTenorBucketDataTable(widget, chartContext) {
-  const rows = buildInterbankFundingBucketRows(widget, chartContext);
-  return `
-    <div class="chart-shell chart-shell--data">
-      <div class="table-shell">
-        <table class="chart-table">
-          <thead><tr><th>原始期限 bucket</th><th>同业融入规模占比</th></tr></thead>
-          <tbody>
-            ${rows.map((row) => `<tr><td>${row.bucket}</td><td>${row.value.toFixed(1)}%</td></tr>`).join("")}
           </tbody>
         </table>
       </div>
@@ -165,39 +96,52 @@ function renderInterbankFundingTenorBucketDataTable(widget, chartContext) {
 function buildBondInvestmentScaleTimeline(widget, chartContext) {
   const orgs = getSelectedOrganizations(chartContext);
   const currencies = getSelectedCurrencies(chartContext);
+  const bondLimitEntries = getMatchingManagementLimits(widget, chartContext, { metricKey: "bondInvestmentScale" });
+  const corporateBondLimitEntries = getMatchingManagementLimits(widget, chartContext, { metricKey: "corporateBondScale" });
+  const bondLimitEntry = bondLimitEntries.length === 1 ? bondLimitEntries[0] : null;
+  const corporateBondLimitEntry = corporateBondLimitEntries.length === 1 ? corporateBondLimitEntries[0] : null;
   const signature = createSignature(widget.seq, {
     机构: orgs,
     币种: currencies,
   });
   const scopeWeight = Math.max(1, orgs.length * Math.max(1, currencies.length));
-  const bondLimit = Number((320 + Math.min(scopeWeight, 12) * 18).toFixed(1));
-  const corporateBondLimit = Number((120 + Math.min(scopeWeight, 12) * 8).toFixed(1));
   const rows = chartContext.xLabels.map((label, index) => {
     const trend = index * (2.6 + (signature % 5) * 0.15);
     const wave = ((signature + index * 37) % 52) - 20;
-    const bondScale = Number((160 + scopeWeight * 6 + trend + wave).toFixed(1));
+    const progress = chartContext.xLabels.length > 1 ? index / (chartContext.xLabels.length - 1) : 0;
+    const bondScale = bondLimitEntry
+      ? Number((Number(bondLimitEntry.value) * (0.72 + progress * 0.14 + (((signature + index * 7) % 9) - 4) / 100)).toFixed(1))
+      : Number((160 + scopeWeight * 6 + trend + wave).toFixed(1));
     const corporateWave = ((signature + index * 23 + 17) % 36) - 12;
-    const corporateBondScale = Number((46 + scopeWeight * 2.8 + trend * 0.32 + corporateWave).toFixed(1));
+    const corporateBondScale = corporateBondLimitEntry
+      ? Number((Number(corporateBondLimitEntry.value) * (0.64 + progress * 0.18 + (((signature + index * 5) % 7) - 3) / 100)).toFixed(1))
+      : Number((46 + scopeWeight * 2.8 + trend * 0.32 + corporateWave).toFixed(1));
     return {
       label,
       bondScale: Math.max(0, bondScale),
       corporateBondScale: Math.max(0, corporateBondScale),
-      bondLimit,
-      corporateBondLimit,
     };
   });
   return {
     scopeLabel: `${summarizeFilterSelection("机构", orgs)} / ${summarizeFilterSelection("币种", currencies)}`,
+    unit: currencies.length === 1
+      ? bondLimitEntries[0]?.unit || corporateBondLimitEntries[0]?.unit || getCurrencyAmountUnit(chartContext)
+      : getCurrencyAmountUnit(chartContext),
+    bondLimitEntries,
+    corporateBondLimitEntries,
     rows,
   };
 }
 
 function renderBondInvestmentScaleLimitChart(widget, chartContext) {
-  const { rows } = buildBondInvestmentScaleTimeline(widget, chartContext);
+  const { rows, unit, bondLimitEntries, corporateBondLimitEntries } = buildBondInvestmentScaleTimeline(widget, chartContext);
   const labels = chartContext.xLabels;
   const frame = createFrame(labels.length);
-  const maxValue = Math.ceil(Math.max(...rows.flatMap((row) => [row.bondScale, row.corporateBondScale, row.bondLimit, row.corporateBondLimit]), 200) / 100) * 100;
-  const axis = renderScaledAxes(frame, labels, "规模（亿元）", maxValue, inferXAxisTitle(labels));
+  const limitValues = [...bondLimitEntries, ...corporateBondLimitEntries].map((entry) => Number(entry.value)).filter(Number.isFinite);
+  const rawMax = Math.max(...rows.flatMap((row) => [row.bondScale, row.corporateBondScale]), ...limitValues, 1);
+  const roundTo = rawMax <= 20 ? 5 : rawMax <= 60 ? 10 : rawMax <= 200 ? 20 : 100;
+  const maxValue = Math.max(roundTo, Math.ceil(rawMax / roundTo) * roundTo);
+  const axis = renderScaledAxes(frame, labels, `规模（${unit}）`, maxValue, inferXAxisTitle(labels));
   const step = getFrameMinStep(frame, labels.length);
   const barWidth = Math.max(10, Math.min(20, step * 0.22));
   const bondColor = getPaletteColor("债券投资规模", ["债券投资规模", "非金融企业债投资规模"], 0, "bar");
@@ -215,21 +159,39 @@ function renderBondInvestmentScaleLimitChart(widget, chartContext) {
       ${renderBar(row.corporateBondScale, barWidth * 0.65, corpColor)}
     `;
   }).join("");
-  const firstRow = rows[0] || { bondLimit: 0, corporateBondLimit: 0 };
-  const bondLimitY = frame.bottom - (frame.height * firstRow.bondLimit) / maxValue;
-  const corpLimitY = frame.bottom - (frame.height * firstRow.corporateBondLimit) / maxValue;
-  const limitLines = `
-    <line x1="${frame.left}" y1="${bondLimitY}" x2="${frame.right}" y2="${bondLimitY}" stroke="${hexToRgba(bondColor, 0.78)}" stroke-width="2" stroke-dasharray="8 6"></line>
-    <text x="${frame.left + 8}" y="${Math.max(frame.top + 14, bondLimitY - 8)}" class="axis-title axis-title--minor" fill="${bondColor}">债券投资限额 ${firstRow.bondLimit.toFixed(1)}</text>
-    <line x1="${frame.left}" y1="${corpLimitY}" x2="${frame.right}" y2="${corpLimitY}" stroke="${hexToRgba(corpColor, 0.78)}" stroke-width="2" stroke-dasharray="5 5"></line>
-    <text x="${frame.left + 8}" y="${Math.max(frame.top + 28, corpLimitY - 8)}" class="axis-title axis-title--minor" fill="${corpColor}">非金融企业债限额 ${firstRow.corporateBondLimit.toFixed(1)}</text>
-  `;
+  const selectedCurrencies = getSelectedCurrencies(chartContext);
+  const limitSpecifications = [
+    ...bondLimitEntries.map((entry, index) => ({
+      entry,
+      color: getPaletteColor(`bond-limit-${entry.currency}`, selectedCurrencies, index, "line"),
+      dash: "8 6",
+    })),
+    ...corporateBondLimitEntries.map((entry, index) => ({
+      entry,
+      color: getPaletteColor(`corporate-bond-limit-${entry.currency}`, selectedCurrencies, index + 3, "line"),
+      dash: "3 5",
+    })),
+  ].filter((item) => Number.isFinite(Number(item.entry.value)));
+  const limitLines = limitSpecifications.map((item) => {
+    const limitY = frame.bottom - (frame.height * Number(item.entry.value)) / maxValue;
+    return `
+      <line x1="${frame.left}" y1="${limitY}" x2="${frame.right}" y2="${limitY}" stroke="${hexToRgba(item.color, 0.78)}" stroke-width="2" stroke-dasharray="${item.dash}"></line>
+    `;
+  }).join("");
   const legendItems = [
     { label: "债券投资规模", color: bondColor },
     { label: "非金融企业债投资规模", color: corpColor },
-    { label: "债券投资限额", color: hexToRgba(bondColor, 0.78) },
-    { label: "非金融企业债限额", color: hexToRgba(corpColor, 0.78) },
   ];
+  const limitLegend = limitSpecifications.length ? `
+    <div class="chart-legend chart-legend--limits" aria-label="管理限额">
+      ${limitSpecifications.map((item) => `
+        <span class="chart-legend__item chart-legend__item--limit">
+          <i class="chart-legend__limit-line" style="border-color:${item.color}"></i>
+          ${formatManagementLimitLabel(item.entry, { includeIndicator: true })}
+        </span>
+      `).join("")}
+    </div>
+  ` : "";
   return `
     <div class="chart-shell">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -238,19 +200,28 @@ function renderBondInvestmentScaleLimitChart(widget, chartContext) {
         ${bars}
       </svg>
       ${renderSeriesLegend(widget, { ...chartContext, allSeriesList: legendItems.map((item) => item.label), seriesList: legendItems.map((item) => item.label), legendItems }, "__legend_bond_scale__")}
+      ${limitLegend}
     </div>
   `;
 }
 
 function renderBondInvestmentScaleLimitDataTable(widget, chartContext) {
-  const { rows, scopeLabel } = buildBondInvestmentScaleTimeline(widget, chartContext);
+  const { rows, scopeLabel, unit, bondLimitEntries, corporateBondLimitEntries } = buildBondInvestmentScaleTimeline(widget, chartContext);
+  const formatLimitEntries = (entries) => entries
+    .map((entry) => `${entry.currency} ${entry.operator}${formatManagementLimitNumber(entry.value)}${entry.unit || ""}`)
+    .join("<br>");
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th>${inferXAxisTitle(chartContext.xLabels)}</th><th>筛选口径</th><th>债券投资规模</th><th>债券投资限额</th><th>非金融企业债投资规模</th><th>非金融企业债限额</th>
+              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
+              <th>筛选口径</th>
+              <th>债券投资规模（${unit}）</th>
+              ${bondLimitEntries.length ? "<th>债券投资限额</th>" : ""}
+              <th>非金融企业债投资规模（${unit}）</th>
+              ${corporateBondLimitEntries.length ? "<th>非金融企业债券投资限额</th>" : ""}
             </tr>
           </thead>
           <tbody>
@@ -259,9 +230,9 @@ function renderBondInvestmentScaleLimitDataTable(widget, chartContext) {
                 <td>${row.label}</td>
                 <td>${scopeLabel}</td>
                 <td>${row.bondScale.toFixed(1)}</td>
-                <td>${row.bondLimit.toFixed(1)}</td>
+                ${bondLimitEntries.length ? `<td>${formatLimitEntries(bondLimitEntries)}</td>` : ""}
                 <td>${row.corporateBondScale.toFixed(1)}</td>
-                <td>${row.corporateBondLimit.toFixed(1)}</td>
+                ${corporateBondLimitEntries.length ? `<td>${formatLimitEntries(corporateBondLimitEntries)}</td>` : ""}
               </tr>
             `).join("")}
           </tbody>
@@ -277,8 +248,6 @@ function renderBondInvestmentDurationLimitChart(widget, chartContext) {
     valueLabel: "债券修正久期",
     minValue: 2.4,
     maxValue: 5.6,
-    limitBase: 5.8,
-    limitStep: -0.25,
     roundTo: 1,
     axisMin: 7,
     decimals: 1,
@@ -290,52 +259,91 @@ function renderBondInvestmentDurationLimitDataTable(widget, chartContext) {
     valueLabel: "债券修正久期",
     minValue: 2.4,
     maxValue: 5.6,
-    limitBase: 5.8,
-    limitStep: -0.25,
     roundTo: 1,
     decimals: 1,
   });
 }
 
 function buildLiquidityGapTenorSeries(widget, chartContext) {
-  const selectedTenor = ((chartContext.filterState?.["期限长度"] || []).find((value) =>
-    LIQUIDITY_GAP_TENOR_OPTIONS.includes(value)
-  )) || "30D";
-  const selectedCaliber = ((chartContext.filterState?.["口径"] || []).find((value) => ["时点", "月日均"].includes(value))) || "时点";
+  const diagnosticModel = buildLiquidityGapDiagnosticModel(widget, chartContext);
+  const selectedTenor = diagnosticModel.selectedTenor;
+  const selectedCaliber = diagnosticModel.selectedCaliber;
   const allSeriesIndex = Math.max(0, LIQUIDITY_GAP_TENOR_OPTIONS.indexOf(selectedTenor));
-  const caliberOffset = selectedTenor === "30D" && selectedCaliber === "月日均" ? 11 : 0;
   const label = selectedTenor === "30D" ? `${selectedTenor}/${selectedCaliber}` : selectedTenor;
-  return [
-    {
-      label,
-      colorIndex: allSeriesIndex,
-      tenor: selectedTenor,
-      caliber: selectedTenor === "30D" ? selectedCaliber : "",
-      scaleValues: buildBarValues(widget.seq + 7 + allSeriesIndex * 17, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 29 + caliberOffset)
-        .map((value) => 28 + (value % 96)),
-      ratioValues: buildMetricValues(widget.seq + 41 + allSeriesIndex * 13, chartContext.xLabels.length, chartContext.signature + allSeriesIndex * 37 + caliberOffset)
-        .map((value) => Number((2 + (value % 72) / 6).toFixed(1))),
-    },
-  ];
+  const series = {
+    label,
+    colorIndex: allSeriesIndex,
+    tenor: selectedTenor,
+    caliber: selectedTenor === "30D" ? selectedCaliber : "",
+    scaleValues: [...diagnosticModel.numerator],
+    ratioValues: [...diagnosticModel.ratios],
+    diagnosticModel,
+  };
+  const simulation = typeof getPageSimulation === "function" ? getPageSimulation(chartContext.pageId) : null;
+  const hasLiquidityGapSimulation = Number(simulation?.sourceWidgetSeq) === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ
+    && simulation?.simulationKind === "liquidityGap"
+    && simulation?.baseMatrix;
+  if (hasLiquidityGapSimulation && series.scaleValues.length) {
+    const result = buildLiquidityGapSimulationResult(simulation);
+    const bucketIndex = { "1D": 0, "7D": 1, "30D": 2, "3M": 3, "1Y": 4 }[selectedTenor] ?? 2;
+    const targetIndex = series.scaleValues.length - 1;
+    series.simulatedScaleValues = [...series.scaleValues];
+    series.simulatedRatioValues = [...series.ratioValues];
+    series.scaleValues[targetIndex] = result.baseMetrics.cumulativeTotals[bucketIndex] || 0;
+    series.ratioValues[targetIndex] = result.baseMetrics.gapRatios[bucketIndex] || 0;
+    series.simulatedScaleValues[targetIndex] = result.simulatedMetrics.cumulativeTotals[bucketIndex] || 0;
+    series.simulatedRatioValues[targetIndex] = result.simulatedMetrics.gapRatios[bucketIndex] || 0;
+    series.simulationTargetIndex = targetIndex;
+  }
+  return [series];
 }
 
 function renderLiquidityGapTenorChart(widget, chartContext) {
   const frame = createFrame(chartContext.xLabels.length);
   const seriesData = buildLiquidityGapTenorSeries(widget, chartContext);
-  const leftMax = Math.max(60, Math.ceil(Math.max(...seriesData.flatMap((series) => series.scaleValues), 0) / 20) * 20);
-  const rightMax = Math.max(10, Math.ceil(Math.max(...seriesData.flatMap((series) => series.ratioValues), 0) / 2) * 2);
-  const axis = renderDualAxis(frame, chartContext.xLabels, "缺口规模(亿元)", "缺口率(%)", leftMax, rightMax);
+  const selectedPopover = appState.liquidityMetricPointPopover;
+  const selectedIndex = selectedPopover?.widgetSeq === widget.seq && selectedPopover.kind === "liquidityGap"
+    ? clampNumber(Number(selectedPopover.dateIndex), 0, chartContext.xLabels.length - 1)
+    : null;
+  const matchedLimits = getMatchingManagementLimits(widget, chartContext);
+  const limitValues = matchedLimits.map((entry) => Number(entry.value)).filter(Number.isFinite);
+  const leftMinRaw = Math.min(
+    0,
+    ...seriesData.flatMap((series) => [...series.scaleValues, ...(series.simulatedScaleValues || [])]),
+    ...limitValues
+  );
+  const leftMin = leftMinRaw < 0 ? Math.floor(leftMinRaw / 5) * 5 : 0;
+  const leftMax = Math.max(60, Math.ceil(Math.max(
+    ...seriesData.flatMap((series) => [...series.scaleValues, ...(series.simulatedScaleValues || [])]),
+    0
+  ) / 20) * 20);
+  const rightMinRaw = Math.min(0, ...seriesData.flatMap((series) => [...series.ratioValues, ...(series.simulatedRatioValues || [])]));
+  const rightMin = rightMinRaw < 0 ? Math.floor(rightMinRaw / 2) * 2 : 0;
+  const rightMax = Math.max(10, Math.ceil(Math.max(
+    ...seriesData.flatMap((series) => [...series.ratioValues, ...(series.simulatedRatioValues || [])]),
+    0
+  ) / 2) * 2);
+  const leftRange = Math.max(0.0001, leftMax - leftMin);
+  const rightRange = Math.max(0.0001, rightMax - rightMin);
+  const amountUnit = getSelectedCurrencies(chartContext).length === 1
+    ? matchedLimits[0]?.unit || getCurrencyAmountUnit(chartContext)
+    : getCurrencyAmountUnit(chartContext);
+  const axis = renderDualAxis(frame, chartContext.xLabels, `缺口规模(${amountUnit})`, "缺口率(%)", leftMax, rightMax, { leftMin, rightMin });
   const step = chartContext.xLabels.length <= 1 ? 0 : frame.width / (chartContext.xLabels.length - 1);
   const groupWidth = Math.max(24, step * 0.72);
   const barWidth = Math.max(8, Math.min(18, groupWidth / Math.max(seriesData.length, 1) - 4));
+  const scaleValueToY = (value) => frame.bottom - (frame.height * (value - leftMin)) / leftRange;
+  const ratioValueToY = (value) => frame.bottom - (frame.height * (value - rightMin)) / rightRange;
+  const zeroY = scaleValueToY(0);
 
   const barMarkup = seriesData
     .map((series, seriesIndex) => series.scaleValues.map((value, index) => {
       const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
       const offset = (seriesIndex - (seriesData.length - 1) / 2) * (barWidth + 4);
       const x = center + offset - barWidth / 2;
-      const height = (frame.height * value) / leftMax;
-      const y = frame.bottom - height;
+      const valueY = scaleValueToY(value);
+      const height = Math.abs(zeroY - valueY);
+      const y = Math.min(zeroY, valueY);
       return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${getBarFillColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.78)}" stroke="${getBarStrokeColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.3)}" stroke-width="1"></rect>`;
     }).join(""))
     .join("");
@@ -345,40 +353,134 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
       const color = getPaletteColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, "line");
       const points = series.ratioValues.map((value, index) => ({
         x: getFrameXPosition(frame, index, chartContext.xLabels.length),
-        y: frame.bottom - (frame.height * value) / rightMax,
+        y: ratioValueToY(value),
+        value,
       }));
       return `
         <polyline fill="none" stroke="${color}" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.6" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+        ${points.map((point, index) => {
+          const isSelected = index === selectedIndex;
+          return `<circle
+            class="eve-ratio-point liquidity-ratio-point ${isSelected ? "is-selected" : ""}"
+            cx="${point.x}"
+            cy="${point.y}"
+            r="${isSelected ? 6 : 4.2}"
+            fill="#ffffff"
+            stroke="${isSelected ? EVE_COLOR_WORST : color}"
+            stroke-width="2.8"
+            data-liquidity-point="true"
+            data-widget-seq="${widget.seq}"
+            data-liquidity-kind="liquidityGap"
+            data-date-index="${index}"
+            data-liquidity-signature="${series.diagnosticModel.signature}"
+            data-liquidity-labels="${series.diagnosticModel.labels.join("||")}"
+            aria-label="${series.diagnosticModel.displayLabels[index]} 查看计算过程"
+          ></circle>`;
+        }).join("")}
       `;
     })
     .join("");
+  const simulationBarMarkup = seriesData.map((series) => {
+    if (!series.simulatedScaleValues || !Number.isInteger(series.simulationTargetIndex)) return "";
+    const index = series.simulationTargetIndex;
+    const value = Number(series.simulatedScaleValues[index] || 0);
+    const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
+    const valueY = scaleValueToY(value);
+    const height = Math.abs(zeroY - valueY);
+    const y = Math.min(zeroY, valueY);
+    return `
+      <rect
+        x="${center - barWidth / 2 - 3}"
+        y="${y}"
+        width="${barWidth + 6}"
+        height="${height}"
+        rx="8"
+        fill="${SIMULATION_FILL}"
+        stroke="${SIMULATION_COLOR}"
+        stroke-width="2.4"
+        stroke-dasharray="5 3"
+        data-liquidity-gap-simulation-bar="true"
+      ><title>${series.label}测算后缺口规模 ${value.toFixed(1)}</title></rect>
+    `;
+  }).join("");
+  const simulationLineMarkup = seriesData.map((series) => {
+    if (!series.simulatedRatioValues || !Number.isInteger(series.simulationTargetIndex)) return "";
+    const points = series.simulatedRatioValues.map((value, index) => ({
+      x: getFrameXPosition(frame, index, chartContext.xLabels.length),
+      y: ratioValueToY(value),
+    }));
+    const targetPoint = points[series.simulationTargetIndex];
+    const targetValue = Number(series.simulatedRatioValues[series.simulationTargetIndex] || 0);
+    return `
+      <polyline fill="none" stroke="${SIMULATION_COLOR}" stroke-width="3.2" stroke-dasharray="7 5" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      <circle cx="${targetPoint.x}" cy="${targetPoint.y}" r="6" fill="#ffffff" stroke="${SIMULATION_COLOR}" stroke-width="3" data-liquidity-gap-simulation-point="true">
+        <title>${series.label}测算后缺口率 ${targetValue.toFixed(2)}%</title>
+      </circle>
+    `;
+  }).join("");
   const activeSeries = seriesData[0] || { label: "30D", colorIndex: 2 };
+  const hasSimulation = Boolean(activeSeries.simulatedScaleValues && activeSeries.simulatedRatioValues);
   const scaleColor = getBarFillColor(activeSeries.label, LIQUIDITY_GAP_TENOR_OPTIONS, activeSeries.colorIndex, 0.78);
   const ratioColor = getPaletteColor(activeSeries.label, LIQUIDITY_GAP_TENOR_OPTIONS, activeSeries.colorIndex, "line");
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame, {
+    minValue: leftMin,
+    maxValue: leftMax,
+    labelPlacement: "topRight",
+  });
+  const selectedSeries = seriesData[0];
+  const selectedRatioPoint = Number.isInteger(selectedIndex) && selectedSeries
+    ? {
+      x: getFrameXPosition(frame, selectedIndex, chartContext.xLabels.length),
+      y: ratioValueToY(selectedSeries.ratioValues[selectedIndex]),
+    }
+    : null;
+  const popoverMarkup = selectedRatioPoint
+    ? renderLiquidityPointPopover(widget, selectedSeries.diagnosticModel, selectedRatioPoint, selectedIndex)
+    : "";
 
   return `
-    <div class="chart-shell">
+    <div class="chart-shell chart-shell--eve-ratio chart-shell--liquidity-gap-process">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         ${barMarkup}
+        ${simulationBarMarkup}
         ${lineMarkup}
+        ${simulationLineMarkup}
       </svg>
+      ${popoverMarkup}
       ${renderSeriesLegend(widget, {
         ...chartContext,
-        allSeriesList: [`${activeSeries.label}缺口规模`, `${activeSeries.label}缺口率`],
+        allSeriesList: hasSimulation
+          ? [`${activeSeries.label}基准缺口规模`, `${activeSeries.label}测算后缺口规模`, `${activeSeries.label}基准缺口率`, `${activeSeries.label}测算后缺口率`]
+          : [`${activeSeries.label}缺口规模`, `${activeSeries.label}缺口率`],
         seriesList: seriesData.map((series) => series.label),
-        legendItems: [
-          { label: `${activeSeries.label}缺口规模`, color: scaleColor },
-          { label: `${activeSeries.label}缺口率`, color: ratioColor },
-        ],
+        legendItems: hasSimulation
+          ? [
+            { label: `${activeSeries.label}基准缺口规模`, color: scaleColor },
+            { label: `${activeSeries.label}测算后缺口规模`, color: SIMULATION_COLOR },
+            { label: `${activeSeries.label}基准缺口率`, color: ratioColor },
+            { label: `${activeSeries.label}测算后缺口率`, color: SIMULATION_COLOR },
+          ]
+          : [
+            { label: `${activeSeries.label}缺口规模`, color: scaleColor },
+            { label: `${activeSeries.label}缺口率`, color: ratioColor },
+          ],
       }, "__legend_liquidity_gap_metrics__")}
+      ${renderManagementLimitLegend(widget, chartContext)}
     </div>
   `;
 }
 
 function renderLiquidityGapTenorDataTable(widget, chartContext) {
   const seriesData = buildLiquidityGapTenorSeries(widget, chartContext);
+  const matchedLimits = getMatchingManagementLimits(widget, chartContext);
+  const amountUnit = getSelectedCurrencies(chartContext).length === 1
+    ? matchedLimits[0]?.unit || getCurrencyAmountUnit(chartContext)
+    : getCurrencyAmountUnit(chartContext);
+  const limitCell = matchedLimits
+    .map((entry) => `${entry.currency} ${entry.operator}${formatManagementLimitNumber(entry.value)}${entry.unit || ""}`)
+    .join("<br>");
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
@@ -386,14 +488,22 @@ function renderLiquidityGapTenorDataTable(widget, chartContext) {
           <thead>
             <tr>
               <th>${inferXAxisTitle(chartContext.xLabels)}</th>
-              ${seriesData.map((series) => `<th>${series.label}｜缺口规模</th><th>${series.label}｜缺口率</th>`).join("")}
+              ${seriesData.map((series) => series.simulatedScaleValues
+                ? `<th>${series.label}｜基准缺口规模（${amountUnit}）</th><th>${series.label}｜测算后缺口规模（${amountUnit}）</th><th>${series.label}｜基准缺口率</th><th>${series.label}｜测算后缺口率</th>`
+                : `<th>${series.label}｜缺口规模（${amountUnit}）</th><th>${series.label}｜缺口率</th>`
+              ).join("")}
+              ${matchedLimits.length ? "<th>管理限额</th>" : ""}
             </tr>
           </thead>
           <tbody>
             ${chartContext.xLabels.map((label, index) => `
               <tr>
                 <td>${label}</td>
-                ${seriesData.map((series) => `<td>${series.scaleValues[index].toFixed(1)}</td><td>${series.ratioValues[index].toFixed(1)}%</td>`).join("")}
+                ${seriesData.map((series) => series.simulatedScaleValues
+                  ? `<td>${series.scaleValues[index].toFixed(1)}</td><td>${series.simulatedScaleValues[index].toFixed(1)}</td><td>${series.ratioValues[index].toFixed(1)}%</td><td>${series.simulatedRatioValues[index].toFixed(1)}%</td>`
+                  : `<td>${series.scaleValues[index].toFixed(1)}</td><td>${series.ratioValues[index].toFixed(1)}%</td>`
+                ).join("")}
+                ${matchedLimits.length ? `<td>${limitCell}</td>` : ""}
               </tr>
             `).join("")}
           </tbody>
@@ -438,7 +548,7 @@ function buildFundingFlowCompositeState(widget, chartContext) {
 
 function buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates) {
   const selectedNames = getFutureFundingFlowBusinessSelection(chartContext);
-  const series = getMaturityDistributionSeries().filter((item) => selectedNames.includes(item.name));
+  const series = getFutureFundingFlowBusinessSeries().filter((item) => selectedNames.includes(item.name));
   const profile = [58, 46, 34, 28, 24, 20, 18, 22, 30, 26, 19, 24, 28, 18, 22, 35, 42, 30, 26, 20, 18, 24, 31, 27, 21, 19, 25, 34, 29, 22];
   return {
     series,
@@ -452,6 +562,63 @@ function buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates)
       }),
     })),
   };
+}
+
+function getFutureFundingFlowBusinessSeries() {
+  const perspective = getBusinessAnalysisPerspectiveDefinition("liquidityBalanceStructure");
+  const directionMap = perspective.cashFlowDirectionMap || {};
+  const sideMap = perspective.sideMap || {};
+  return (perspective.businessTypes || []).map((name) => ({
+    name,
+    direction: directionMap[name] === "outflow" ? -1 : 1,
+    side: sideMap[name] || (directionMap[name] === "outflow" ? "liability" : "asset"),
+  }));
+}
+
+function renderFutureFundingFlowBusinessLegend(widget, selectedNames) {
+  const businessSeries = getFutureFundingFlowBusinessSeries();
+  const allSeries = businessSeries.map((item) => item.name);
+  const groups = [
+    {
+      key: "asset",
+      label: "资产及表外收入",
+      items: businessSeries.filter((item) => ["asset", "offBalanceInflow"].includes(item.side)),
+    },
+    {
+      key: "liability",
+      label: "负债及表外支出",
+      items: businessSeries.filter((item) => ["liability", "offBalanceOutflow"].includes(item.side)),
+    },
+  ];
+  return `
+    <div class="future-funding-flow-business-legend" aria-label="流动性业务类别">
+      ${groups.map((group) => `
+        <section class="future-funding-flow-business-legend__group" data-liquidity-legend-group="${group.key}">
+          <div class="future-funding-flow-business-legend__title">${group.label}</div>
+          <div class="chart-legend chart-legend--filterable future-funding-flow-business-legend__items">
+            ${group.items.map((item) => {
+              const label = item.name;
+              const index = allSeries.indexOf(label);
+              const isSelected = selectedNames.includes(label);
+              return `
+                <button
+                  class="chart-legend__item chart-legend__item--button ${isSelected ? "is-selected" : "is-muted"}"
+                  type="button"
+                  data-legend-toggle="true"
+                  data-widget-seq="${widget.seq}"
+                  data-filter-name="业务类型"
+                  data-filter-value="${label}"
+                >
+                  <i class="chart-legend__swatch" style="background:${getBarFillColor(label, allSeries, index, 0.9)}"></i>
+                  ${label}
+                </button>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
 }
 
 function buildFutureFundingFlowDetailRows(widget, chartContext, matrix, dailyNet, cumulativeNet) {
@@ -505,6 +672,7 @@ function renderFutureFundingFlowDetailTable(rows, compact = true, context = {}) 
             <tr>
               <th>现金流日</th>
               <th>业务编号</th>
+              <th>业务类别</th>
               <th>交易对手</th>
               <th>资金方向</th>
               <th>金额</th>
@@ -515,6 +683,7 @@ function renderFutureFundingFlowDetailTable(rows, compact = true, context = {}) 
               <tr>
                 <td>${row.date}</td>
                 <td>${row.businessId}</td>
+                <td>${row.businessType}</td>
                 <td>${row.counterparty}</td>
                 <td>${row.direction}</td>
                 <td>${row.amount.toFixed(1)}</td>
@@ -558,7 +727,7 @@ function renderFutureFundingFlowChart(widget, chartContext) {
   const matrix = flowState.future.businessMatrix;
   const drilldown = getFutureFundingFlowDrilldown(widget, flowState);
   const drilldownRows = getFutureFundingFlowRowsForDrilldown(flowState, drilldown);
-  const allBusinessTypes = getMaturityDistributionSeries().map((item) => item.name);
+  const allBusinessTypes = getFutureFundingFlowBusinessSeries().map((item) => item.name);
   const selectedNames = matrix.series.map((item) => item.name);
   const frame = { left: 88, right: 660, top: 24, bottom: 216, width: 572, height: 192 };
   const businessMaxAbs = Math.max(
@@ -666,7 +835,7 @@ function renderFutureFundingFlowChart(widget, chartContext) {
             ${renderLine("累计净额", flowState.future.cumulativeNet, SEMANTIC_COLORS.fundingCumulative, 3.4)}
           </svg>
           ${renderFundingFlowLegend(widget.seq, "__legend_funding_future__", legendItems)}
-          ${renderMaturityDistributionLegend(widget, selectedNames)}
+          ${renderFutureFundingFlowBusinessLegend(widget, selectedNames)}
         </div>
         <aside class="future-funding-flow-detail">
           ${renderFutureFundingFlowDetailTable(drilldownRows, true, {

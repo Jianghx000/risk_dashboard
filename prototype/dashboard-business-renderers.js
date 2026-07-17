@@ -1,4 +1,55 @@
 // Business-change chart and table renderers. Loaded after app.js so it can reuse shared dashboard helpers.
+function renderBusinessChangeMethodologyButton(widget) {
+  const methodologyKey = getConfiguredWidgetBehavior(widget).methodologyKey;
+  if (!methodologyKey || !DOMAIN_CONFIG.businessChangeMethodology?.[methodologyKey]) return "";
+  return `
+    <button
+      class="business-methodology-trigger"
+      type="button"
+      data-open-business-methodology="true"
+      data-methodology-key="${methodologyKey}"
+      data-widget-seq="${widget.seq}"
+    >口径说明</button>
+  `;
+}
+
+function renderBusinessChangeMethodologyModal() {
+  const state = appState.businessMethodologyModal;
+  const methodology = DOMAIN_CONFIG.businessChangeMethodology || {};
+  if (!state || !Object.keys(methodology).length) {
+    businessMethodologyModalEl.innerHTML = "";
+    businessMethodologyModalEl.classList.remove("is-open");
+    businessMethodologyModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const methodologyItem = methodology[state.methodologyKey];
+  if (!methodologyItem?.title || !methodologyItem?.logic) {
+    businessMethodologyModalEl.innerHTML = "";
+    businessMethodologyModalEl.classList.remove("is-open");
+    businessMethodologyModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const perspective = getBusinessAnalysisPerspectiveDefinition(state.analysisPerspective);
+
+  businessMethodologyModalEl.innerHTML = `
+    <div class="overlay-scrim" data-close-overlay="businessMethodologyModal"></div>
+    <section class="overlay-panel overlay-panel--wide business-methodology-modal" role="dialog" aria-modal="true" aria-labelledby="businessMethodologyModalTitle">
+      <div class="overlay-panel__header">
+        <div>
+          <div class="overlay-panel__eyebrow">业务变动分析 · ${perspective.label}视角</div>
+          <h3 id="businessMethodologyModalTitle">${methodologyItem.title}</h3>
+        </div>
+        <button class="overlay-panel__close" type="button" data-close-overlay="businessMethodologyModal">关闭</button>
+      </div>
+      <div class="business-methodology-modal__body">
+        <p class="business-methodology-logic">${methodologyItem.logic}</p>
+      </div>
+    </section>
+  `;
+  businessMethodologyModalEl.classList.add("is-open");
+  businessMethodologyModalEl.setAttribute("aria-hidden", "false");
+}
+
 function getMaturityStructureActiveScope(widgetSeq = 96) {
   const selected = (appState.widgetFilters[widgetSeq] || {}).__maturity_structure_scope__;
   return Array.isArray(selected) && selected[0] === "future" ? "future" : "historical";
@@ -28,13 +79,15 @@ function renderMaturityStructureHeaderTabs(widget) {
 }
 
 function renderBalanceScaleGrowthChart(widget, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const useWideFrame = isMaturityTrendWidget(widget);
   const frame = useWideFrame ? createWideFrame(chartContext.xLabels.length) : createFrame(chartContext.xLabels.length);
   const viewBoxWidth = useWideFrame ? 1100 : 700;
   const axis = renderAxes(frame, chartContext.xLabels, "规模/增速");
   const futureStartIndex = getMaturityFutureStartIndex(widget, chartContext.xLabels);
   const futureOverlay = renderMaturityFutureOverlay(widget, chartContext, frame);
-  const metricItems = ["资产规模", "负债规模", "资产增速", "负债增速"];
+  const metricItems = perspective.balanceMetricLabels || ["资产规模", "负债规模", "资产增速", "负债增速"];
+  const [firstScaleLabel, secondScaleLabel, firstGrowthLabel, secondGrowthLabel] = metricItems;
   const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
   const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
   const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
@@ -43,28 +96,28 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
   const barWidth = Math.max(10, Math.min(20, getFrameMinStep(frame, chartContext.xLabels.length) * 0.24));
   const barGap = Math.max(2, Math.min(6, getFrameMinStep(frame, chartContext.xLabels.length) * 0.06));
 
-  const assetBarColor = getBarFillColor("资产规模", metricItems, 0, 0.84);
-  const liabilityBarColor = getBarFillColor("负债规模", metricItems, 1, 0.84);
-  const assetLineColor = getPaletteColor("资产增速", metricItems, 0, "line");
-  const liabilityLineColor = getPaletteColor("负债增速", metricItems, 1, "line");
+  const assetBarColor = getBarFillColor(firstScaleLabel, metricItems, 0, 0.84);
+  const liabilityBarColor = getBarFillColor(secondScaleLabel, metricItems, 1, 0.84);
+  const assetLineColor = getPaletteColor(firstGrowthLabel, metricItems, 0, "line");
+  const liabilityLineColor = getPaletteColor(secondGrowthLabel, metricItems, 1, "line");
 
-  const assetBars = selectedMetrics.includes("资产规模")
+  const assetBars = selectedMetrics.includes(firstScaleLabel)
     ? assetScale.map((value, index) => {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center - barWidth - barGap / 2;
         const y = frame.bottom - (frame.height * value) / 100;
         const isFuture = isMaturityFutureIndex(futureStartIndex, index);
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产规模", metricItems, 0, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor(firstScaleLabel, metricItems, 0, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
-  const liabilityBars = selectedMetrics.includes("负债规模")
+  const liabilityBars = selectedMetrics.includes(secondScaleLabel)
     ? liabilityScale.map((value, index) => {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center + barGap / 2;
         const y = frame.bottom - (frame.height * value) / 100;
         const isFuture = isMaturityFutureIndex(futureStartIndex, index);
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债规模", metricItems, 1, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor(secondScaleLabel, metricItems, 1, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
@@ -84,10 +137,10 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
         ${futureOverlay}
         ${assetBars}
         ${liabilityBars}
-        ${selectedMetrics.includes("资产增速")
+        ${selectedMetrics.includes(firstGrowthLabel)
           ? renderFutureAwareLine(assetPoints, assetLineColor, 3.4, futureStartIndex)
           : ""}
-        ${selectedMetrics.includes("负债增速")
+        ${selectedMetrics.includes(secondGrowthLabel)
           ? renderFutureAwareLine(liabilityPoints, liabilityLineColor, 3.4, futureStartIndex)
           : ""}
       </svg>
@@ -96,10 +149,10 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
         allSeriesList: metricItems,
         seriesList: selectedMetrics,
         legendItems: [
-          { label: "资产规模", color: assetBarColor },
-          { label: "负债规模", color: liabilityBarColor },
-          { label: "资产增速", color: assetLineColor },
-          { label: "负债增速", color: liabilityLineColor },
+          { label: firstScaleLabel, color: assetBarColor },
+          { label: secondScaleLabel, color: liabilityBarColor },
+          { label: firstGrowthLabel, color: assetLineColor },
+          { label: secondGrowthLabel, color: liabilityLineColor },
         ],
       }, "__legend_metrics__")}
     </div>
@@ -107,6 +160,8 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
 }
 
 function renderBalanceScaleGrowthDataTable(widget, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const metricItems = perspective.balanceMetricLabels || ["资产规模", "负债规模", "资产增速", "负债增速"];
   const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
   const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
   const assetGrowth = buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
@@ -118,10 +173,7 @@ function renderBalanceScaleGrowthDataTable(widget, chartContext) {
           <thead>
             <tr>
               <th>${inferXAxisTitle(chartContext.xLabels)}</th>
-              <th>资产规模</th>
-              <th>负债规模</th>
-              <th>资产增速</th>
-              <th>负债增速</th>
+              ${metricItems.map((label) => `<th>${label}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
@@ -142,13 +194,16 @@ function renderBalanceScaleGrowthDataTable(widget, chartContext) {
 }
 
 function renderBusinessScaleGrowthChart(widget, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const perspectiveBusinessTypes = perspective.businessTypes || BUSINESS_DURATION_OPTIONS;
+  const defaultBusinessTypes = perspective.defaultBusinessTypes || perspectiveBusinessTypes.slice(0, 2);
   const selectedBusinesses = chartContext.seriesList.length
     ? chartContext.seriesList
     : ((chartContext.filterState["业务类型"] || []).filter(Boolean));
   const seriesList = selectedBusinesses.length
     ? selectedBusinesses
-    : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS).slice(0, 2);
-  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
+    : defaultBusinessTypes;
+  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : perspectiveBusinessTypes;
   const useWideFrame = isMaturityTrendWidget(widget);
   const frame = useWideFrame ? createWideFrame(chartContext.xLabels.length) : createFrame(chartContext.xLabels.length);
   const viewBoxWidth = useWideFrame ? 1100 : 700;
@@ -209,12 +264,14 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
 }
 
 function renderBusinessScaleGrowthDataTable(widget, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const defaultBusinessTypes = perspective.defaultBusinessTypes || (perspective.businessTypes || BUSINESS_DURATION_OPTIONS).slice(0, 2);
   const seriesList = chartContext.seriesList.length
     ? chartContext.seriesList
     : ((chartContext.filterState["业务类型"] || []).filter(Boolean));
   const selectedBusinesses = seriesList.length
     ? seriesList
-    : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS).slice(0, 2);
+    : defaultBusinessTypes;
 
   return `
     <div class="chart-shell chart-shell--data">
@@ -276,13 +333,17 @@ function renderMaturityBusinessStructureTables(widget, chartContext) {
 }
 
 function renderBusinessStructureTableSection(widget, chartContext, options = {}) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
   const timeRangeValues = options.timeRangeValues || normalizeWidgetBusinessStructureDateRange(widget.seq, [], null, options.filterName);
   const organizations = getSelectedOrganizations(chartContext);
   const rows = buildBusinessStructureRows(widget, chartContext, timeRangeValues);
   const behavior = getConfiguredWidgetBehavior(widget);
   const drilldownTargetSeq = Number(behavior.drilldownTargetSeq) || null;
   const activeDrilldown = drilldownTargetSeq ? getBusinessDrilldown(drilldownTargetSeq) : null;
-  const metricColumns = getBusinessStructureMetricColumns(widget);
+  const metricColumns = getBusinessStructureMetricColumns(widget, chartContext);
+  const categoryHeader = chartContext.analysisPerspective === "liquidityBalanceStructure" ? "方向" : "类别";
+  const itemHeader = chartContext.analysisPerspective === "liquidityBalanceStructure" ? "业务类别" : "业务类型";
   const localFilter = options.showDateFilter
     ? `
       <div class="chart-inline-controls">
@@ -290,10 +351,14 @@ function renderBusinessStructureTableSection(widget, chartContext, options = {})
       </div>
     `
     : "";
-  const groupedBody = BUSINESS_STRUCTURE_GROUPS.map((group) => {
+  const groupedBody = groups.map((group) => {
     const groupRows = rows.filter((row) => row.category === group.category);
-    const totalRow = buildBusinessStructureGroupTotalRow(group, groupRows);
-    const displayRows = totalRow ? [...groupRows, totalRow] : groupRows;
+    const totalRow = buildBusinessStructureGroupTotalRow(group, groupRows, chartContext);
+    const displayRows = totalRow
+      ? chartContext.analysisPerspective === "liquidityBalanceStructure"
+        ? [totalRow, ...groupRows]
+        : [...groupRows, totalRow]
+      : groupRows;
     return displayRows
       .map((row, index) => `
         <tr class="${[
@@ -302,13 +367,9 @@ function renderBusinessStructureTableSection(widget, chartContext, options = {})
         ].filter(Boolean).join(" ")}">
           ${index === 0 ? `<td rowspan="${displayRows.length}" class="chart-table__group-cell">${group.category}</td>` : ""}
           <td>${row.businessType}</td>
-          ${row.orgValues.map((value) => `
-            <td>${value.scale.toFixed(1)}</td>
-            <td>${value.fixedRate}</td>
-            <td>${value.duration}</td>
-            <td>${value.averageTerm}</td>
-            <td>${value.averageRate}</td>
-          `).join("")}
+          ${row.orgValues.map((value) => metricColumns
+            .map((column) => `<td>${formatBusinessStructureMetricValue(column.key, value[column.key])}</td>`)
+            .join("")).join("")}
           <td>
             ${row.isTotal
               ? `<span class="chart-table__muted-action">-</span>`
@@ -335,13 +396,13 @@ function renderBusinessStructureTableSection(widget, chartContext, options = {})
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th rowspan="2">类别</th>
-              <th rowspan="2">业务类型</th>
+              <th rowspan="2">${categoryHeader}</th>
+              <th rowspan="2">${itemHeader}</th>
               ${organizations.map((org) => `<th colspan="${metricColumns.length}">${org}</th>`).join("")}
               <th rowspan="2" class="chart-table__action-col">明细</th>
             </tr>
             <tr>
-              ${organizations.map(() => metricColumns.map((label) => `<th>${label}</th>`).join("")).join("")}
+              ${organizations.map(() => metricColumns.map((column) => `<th>${column.label}</th>`).join("")).join("")}
             </tr>
           </thead>
           <tbody>
@@ -366,23 +427,45 @@ function isBusinessStructureRowActive(activeDrilldown, row, scope = "") {
   return activeDrilldown?.maturityTableScope === scope;
 }
 
-function getBusinessStructureMetricColumns(widget) {
+function getBusinessStructureMetricColumns(widget, chartContext) {
   const behavior = getConfiguredWidgetBehavior(widget);
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext?.analysisPerspective);
+  const structureScope = behavior.structureScope || "stock";
+  const scopedColumns = perspective.structureMetricColumnsByScope?.[structureScope];
+  if (Array.isArray(scopedColumns) && scopedColumns.length) return scopedColumns;
+  const columns = perspective.structureMetricColumns || [];
+  if (columns.length) {
+    return columns.map((column) => ({
+      ...column,
+      label: structureScope === "stock"
+        ? (column.stockLabel || column.label)
+        : (column.flowLabel || column.label),
+    }));
+  }
   return [
-    "规模",
-    "固息占比",
-    "加权久期",
-    behavior.structureScope === "stock" ? "平均剩余期限" : "平均期限",
-    "平均利率",
+    { key: "scale", label: "规模" },
+    { key: "fixedRate", label: "固息占比" },
+    { key: "duration", label: "加权久期" },
+    { key: structureScope === "new" ? "averageOriginalTerm" : "averageRemainingTerm", label: structureScope === "new" ? "平均原始期限" : "平均剩余期限" },
+    { key: "averageRate", label: "平均利率" },
   ];
 }
 
-function buildBusinessStructureGroupTotalRow(group, groupRows) {
-  if (!["生息资产", "付息负债"].includes(group?.category) || !groupRows.length) return null;
+function formatBusinessStructureMetricValue(metricKey, value) {
+  if (metricKey === "scale") {
+    const numberValue = Number(value || 0);
+    return Number.isFinite(numberValue) ? numberValue.toFixed(1) : "0.0";
+  }
+  return value ?? "";
+}
+
+function buildBusinessStructureGroupTotalRow(group, groupRows, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext?.analysisPerspective);
+  if (!(perspective.totalCategories || []).includes(group?.category) || !groupRows.length) return null;
   const orgCount = Math.max(...groupRows.map((row) => row.orgValues.length));
   return {
     category: group.category,
-    businessType: `${group.category}总计`,
+    businessType: perspective.totalRowLabels?.[group.category] || `${group.category}总计`,
     isTotal: true,
     orgValues: Array.from({ length: orgCount }, (_, orgIndex) => {
       const values = groupRows.map((row) => row.orgValues[orgIndex]).filter(Boolean);
@@ -395,7 +478,8 @@ function buildBusinessStructureGroupTotalRow(group, groupRows) {
         scale: Number(scale.toFixed(1)),
         fixedRate: `${weighted((value) => parsePercentText(value.fixedRate)).toFixed(1)}%`,
         duration: `${weighted((value) => parseYearText(value.duration)).toFixed(1)}年`,
-        averageTerm: `${weighted((value) => parseYearText(value.averageTerm)).toFixed(1)}年`,
+        averageOriginalTerm: `${weighted((value) => parseYearText(value.averageOriginalTerm)).toFixed(1)}年`,
+        averageRemainingTerm: `${weighted((value) => parseYearText(value.averageRemainingTerm)).toFixed(1)}年`,
         averageRate: `${weighted((value) => parsePercentText(value.averageRate)).toFixed(2)}%`,
       };
     }),
@@ -412,35 +496,74 @@ function parseYearText(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function calculateApproximateMonthsBetween(startDateValue, endDateValue) {
+  const startDate = parseDateValue(startDateValue);
+  const endDate = parseDateValue(endDateValue);
+  if (!startDate || !endDate) return 0;
+  return Math.max(0, Math.round((endDate - startDate) / (30.4375 * 24 * 60 * 60 * 1000)));
+}
+
 function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
+  const isLiquidityPerspective = chartContext.analysisPerspective === "liquidityBalanceStructure";
   const organizations = getSelectedOrganizations(chartContext);
   const groupScaleBase = {
     生息资产: 180,
     付息负债: 140,
     表外衍生品: 42,
+    资金运用: 160,
+    资金来源: 130,
+    或有流动性项目: 36,
+    资产: 160,
+    负债: 130,
+    表外收入: 48,
+    表外支出: 42,
   };
   const groupRateBase = {
     生息资产: 2.1,
     付息负债: 1.6,
     表外衍生品: 1.2,
+    资金运用: 2.0,
+    资金来源: 1.5,
+    或有流动性项目: 1.1,
+    资产: 2.0,
+    负债: 1.5,
+    表外收入: 1.2,
+    表外支出: 1.1,
   };
 
-  return BUSINESS_STRUCTURE_GROUPS.flatMap((group, groupIndex) =>
+  return groups.flatMap((group, groupIndex) =>
     group.items.map((businessType, itemIndex) => {
       const orgValues = organizations.map((org) => {
         const signature = createSignature(widget.seq, {
           机构: [org],
           币种: chartContext.filterState["币种"] || [],
           时间区间: timeRangeValues,
+          分析视角: [chartContext.analysisPerspective || "interestBalanceStructure"],
         });
         const seed = signature + groupIndex * 97 + itemIndex * 43;
-        const scale = groupScaleBase[group.category] + ((widget.seq * 17 + seed) % 210) / 1.15;
+        const scale = (groupScaleBase[group.category] || 80) + ((widget.seq * 17 + seed) % 210) / 1.15;
+        const averageOriginalTermYears = 0.8 + ((widget.seq * 11 + seed) % 60) / 10;
+        const remainingFactor = 0.25 + ((widget.seq * 13 + seed) % 61) / 100;
+        const averageRemainingTermYears = Math.max(0.1, averageOriginalTermYears * remainingFactor);
+        const averageRate = groupRateBase[group.category] + ((widget.seq * 7 + seed) % 24) / 10;
+        if (isLiquidityPerspective) {
+          return {
+            scale: Number(scale.toFixed(1)),
+            averageRate: `${averageRate.toFixed(2)}%`,
+            averageOriginalTerm: `${averageOriginalTermYears.toFixed(1)}年`,
+            averageRemainingTerm: `${averageRemainingTermYears.toFixed(1)}年`,
+          };
+        }
+        const durationYears = Math.min(averageRemainingTermYears, 0.3 + ((widget.seq * 5 + seed) % 29) / 10);
         return {
           scale: Number(scale.toFixed(1)),
           fixedRate: `${(22 + ((widget.seq * 9 + seed) % 63)).toFixed(1)}%`,
-          duration: `${(0.3 + ((widget.seq * 5 + seed) % 29) / 10).toFixed(1)}年`,
-          averageTerm: `${(0.5 + ((widget.seq * 11 + seed) % 47) / 10).toFixed(1)}年`,
-          averageRate: `${(groupRateBase[group.category] + ((widget.seq * 7 + seed) % 24) / 10).toFixed(2)}%`,
+          duration: `${durationYears.toFixed(1)}年`,
+          averageOriginalTerm: `${averageOriginalTermYears.toFixed(1)}年`,
+          averageRemainingTerm: `${averageRemainingTermYears.toFixed(1)}年`,
+          averageRate: `${averageRate.toFixed(2)}%`,
         };
       });
       return {
@@ -457,27 +580,16 @@ function getBusinessDrilldown(widgetSeq) {
   return drilldown?.businessType ? drilldown : null;
 }
 
-function getBusinessDetailColumns(widget, drilldown = null) {
+function getBusinessDetailColumns(widget, drilldown = null, chartContext = null) {
   const behavior = getConfiguredWidgetBehavior(widget);
   const detailScope = behavior.detailScope || "stock";
-  if (drilldown?.businessType === "投资类业务") {
-    const bondColumns = [
-      { key: "bondCode", label: "债券代码" },
-      { key: "issuer", label: "发行人" },
-      { key: "holdingScale", label: "持仓规模" },
-      { key: "rateType", label: "利率类型" },
-      { key: "rateBenchmark", label: "利率基准" },
-      { key: "couponRate", label: "票面利率" },
-      { key: "ytm", label: "YTM" },
-      { key: "modifiedDuration", label: "修正久期" },
-      { key: "originalTerm", label: "原始期限" },
-      { key: "remainingTerm", label: "剩余期限" },
-      { key: "repricingCycle", label: "重定价周期" },
-      { key: "repricingDate", label: "下一重定价日" },
-    ];
-    return detailScope === "stock"
-      ? bondColumns
-      : [{ key: "tradeDate", label: "交易日期" }, ...bondColumns];
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext?.analysisPerspective);
+  const scopedColumns = perspective.detailColumnsByScope?.[detailScope];
+  if (Array.isArray(scopedColumns) && scopedColumns.length) {
+    return scopedColumns;
+  }
+  if (Array.isArray(perspective.detailColumns) && perspective.detailColumns.length) {
+    return perspective.detailColumns;
   }
   return [
     { key: "businessId", label: "业务编号" },
@@ -508,6 +620,7 @@ function getMaturityStructureRangeFilterName(scope) {
 }
 
 function formatBusinessDetailContext(widget, chartContext, drilldown, scopeMeta) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const institutions = summarizeFilterSelection("机构", chartContext.filterState["机构"] || []);
   const currencies = summarizeFilterSelection("币种", chartContext.filterState["币种"] || []);
   const dateRange = getBusinessDrilldownDateRange(drilldown);
@@ -519,10 +632,12 @@ function formatBusinessDetailContext(widget, chartContext, drilldown, scopeMeta)
   const dateText = scopeMeta.dateMode === "range" && Array.isArray(dateRange)
     ? `${dateRange[0]} 至 ${dateRange[1]}`
     : `截至 ${getDefaultGlobalEndDate()}`;
-  return `${scopeMeta.label}${maturityScopeLabel} > ${drilldown.businessType} | 机构：${institutions} | 币种：${currencies} | ${dateText}`;
+  return `${perspective.label}口径 | ${scopeMeta.label}${maturityScopeLabel} > ${drilldown.businessType} | 机构：${institutions} | 币种：${currencies} | ${dateText}`;
 }
 
 function buildBusinessDetailRows(widget, chartContext, drilldown) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
   const behavior = getConfiguredWidgetBehavior(widget);
   const detailScope = behavior.detailScope || "stock";
   const scopeMeta = BUSINESS_DETAIL_SCOPE_META[detailScope] || BUSINESS_DETAIL_SCOPE_META.stock;
@@ -532,98 +647,135 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
     币种: chartContext.filterState["币种"] || [],
     业务类型: [drilldown.businessType],
     时间区间: dateRange || [],
+    分析视角: [chartContext.analysisPerspective || "interestBalanceStructure"],
   });
-  const sideLabel = BUSINESS_SIDE_MAP[drilldown.businessType] === "liability" ? "负债" : "资产";
-  const category = drilldown.category || BUSINESS_STRUCTURE_GROUPS.find((group) => group.items.includes(drilldown.businessType))?.category || "";
-  const customerPool = category === "表外衍生品"
+  const sideKey = perspective.sideMap?.[drilldown.businessType] || BUSINESS_SIDE_MAP[drilldown.businessType] || "asset";
+  const sideLabel = perspective.sideLabels?.[sideKey] || (sideKey === "liability" ? "负债" : "资产");
+  const category = drilldown.category || groups.find((group) => group.items.includes(drilldown.businessType))?.category || "";
+  const customerPool = ["或有流动性项目", "表外收入", "表外支出"].includes(category)
+    ? ["企业授信组合", "贸易融资客户群", "信用证客户群", "保函客户群", "备用额度客户群"]
+    : category === "表外衍生品"
     ? ["利率互换组合", "跨币种掉期组合", "久期对冲组合", "套保衍生品篮子", "交易对手净额包"]
-    : sideLabel === "资产"
+    : ["资金运用", "资产"].includes(sideLabel)
       ? ["城投集团", "高端制造", "交通基础设施", "能源平台", "产业基金", "科技园区", "消费龙头", "医药集团"]
       : ["战略客户部", "机构资金部", "同业合作户", "债券承销计划", "集团内部账户", "境外分行资金池", "财政性存款", "大型企业结算户"];
   const bondIssuerPool = ["国开行", "农业发展银行", "进出口银行", "财政部", "广东省政府", "江苏省政府", "招商局集团", "华能集团"];
-  const rateBenchmarkPool = ["LPR 1Y", "LPR 5Y", "DR007", "SHIBOR 3M", "中债国债收益率", "固定票息"];
+  const rateBenchmarkPool = ["LPR 1Y", "LPR 5Y", "DR007", "SHIBOR 3M", "中债国债收益率"];
   const rowCount = 8 + (signature % 4);
   const rangeStart = dateRange?.[0] || addDays(getDefaultGlobalEndDate(), -180);
   const rangeEnd = dateRange?.[1] || getDefaultGlobalEndDate();
+  const selectedCurrencies = chartContext.filterState["币种"] || [];
+  const explicitCurrencies = selectedCurrencies.filter((currency) => !["全折人民币", "外币折美元"].includes(currency));
+  const currencyPool = explicitCurrencies.length
+    ? explicitCurrencies
+    : selectedCurrencies.includes("外币折美元")
+      ? ["美元", "港币", "欧元", "英镑", "日元"]
+      : ["人民币", "美元", "港币", "欧元", "日元"];
 
   return Array.from({ length: rowCount }, (_, index) => {
     const seed = signature + index * 37;
     const prefix = detailScope === "new" ? "NEW" : detailScope === "maturity" ? "MAT" : "STK";
-    const businessId = `${prefix}-${String((seed % 900000) + 100000).slice(-6)}`;
-    const counterparty = customerPool[index % customerPool.length];
+    const bondCode = `${["2402", "2305", "2208", "2109"][seed % 4]}${String((seed % 9000) + 1000).slice(-4)}.IB`;
+    const issuer = bondIssuerPool[index % bondIssuerPool.length];
+    const isBondBusiness = chartContext.analysisPerspective !== "liquidityBalanceStructure" && drilldown.businessType === "投资类资产";
+    const businessId = isBondBusiness ? bondCode : `${prefix}-${String((seed % 900000) + 100000).slice(-6)}`;
+    const counterparty = isBondBusiness ? issuer : customerPool[index % customerPool.length];
     const baseStart = detailScope === "new" ? addDays(rangeStart, (seed % 18)) : addDays(rangeEnd, -((seed % 420) + 30));
-    const maturityDate = detailScope === "maturity"
-      ? addDays(rangeStart, (seed % 18))
-      : addDays(baseStart, 90 + (seed % 720));
-    const repricingDate = addDays(baseStart, 30 + (seed % 180));
+    const maturityDate = detailScope === "maturity" ? addDays(rangeStart, (seed % 18)) : "";
+    const contractMaturityDate = detailScope === "maturity"
+      ? (seed % 4 === 0 ? addDays(maturityDate, 30 + (seed % 180)) : maturityDate)
+      : detailScope === "stock"
+        ? addDays(rangeEnd, 30 + (seed % 720))
+        : addDays(baseStart, 90 + (seed % 720));
     const amountBase = detailScope === "stock" ? 18 : detailScope === "new" ? 6 : 5;
     const amount = `${(amountBase + (seed % 85) / 2.7).toFixed(1)}亿元`;
     const rate = `${(1.6 + (seed % 33) / 10).toFixed(2)}%`;
     const rateType = seed % 3 === 0 ? "浮动" : "固定";
-    const originalTermMonths = 12 + (seed % 84);
-    const remainingTermMonths = Math.max(1, Math.round(originalTermMonths * (0.24 + (seed % 51) / 100)));
+    const originalTermMonths = Math.max(1, calculateApproximateMonthsBetween(baseStart, contractMaturityDate));
+    const remainingTermBaseDate = detailScope === "maturity" ? maturityDate : detailScope === "new" ? baseStart : rangeEnd;
+    const remainingTermMonths = calculateApproximateMonthsBetween(remainingTermBaseDate, contractMaturityDate);
     const repricingTermMonths = rateType === "浮动" ? [1, 3, 6, 12][seed % 4] : originalTermMonths;
-    const term = `${remainingTermMonths}个月`;
-    const tradeDate = detailScope === "maturity" ? maturityDate : baseStart;
+    const repricingDate = rateType === "浮动" ? addDays(baseStart, 30 + (seed % 180)) : contractMaturityDate;
+    const repricingDurationMonths = rateType === "浮动"
+      ? Math.min(repricingTermMonths, remainingTermMonths)
+      : remainingTermMonths;
     return {
       businessId,
       counterparty,
       businessType: drilldown.businessType,
       sideLabel,
-      bondCode: `${["2402", "2305", "2208", "2109"][seed % 4]}${String((seed % 9000) + 1000).slice(-4)}.IB`,
-      issuer: bondIssuerPool[index % bondIssuerPool.length],
-      tradeDate,
+      bondCode,
+      issuer,
       startDate: baseStart,
       maturityDate,
+      contractMaturityDate,
+      currency: currencyPool[seed % currencyPool.length],
       repricingDate,
       amount,
       holdingScale: amount,
       rate,
+      priorRate: rate,
       rateType,
-      rateBenchmark: rateType === "浮动" ? rateBenchmarkPool[seed % (rateBenchmarkPool.length - 1)] : "固定票息",
+      rateBenchmark: rateType === "浮动" ? rateBenchmarkPool[seed % rateBenchmarkPool.length] : "固定利率",
+      spread: rateType === "浮动" ? `+${20 + (seed % 96)}bp` : "不适用",
       couponRate: rate,
       ytm: `${(1.8 + (seed % 42) / 10).toFixed(2)}%`,
       modifiedDuration: `${(0.6 + (seed % 58) / 10).toFixed(1)}`,
       originalTerm: originalTermMonths >= 12 ? `${(originalTermMonths / 12).toFixed(originalTermMonths % 12 === 0 ? 0 : 1)}年` : `${originalTermMonths}个月`,
       remainingTerm: remainingTermMonths >= 12 ? `${(remainingTermMonths / 12).toFixed(remainingTermMonths % 12 === 0 ? 0 : 1)}年` : `${remainingTermMonths}个月`,
-      repricingCycle: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期",
+      repricingCycle: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期重定价",
       repricingTerm: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期",
-      term,
+      repricingDuration: `${(repricingDurationMonths / 12).toFixed(2)}年`,
     };
   });
 }
 
 function renderBusinessDetailTable(widget, chartContext) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const behavior = getConfiguredWidgetBehavior(widget);
   const detailScope = behavior.detailScope || "stock";
   const scopeMeta = BUSINESS_DETAIL_SCOPE_META[detailScope] || BUSINESS_DETAIL_SCOPE_META.stock;
   const drilldown = getBusinessDrilldown(widget.seq);
   if (!drilldown) {
+    const liquidityStructureTitles = {
+      stock: "流动性项目结构一览表",
+      new: "新发生流动性项目结构一览表",
+      maturity: "到期流动性项目结构一览表",
+    };
+    const emptyTitle = chartContext.analysisPerspective === "liquidityBalanceStructure"
+      ? `选择流动性项目查看${scopeMeta.label}穿透明细`
+      : scopeMeta.emptyTitle;
+    const emptyDescription = chartContext.analysisPerspective === "liquidityBalanceStructure"
+      ? `请先在上方“${liquidityStructureTitles[detailScope]}”中点击某个流动性项目的“查看明细”，定位到具体业务。`
+      : scopeMeta.emptyDescription;
     return `
       <div class="chart-shell chart-shell--data">
         <div class="business-detail-empty">
-          <div class="business-detail-empty__title">${scopeMeta.emptyTitle}</div>
-          <div class="business-detail-empty__desc">${scopeMeta.emptyDescription}</div>
+          <div class="business-detail-empty__title">${emptyTitle}</div>
+          <div class="business-detail-empty__desc">${emptyDescription}</div>
         </div>
       </div>
     `;
   }
 
-  const columns = getBusinessDetailColumns(widget, drilldown);
+  const columns = getBusinessDetailColumns(widget, drilldown, chartContext);
   const rows = buildBusinessDetailRows(widget, chartContext, drilldown);
+  const detailTitle = drilldown.businessType.endsWith("业务")
+    ? `${drilldown.businessType}明细`
+    : `${drilldown.businessType}业务明细`;
   return `
     <div class="chart-shell chart-shell--data">
       <div class="business-detail-panel">
         <div class="business-detail-context">
           <div>
-            <div class="business-detail-context__eyebrow">归因穿透</div>
-            <div class="business-detail-context__title">${drilldown.businessType}业务明细</div>
+            <div class="business-detail-context__eyebrow">${perspective.label}归因穿透</div>
+            <div class="business-detail-context__title">${detailTitle}</div>
             <div class="business-detail-context__meta">${formatBusinessDetailContext(widget, chartContext, drilldown, scopeMeta)} | 共定位 ${rows.length} 笔业务</div>
           </div>
           <button class="business-detail-context__clear" type="button" data-clear-business-drilldown="${widget.seq}">清除选择</button>
         </div>
         <div class="table-shell">
-          <table class="chart-table chart-table--wide chart-table--matrix">
+          <table class="chart-table chart-table--wide chart-table--matrix" style="--business-detail-column-count: ${columns.length}">
             <thead>
               <tr>
                 ${columns.map((column) => `<th>${column.label}</th>`).join("")}

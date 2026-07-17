@@ -82,7 +82,7 @@ EXPECTED_PAGE_IDS_BY_NAME = {
 
 ALLOWED_SIMULATION_WIDGET_SEQS = {9, 49}
 SOURCE_ONLY_WIDGET_SEQS = {3, 4}
-REMOVED_WIDGET_SEQS = {5, 8, 10, 11, 16, 17}
+REMOVED_WIDGET_SEQS = {5, 8, 10, 11, 16, 17, 57, 58}
 REMOVED_STRUCTURE_LAYER_NAMES = {"核心风险指标", "缺口风险", "现金流错配"}
 
 
@@ -355,7 +355,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         errors.append("pageBehavior should be an object")
     else:
         allowed_modes = {"interest", "liquidity", "generic"}
-        allowed_analysis_perspectives = {"interestBalanceStructure"}
+        allowed_analysis_perspectives = {"interestBalanceStructure", "liquidityBalanceStructure"}
         for page_name, behavior in page_behavior.items():
             if page_name not in page_names:
                 warnings.append(f"pageBehavior references unknown page name: {page_name}")
@@ -377,6 +377,14 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             errors.append("pageBehavior.业务变动分析 is required")
         elif business_behavior.get("analysisPerspective") != "interestBalanceStructure":
             errors.append("pageBehavior.业务变动分析.analysisPerspective should be interestBalanceStructure")
+        else:
+            perspective_options = business_behavior.get("analysisPerspectiveOptions")
+            if not isinstance(perspective_options, list):
+                errors.append("pageBehavior.业务变动分析.analysisPerspectiveOptions should be a list")
+            elif set(perspective_options) != allowed_analysis_perspectives:
+                errors.append(
+                    "pageBehavior.业务变动分析.analysisPerspectiveOptions should include interestBalanceStructure and liquidityBalanceStructure"
+                )
 
     if not isinstance(block_display, dict):
         errors.append("blockDisplay should be an object")
@@ -420,6 +428,10 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             for key in ("detailScope", "detailTablePreset"):
                 if key in behavior and not isinstance(behavior.get(key), str):
                     errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
+            if "methodologyKey" in behavior and behavior.get("methodologyKey") not in {
+                "newMonthly", "newDaily", "maturityMonthly", "maturityDaily"
+            }:
+                errors.append(f"widgetBehavior.{seq_text}.methodologyKey is invalid")
             detail_preset = behavior.get("detailTablePreset")
             if isinstance(detail_preset, str) and detail_preset and detail_preset not in detail_tables:
                 errors.append(f"widgetBehavior.{seq_text}.detailTablePreset references unknown detailTables entry: {detail_preset}")
@@ -466,6 +478,21 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 errors.append(
                     f"widgetBehavior.{seq} should define chartKind or tableKind for rendered widget: {widget.get('title')}"
                 )
+
+        expected_methodology_keys = {
+            83: "newMonthly",
+            84: "newMonthly",
+            85: "newDaily",
+            89: "newDaily",
+            90: "maturityMonthly",
+            91: "maturityMonthly",
+            96: "maturityDaily",
+            97: "maturityDaily",
+        }
+        for seq, expected_key in expected_methodology_keys.items():
+            behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
+            if not isinstance(behavior, dict) or behavior.get("methodologyKey") != expected_key:
+                errors.append(f"widgetBehavior.{seq}.methodologyKey should be {expected_key}")
 
         for seq in sorted(ALLOWED_SIMULATION_WIDGET_SEQS):
             context = widget_context.get(seq)
@@ -715,12 +742,37 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(management_limits, list):
         errors.append("managementLimits should be a list")
     else:
+        expected_limit_entry_counts = {
+            "最大经济价值变动比例": 1,
+            "30天累计流动性缺口规模": 12,
+            "流动性比例": 2,
+            "债券投资组合久期": 12,
+            "经期限调整的重定价缺口率": 23,
+            "债券投资规模": 6,
+            "非金融企业债券投资规模": 6,
+        }
+        actual_limit_entry_counts: dict[str, int] = {}
+        seen_limit_keys: set[tuple[str, str, str, str, str]] = set()
+        limit_filter_values: dict[str, set[str]] = {
+            name: set(values) for name, values in filter_options.items() if isinstance(values, list)
+        }
+        for preset in widget_filter_presets.values():
+            if not isinstance(preset, dict):
+                continue
+            preset_name = preset.get("name")
+            preset_options = preset.get("options")
+            if isinstance(preset_name, str) and isinstance(preset_options, list):
+                limit_filter_values.setdefault(preset_name, set()).update(
+                    value for value in preset_options if isinstance(value, str)
+                )
         for index, item in enumerate(management_limits, start=1):
             if not isinstance(item, dict):
                 errors.append(f"managementLimits[{index}] should be an object")
                 continue
             if "matchTitles" in item:
                 errors.append(f"managementLimits[{index}].matchTitles is deprecated; use widgetSeqs")
+            if "values" in item:
+                errors.append(f"managementLimits[{index}].values is deprecated; use entries")
             widget_seqs = item.get("widgetSeqs")
             if not isinstance(widget_seqs, list) or not widget_seqs or not all(isinstance(seq, int) for seq in widget_seqs):
                 errors.append(f"managementLimits[{index}].widgetSeqs should be a non-empty integer list")
@@ -731,6 +783,64 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                         f"managementLimits[{index}].widgetSeqs references unknown widget seqs: "
                         + ", ".join(map(str, invalid))
                     )
+            indicator = item.get("indicator")
+            if not isinstance(indicator, str) or not indicator.strip():
+                errors.append(f"managementLimits[{index}].indicator should be a non-empty string")
+                indicator = f"__invalid_{index}"
+            entries = item.get("entries")
+            if not isinstance(entries, list) or not entries:
+                errors.append(f"managementLimits[{index}].entries should be a non-empty list")
+                continue
+            actual_limit_entry_counts[indicator] = len(entries)
+            for entry_index, entry in enumerate(entries, start=1):
+                prefix = f"managementLimits[{index}].entries[{entry_index}]"
+                if not isinstance(entry, dict):
+                    errors.append(f"{prefix} should be an object")
+                    continue
+                organization = entry.get("organization")
+                currency = entry.get("currency")
+                operator = entry.get("operator")
+                value = entry.get("value")
+                unit = entry.get("unit")
+                if organization not in filter_options.get("机构", []):
+                    errors.append(f"{prefix}.organization is not a configured institution: {organization}")
+                if currency not in filter_options.get("币种", []):
+                    errors.append(f"{prefix}.currency is not a configured currency: {currency}")
+                if operator not in {"<=", ">="}:
+                    errors.append(f"{prefix}.operator should be <= or >=")
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    errors.append(f"{prefix}.value should be numeric")
+                if not isinstance(unit, str) or not unit:
+                    errors.append(f"{prefix}.unit should be a non-empty string")
+                entry_filters = entry.get("filters", {})
+                if not isinstance(entry_filters, dict):
+                    errors.append(f"{prefix}.filters should be an object")
+                    entry_filters = {}
+                for filter_name, expected_value in entry_filters.items():
+                    expected_values = expected_value if isinstance(expected_value, list) else [expected_value]
+                    allowed_values = limit_filter_values.get(filter_name, set())
+                    invalid_values = [filter_value for filter_value in expected_values if filter_value not in allowed_values]
+                    if invalid_values:
+                        errors.append(
+                            f"{prefix}.filters.{filter_name} contains unknown values: "
+                            + ", ".join(map(str, invalid_values))
+                        )
+                uniqueness_key = (
+                    indicator,
+                    str(item.get("metricKey", "")),
+                    str(organization),
+                    str(currency),
+                    json.dumps(entry_filters, ensure_ascii=False, sort_keys=True),
+                )
+                if uniqueness_key in seen_limit_keys:
+                    errors.append(f"{prefix} duplicates another management limit entry")
+                seen_limit_keys.add(uniqueness_key)
+
+        if actual_limit_entry_counts != expected_limit_entry_counts:
+            errors.append(
+                "managementLimits indicator/entry counts should match the approved limit table: "
+                f"expected {expected_limit_entry_counts}, got {actual_limit_entry_counts}"
+            )
 
     return errors, warnings
 
@@ -896,6 +1006,7 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderEveProcessModal",
         "function renderLiquidityProcessModal",
         "function renderRepricingGapProcessModal",
+        "function renderRepricingDurationGapProcessModal",
     ):
         if process_function in text:
             errors.append(f"app.js should not define diagnostic process modal implementations: {process_function}")
@@ -905,6 +1016,8 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderSimulationModal",
         "function openSimulationModal",
         "function renderSimulationOverlay",
+        "function buildLiquidityGapSimulationResult",
+        "function renderLiquidityGapSimulationModal",
     ):
         if simulation_function in text:
             errors.append(f"app.js should not define simulation implementations: {simulation_function}")
@@ -919,6 +1032,8 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderBusinessScaleGrowthChart",
         "function renderBusinessStructureTable",
         "function renderBusinessDetailTable",
+        "function renderBusinessChangeMethodologyButton",
+        "function renderBusinessChangeMethodologyModal",
     ):
         if business_renderer_function in text:
             errors.append(f"app.js should not define business-change renderers: {business_renderer_function}")
@@ -927,7 +1042,6 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
     for liquidity_renderer_function in (
         "function renderLiquidityGapTenorChart",
         "function renderFutureFundingFlowChart",
-        "function renderInterbankFundingMaxTenorChart",
         "function renderBondInvestmentScaleLimitChart",
     ):
         if liquidity_renderer_function in text:
@@ -935,8 +1049,7 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         if liquidity_renderer_function not in liquidity_renderers_text:
             errors.append(f"dashboard-liquidity-renderers.js should define {liquidity_renderer_function}")
     for interest_renderer_function in (
-        "function renderDurationGapComboChart",
-        "function renderBusinessDurationRepricingChart",
+        "function renderRepricingDurationGapChart",
         "function renderNiiVolatilityComboChart",
         "function renderMaturityDistributionChart",
     ):
@@ -971,11 +1084,30 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
     warnings: list[str] = []
 
     business_options = domain.get("businessDurationOptions")
+    expected_business_options = [
+        "自营贷款",
+        "投资类资产",
+        "同业资产",
+        "自营非标投资",
+        "内部交易资产",
+        "活期存款",
+        "定期存款",
+        "同业负债",
+        "存放央行",
+        "发行债券",
+        "向央行借款",
+        "租赁负债",
+        "内部交易负债",
+        "表外衍生品应付",
+        "表外衍生品应收",
+    ]
     if not isinstance(business_options, list) or not business_options:
         errors.append("dashboardDomainConfig.businessDurationOptions should be a non-empty list")
         business_options = []
     elif len(set(business_options)) != len(business_options):
         errors.append("dashboardDomainConfig.businessDurationOptions contains duplicate values")
+    if business_options != expected_business_options:
+        errors.append("dashboardDomainConfig.businessDurationOptions should match the approved interest-risk category order")
 
     business_default_values = domain.get("businessTypeDefaultValues")
     if not isinstance(business_default_values, list) or not business_default_values:
@@ -986,24 +1118,73 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
         if invalid_defaults:
             errors.append("dashboardDomainConfig.businessTypeDefaultValues has unknown values: " + ", ".join(invalid_defaults))
 
-    for preset_name in ("businessTypeLegend", "futureFundingBusinessTypeLegend"):
+    liquidity_business_options = domain.get("liquidityBusinessTypes")
+    expected_liquidity_business_options = [
+        "现金",
+        "存放央行款项",
+        "存放同业",
+        "拆放同业",
+        "买入返售",
+        "各项贷款",
+        "债券",
+        "股票",
+        "其他投资",
+        "持有同业存单",
+        "其他资产",
+        "表外收入",
+        "向央行借款",
+        "定期存放",
+        "活期存放",
+        "同业拆入",
+        "卖出回购",
+        "定期存款",
+        "活期存款",
+        "发行债券",
+        "发行同业存单",
+        "其他负债",
+        "表外支出",
+    ]
+    if not isinstance(liquidity_business_options, list) or not liquidity_business_options:
+        errors.append("dashboardDomainConfig.liquidityBusinessTypes should be a non-empty list")
+        liquidity_business_options = []
+    elif len(set(liquidity_business_options)) != len(liquidity_business_options):
+        errors.append("dashboardDomainConfig.liquidityBusinessTypes contains duplicate values")
+    if liquidity_business_options != expected_liquidity_business_options:
+        errors.append("dashboardDomainConfig.liquidityBusinessTypes should match the approved liquidity category order")
+
+    expected_liquidity_cash_flow_buckets = ["次日", "2日至7日", "8日至30日", "31日至90日", "91日至1年"]
+    if domain.get("liquidityCashFlowSimulationBuckets") != expected_liquidity_cash_flow_buckets:
+        errors.append("dashboardDomainConfig.liquidityCashFlowSimulationBuckets should match the approved five buckets")
+
+    liquidity_default_values = domain.get("liquidityBusinessTypeDefaultValues")
+    if not isinstance(liquidity_default_values, list) or not liquidity_default_values:
+        errors.append("dashboardDomainConfig.liquidityBusinessTypeDefaultValues should be a non-empty list")
+    elif any(item not in liquidity_business_options for item in liquidity_default_values):
+        errors.append("liquidityBusinessTypeDefaultValues should belong to liquidityBusinessTypes")
+
+    preset_expectations = {
+        "businessTypeLegend": ("businessDurationOptions", {"businessDurationOptions", "businessTypeDefaultValues"}),
+        "futureFundingBusinessTypeLegend": ("liquidityBusinessTypes", {"liquidityBusinessTypes"}),
+    }
+    for preset_name, (expected_options_ref, allowed_default_refs) in preset_expectations.items():
         preset = config.get("widgetFilterPresets", {}).get(preset_name, {})
         preset_options_ref = preset.get("optionsRef")
         preset_options = preset.get("options")
         if preset_options_ref:
-            if preset_options_ref != "businessDurationOptions":
-                errors.append(f"widgetFilterPresets.{preset_name}.optionsRef should be businessDurationOptions")
+            if preset_options_ref != expected_options_ref:
+                errors.append(f"widgetFilterPresets.{preset_name}.optionsRef should be {expected_options_ref}")
             if "options" in preset:
                 errors.append(f"widgetFilterPresets.{preset_name} should not duplicate options when optionsRef is used")
         elif isinstance(preset_options, list):
-            if preset_options != business_options:
-                errors.append(f"widgetFilterPresets.{preset_name}.options should match dashboardDomainConfig.businessDurationOptions")
+            expected_options = business_options if expected_options_ref == "businessDurationOptions" else liquidity_business_options
+            if preset_options != expected_options:
+                errors.append(f"widgetFilterPresets.{preset_name}.options should match dashboardDomainConfig.{expected_options_ref}")
         else:
             errors.append(f"widgetFilterPresets.{preset_name} should define optionsRef or options")
 
         default_ref = preset.get("defaultValuesRef")
         if default_ref:
-            if default_ref not in {"businessDurationOptions", "businessTypeDefaultValues"}:
+            if default_ref not in allowed_default_refs:
                 errors.append(f"widgetFilterPresets.{preset_name}.defaultValuesRef is unknown: {default_ref}")
             if "defaultValues" in preset:
                 errors.append(f"widgetFilterPresets.{preset_name} should not duplicate defaultValues when defaultValuesRef is used")
@@ -1074,12 +1255,130 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
         if duplicates:
             errors.append("businessStructureGroups contains duplicate business types: " + ", ".join(map(str, duplicates)))
 
+    business_perspectives = domain.get("businessAnalysisPerspectives")
+    required_perspectives = {"interestBalanceStructure", "liquidityBalanceStructure"}
+    if not isinstance(business_perspectives, dict):
+        errors.append("dashboardDomainConfig.businessAnalysisPerspectives should be an object")
+    else:
+        missing_perspectives = sorted(required_perspectives - set(business_perspectives))
+        if missing_perspectives:
+            errors.append("businessAnalysisPerspectives is missing: " + ", ".join(missing_perspectives))
+        for perspective_key in sorted(required_perspectives & set(business_perspectives)):
+            perspective = business_perspectives[perspective_key]
+            if not isinstance(perspective, dict):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key} should be an object")
+                continue
+
+            business_types = perspective.get("businessTypes")
+            if business_types is None and perspective.get("businessTypesRef"):
+                business_types = domain.get(perspective.get("businessTypesRef"))
+            default_types = perspective.get("defaultBusinessTypes")
+            if default_types is None and perspective.get("defaultBusinessTypesRef"):
+                default_types = domain.get(perspective.get("defaultBusinessTypesRef"))
+            perspective_groups = perspective.get("groups")
+            if perspective_groups is None and perspective.get("groupsRef"):
+                perspective_groups = domain.get(perspective.get("groupsRef"))
+            side_map = perspective.get("sideMap")
+            if side_map is None and perspective.get("sideMapRef"):
+                side_map = domain.get(perspective.get("sideMapRef"))
+
+            if not isinstance(perspective.get("label"), str) or not perspective.get("label"):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key}.label should be a non-empty string")
+            if not isinstance(business_types, list) or not business_types:
+                errors.append(f"businessAnalysisPerspectives.{perspective_key} business types should be a non-empty list")
+                continue
+            if not isinstance(default_types, list) or not default_types or any(item not in business_types for item in default_types):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key} default business types should belong to its business types")
+            if not isinstance(perspective_groups, list) or not perspective_groups:
+                errors.append(f"businessAnalysisPerspectives.{perspective_key} groups should be a non-empty list")
+            else:
+                perspective_grouped_items = [
+                    item
+                    for group in perspective_groups
+                    if isinstance(group, dict) and isinstance(group.get("items"), list)
+                    for item in group["items"]
+                ]
+                if sorted(perspective_grouped_items) != sorted(business_types):
+                    errors.append(f"businessAnalysisPerspectives.{perspective_key} groups should cover its business types exactly once")
+            if not isinstance(side_map, dict) or any(item not in side_map for item in business_types):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key} side map should cover every business type")
+            if perspective_key == "liquidityBalanceStructure":
+                if business_types != liquidity_business_options:
+                    errors.append("businessAnalysisPerspectives.liquidityBalanceStructure business types should match liquidityBusinessTypes")
+                if perspective.get("totalCategories") != ["资产", "负债"]:
+                    errors.append("liquidityBalanceStructure totalCategories should be 资产 and 负债")
+                if perspective.get("totalRowLabels") != {"资产": "资产合计", "负债": "负债合计"}:
+                    errors.append("liquidityBalanceStructure total rows should be 资产合计 and 负债合计")
+                direction_map = perspective.get("cashFlowDirectionMap")
+                if not isinstance(direction_map, dict) or any(item not in direction_map for item in business_types):
+                    errors.append("businessAnalysisPerspectives.liquidityBalanceStructure cashFlowDirectionMap should cover every business type")
+                elif any(direction_map[item] not in {"inflow", "outflow"} for item in business_types):
+                    errors.append("liquidity cashFlowDirectionMap values should be inflow or outflow")
+            metric_labels = perspective.get("balanceMetricLabels")
+            if not isinstance(metric_labels, list) or len(metric_labels) != 4:
+                errors.append(f"businessAnalysisPerspectives.{perspective_key}.balanceMetricLabels should contain four labels")
+            metric_columns = perspective.get("structureMetricColumns")
+            metric_columns_by_scope = perspective.get("structureMetricColumnsByScope")
+            if metric_columns_by_scope is not None:
+                if not isinstance(metric_columns_by_scope, dict) or any(
+                    not isinstance(metric_columns_by_scope.get(scope), list)
+                    or not metric_columns_by_scope[scope]
+                    or any(
+                        not isinstance(column, dict) or not column.get("key") or not column.get("label")
+                        for column in metric_columns_by_scope[scope]
+                    )
+                    for scope in ("stock", "new", "maturity")
+                ):
+                    errors.append(
+                        f"businessAnalysisPerspectives.{perspective_key}.structureMetricColumnsByScope "
+                        "should define keyed columns for stock, new and maturity"
+                    )
+            elif not isinstance(metric_columns, list) or not metric_columns or any(
+                not isinstance(column, dict) or not column.get("key") or not (column.get("label") or column.get("stockLabel"))
+                for column in metric_columns
+            ):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key}.structureMetricColumns should define keyed columns")
+            detail_columns = perspective.get("detailColumns")
+            detail_columns_by_scope = perspective.get("detailColumnsByScope")
+            if detail_columns_by_scope is not None:
+                if not isinstance(detail_columns_by_scope, dict) or any(
+                    not isinstance(detail_columns_by_scope.get(scope), list)
+                    or not detail_columns_by_scope[scope]
+                    or any(
+                        not isinstance(column, dict) or not column.get("key") or not column.get("label")
+                        for column in detail_columns_by_scope[scope]
+                    )
+                    for scope in ("stock", "new", "maturity")
+                ):
+                    errors.append(
+                        f"businessAnalysisPerspectives.{perspective_key}.detailColumnsByScope "
+                        "should define keyed columns for stock, new and maturity"
+                    )
+            elif not isinstance(detail_columns, list) or not detail_columns or any(
+                not isinstance(column, dict) or not column.get("key") or not column.get("label")
+                for column in detail_columns
+            ):
+                errors.append(f"businessAnalysisPerspectives.{perspective_key}.detailColumns should define keyed columns")
+
+    business_methodology = domain.get("businessChangeMethodology")
+    if not isinstance(business_methodology, dict):
+        errors.append("dashboardDomainConfig.businessChangeMethodology should be an object")
+    else:
+        for methodology_key in ("newMonthly", "newDaily", "maturityMonthly", "maturityDaily"):
+            methodology_item = business_methodology.get(methodology_key)
+            if not isinstance(methodology_item, dict):
+                errors.append(f"businessChangeMethodology.{methodology_key} should be an object")
+                continue
+            for key in ("title", "logic"):
+                if not isinstance(methodology_item.get(key), str) or not methodology_item.get(key):
+                    errors.append(f"businessChangeMethodology.{methodology_key}.{key} should be a non-empty string")
+
     for key in ("liquidityGapTenorOptions", "rateTypeOptions", "simulationFundingRoleOptions"):
         values = domain.get(key)
         if not isinstance(values, list) or not values:
             errors.append(f"dashboardDomainConfig.{key} should be a non-empty list")
-    if "30D" not in (domain.get("liquidityGapTenorOptions") or []):
-        errors.append("liquidityGapTenorOptions should include 30D")
+    if domain.get("liquidityGapTenorOptions") != ["1D", "7D", "30D", "3M", "1Y"]:
+        errors.append("liquidityGapTenorOptions should be 1D, 7D, 30D, 3M, 1Y")
     for role in ("资金来源", "资金运用"):
         if role not in (domain.get("simulationFundingRoleOptions") or []):
             errors.append(f"simulationFundingRoleOptions should include {role}")

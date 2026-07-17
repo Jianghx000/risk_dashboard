@@ -1,5 +1,720 @@
 ﻿/* Simulation modal, draft, and chart overlay behavior. */
 
+const REPRICING_GAP_SIMULATION_WIDGET_SEQ = 9;
+const LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ = 49;
+const REPRICING_GAP_BUCKETS = [
+  "隔夜", "隔夜~1个月", "1~2个月", "2~3个月", "3~4个月", "4~5个月", "5~6个月",
+  "6~7个月", "7~8个月", "8~9个月", "9~10个月", "10~11个月", "11~12个月",
+];
+const LIQUIDITY_CASH_FLOW_BUCKETS = DOMAIN_CONFIG.liquidityCashFlowSimulationBuckets || [
+  "次日", "2日至7日", "8日至30日", "31日至90日", "91日至1年",
+];
+const LIQUIDITY_CASH_FLOW_BUCKET_MAX_DAYS = [1, 7, 30, 90, 365];
+const REPRICING_GAP_DERIVATIVE_TYPES = DOMAIN_CONFIG.repricingGapSimulationDerivativeTypes || [];
+const REPRICING_GAP_DERIVATIVE_SIDE_MAP = DOMAIN_CONFIG.repricingGapSimulationDerivativeSideMap || {};
+
+function isRepricingGapSimulationWidget(widgetOrSeq) {
+  const seq = Number(typeof widgetOrSeq === "object" ? (widgetOrSeq?.sourceSeq || widgetOrSeq?.seq) : widgetOrSeq);
+  return seq === REPRICING_GAP_SIMULATION_WIDGET_SEQ;
+}
+
+function isLiquidityGapSimulationWidget(widgetOrSeq) {
+  const seq = Number(typeof widgetOrSeq === "object" ? (widgetOrSeq?.sourceSeq || widgetOrSeq?.seq) : widgetOrSeq);
+  return seq === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ;
+}
+
+function getRepricingGapSimulationGroups() {
+  const onBalanceGroups = BUSINESS_STRUCTURE_GROUPS.filter((group) => ["生息资产", "付息负债"].includes(group.category));
+  if (!REPRICING_GAP_DERIVATIVE_TYPES.length) return onBalanceGroups;
+  return [
+    ...onBalanceGroups,
+    { category: "表外衍生品", items: REPRICING_GAP_DERIVATIVE_TYPES },
+  ];
+}
+
+function getRepricingGapSimulationBusinessTypes() {
+  return getRepricingGapSimulationGroups().flatMap((group) => group.items);
+}
+
+function getRepricingGapCurrentDate() {
+  return appState.globalEndDate || getDefaultGlobalEndDate();
+}
+
+function getMonthEndDateValue(dateValue, offsetMonths = 0) {
+  const date = parseDateValue(dateValue) || parseDateValue(getRepricingGapCurrentDate()) || new Date();
+  return formatDateValue(new Date(date.getFullYear(), date.getMonth() + offsetMonths + 1, 0));
+}
+
+function getDefaultRepricingGapTargetDate() {
+  return getMonthEndDateValue(getRepricingGapCurrentDate(), 1);
+}
+
+function getRepricingGapBucketIndex(targetDateValue, repricingDateValue) {
+  const targetDate = parseDateValue(targetDateValue);
+  const repricingDate = parseDateValue(repricingDateValue);
+  if (!targetDate || !repricingDate) return REPRICING_GAP_BUCKETS.length - 1;
+  const dayDifference = Math.max(0, Math.ceil((repricingDate - targetDate) / 86400000));
+  if (dayDifference <= 1) return 0;
+  return clampNumber(Math.ceil(dayDifference / 30), 1, REPRICING_GAP_BUCKETS.length - 1);
+}
+
+function rollRepricingDateBeyondTarget(repricingDateValue, targetDateValue, frequencyMonths = 1) {
+  let repricingDate = parseDateValue(repricingDateValue);
+  const targetDate = parseDateValue(targetDateValue);
+  if (!repricingDate || !targetDate) return repricingDateValue || targetDateValue;
+  const stepMonths = Math.max(1, Number(frequencyMonths || 1));
+  let guard = 0;
+  while (repricingDate <= targetDate && guard < 60) {
+    repricingDate = parseDateValue(addMonthsDateValue(formatDateValue(repricingDate), stepMonths));
+    guard += 1;
+  }
+  return formatDateValue(repricingDate);
+}
+
+function buildCurrentRepricingGapMatrix() {
+  const matrix = {};
+  getRepricingGapSimulationGroups().forEach((group, groupIndex) => {
+    group.items.forEach((businessType, rowIndex) => {
+      matrix[businessType] = REPRICING_GAP_BUCKETS.map((_, bucketIndex) => {
+        const wave = ((rowIndex + 2) * (bucketIndex + 3) + groupIndex * 7) % 17;
+        const base = groupIndex === 0 ? 30 + rowIndex * 7 : 16 + rowIndex * 4.5;
+        return Number((base + wave * 1.7).toFixed(1));
+      });
+    });
+  });
+  return matrix;
+}
+
+function buildCurrentRepricingBusinessDetails() {
+  const currentDate = getRepricingGapCurrentDate();
+  const matrix = buildCurrentRepricingGapMatrix();
+  const details = [];
+  getRepricingGapSimulationGroups().forEach((group, groupIndex) => {
+    group.items.forEach((businessType, rowIndex) => {
+      (matrix[businessType] || []).forEach((amount, bucketIndex) => {
+        [0.58, 0.42].forEach((share, partIndex) => {
+          const nextRepricingDate = bucketIndex === 0
+            ? addDays(currentDate, 1)
+            : addDays(addMonthsDateValue(currentDate, Math.max(0, bucketIndex - 1)), bucketIndex === 1 ? 15 : 12);
+          const maturityMonths = groupIndex === 1 && businessType === "活期存款"
+            ? 36
+            : 2 + bucketIndex + ((rowIndex * 3 + partIndex * 7 + groupIndex * 5) % 19);
+          details.push({
+            id: `RG-${groupIndex + 1}-${rowIndex + 1}-${bucketIndex + 1}-${partIndex + 1}`,
+            businessType,
+            amount: Number((amount * share).toFixed(1)),
+            maturityDate: getMonthEndDateValue(addMonthsDateValue(currentDate, maturityMonths)),
+            nextRepricingDate,
+            repricingMonths: String(Math.max(1, Math.min(12, bucketIndex || 1))),
+          });
+        });
+      });
+    });
+  });
+  return details;
+}
+
+function buildRunoffRepricingGapMatrix(targetDateValue) {
+  const matrix = Object.fromEntries(getRepricingGapSimulationBusinessTypes().map((businessType) => [
+    businessType,
+    REPRICING_GAP_BUCKETS.map(() => 0),
+  ]));
+  buildCurrentRepricingBusinessDetails().forEach((detail) => {
+    if (detail.maturityDate <= targetDateValue) return;
+    const effectiveRepricingDate = rollRepricingDateBeyondTarget(
+      detail.nextRepricingDate,
+      targetDateValue,
+      detail.repricingMonths
+    );
+    const bucketIndex = getRepricingGapBucketIndex(targetDateValue, effectiveRepricingDate);
+    matrix[detail.businessType][bucketIndex] = Number((matrix[detail.businessType][bucketIndex] + detail.amount).toFixed(1));
+  });
+  return matrix;
+}
+
+function buildSubjectiveRepricingGapMatrix() {
+  return Object.fromEntries(getRepricingGapSimulationBusinessTypes().map((businessType) => [
+    businessType,
+    REPRICING_GAP_BUCKETS.map(() => 0),
+  ]));
+}
+
+function normalizeRepricingGapBaseSource(source) {
+  if (source === "dynamic") return "runoff";
+  if (["current", "runoff", "subjective", "upload"].includes(source)) return source;
+  return "subjective";
+}
+
+function buildRepricingGapBaseMatrix(source = "current", targetDateValue = getDefaultRepricingGapTargetDate()) {
+  const normalizedSource = normalizeRepricingGapBaseSource(source);
+  if (normalizedSource === "runoff") return buildRunoffRepricingGapMatrix(targetDateValue);
+  if (["subjective", "upload"].includes(normalizedSource)) return buildSubjectiveRepricingGapMatrix();
+  return buildCurrentRepricingGapMatrix();
+}
+
+function cloneRepricingGapMatrix(matrix = {}) {
+  return Object.fromEntries(getRepricingGapSimulationBusinessTypes().map((businessType) => [
+    businessType,
+    Array.from({ length: REPRICING_GAP_BUCKETS.length }, (_, bucketIndex) =>
+      Number(matrix[businessType]?.[bucketIndex] || 0)
+    ),
+  ]));
+}
+
+function calculateRepricingGapMatrixMetrics(matrix = {}) {
+  const groups = getRepricingGapSimulationGroups();
+  const assetGroup = groups.find((group) => group.category === "生息资产");
+  const liabilityGroup = groups.find((group) => group.category === "付息负债");
+  const derivativeAssetTypes = REPRICING_GAP_DERIVATIVE_TYPES.filter((businessType) =>
+    REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] === "asset"
+  );
+  const derivativeLiabilityTypes = REPRICING_GAP_DERIVATIVE_TYPES.filter((businessType) =>
+    REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] === "liability"
+  );
+  const bucketMidpointMonths = [0, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5];
+  const bucketWeights = bucketMidpointMonths.map((month) => Math.max(0, (12 - month) / 12));
+  const sumRows = (businessTypes, weighted = false) => businessTypes.reduce((total, businessType) =>
+    total + (matrix[businessType] || []).reduce((rowTotal, value, bucketIndex) =>
+      rowTotal + Number(value || 0) * (weighted ? bucketWeights[bucketIndex] : 1), 0
+    ), 0
+  );
+  const totalInterestAssets = sumRows(assetGroup?.items || []);
+  const totalInterestLiabilities = sumRows(liabilityGroup?.items || []);
+  const adjustedInterestAssets = sumRows([...(assetGroup?.items || []), ...derivativeAssetTypes], true);
+  const adjustedInterestLiabilities = sumRows([...(liabilityGroup?.items || []), ...derivativeLiabilityTypes], true);
+  const repricingGap = adjustedInterestAssets - adjustedInterestLiabilities;
+  const ratio = totalInterestAssets
+    ? Number(((repricingGap / totalInterestAssets) * 100).toFixed(2))
+    : 0;
+  return {
+    totalInterestAssets: Number(totalInterestAssets.toFixed(1)),
+    totalInterestLiabilities: Number(totalInterestLiabilities.toFixed(1)),
+    adjustedInterestAssets: Number(adjustedInterestAssets.toFixed(1)),
+    adjustedInterestLiabilities: Number(adjustedInterestLiabilities.toFixed(1)),
+    repricingGap: Number(repricingGap.toFixed(1)),
+    ratio,
+  };
+}
+
+function applyNewBusinessToRepricingGapMatrix(baseMatrix, entries = [], targetDateValue) {
+  const simulatedMatrix = cloneRepricingGapMatrix(baseMatrix);
+  const supportedBusinessTypes = new Set(getRepricingGapSimulationBusinessTypes());
+  const entryImpacts = entries.map((entry, entryIndex) => {
+    const scale = Number(entry.scale || 0);
+    if (!supportedBusinessTypes.has(entry.businessType)) {
+      return { entryIndex, included: false, reason: "业务类型不属于重定价缺口表" };
+    }
+    if (!entry.occurrenceDate || entry.occurrenceDate > targetDateValue) {
+      return { entryIndex, included: false, reason: "发生时间晚于基准日期" };
+    }
+    const initialRepricingDate = entry.nextRepricingDate
+      || addMonthsDateValue(entry.occurrenceDate, Number(entry.repricingMonths || 1));
+    const effectiveRepricingDate = rollRepricingDateBeyondTarget(
+      initialRepricingDate,
+      targetDateValue,
+      entry.repricingMonths
+    );
+    const bucketIndex = getRepricingGapBucketIndex(targetDateValue, effectiveRepricingDate);
+    const currentValue = Number(simulatedMatrix[entry.businessType]?.[bucketIndex] || 0);
+    simulatedMatrix[entry.businessType][bucketIndex] = Number((currentValue + scale).toFixed(1));
+    return {
+      entryIndex,
+      included: true,
+      businessType: entry.businessType,
+      scale,
+      effectiveRepricingDate,
+      bucketIndex,
+      bucket: REPRICING_GAP_BUCKETS[bucketIndex],
+    };
+  });
+  return { simulatedMatrix, entryImpacts };
+}
+
+function buildRepricingGapSimulationResult(scenarioOrDraft) {
+  const baseMatrix = cloneRepricingGapMatrix(scenarioOrDraft?.baseMatrix || buildCurrentRepricingGapMatrix());
+  const targetDate = scenarioOrDraft?.baseDate || getDefaultRepricingGapTargetDate();
+  const { simulatedMatrix, entryImpacts } = applyNewBusinessToRepricingGapMatrix(
+    baseMatrix,
+    scenarioOrDraft?.entries || [],
+    targetDate
+  );
+  return {
+    targetDate,
+    baseMatrix,
+    simulatedMatrix,
+    baseMetrics: calculateRepricingGapMatrixMetrics(baseMatrix),
+    simulatedMetrics: calculateRepricingGapMatrixMetrics(simulatedMatrix),
+    entryImpacts,
+  };
+}
+
+function getRepricingGapBaseSourceLabel(source, baseEdited = false) {
+  const normalizedSource = normalizeRepricingGapBaseSource(source);
+  const label = normalizedSource === "runoff"
+    ? "存量自然到期不续作"
+    : normalizedSource === "subjective"
+      ? "自主编制缺口表"
+      : normalizedSource === "upload"
+        ? "上传缺口表"
+        : "当前缺口表平移";
+  return `${label}${baseEdited ? "（已调整）" : ""}`;
+}
+
+function createDefaultRepricingGapSimulationEntry(baseDate = getDefaultRepricingGapTargetDate()) {
+  const targetDate = parseDateValue(baseDate) || parseDateValue(getDefaultRepricingGapTargetDate());
+  const occurrenceDate = formatDateValue(new Date(targetDate.getFullYear(), targetDate.getMonth(), Math.min(20, targetDate.getDate())));
+  return {
+    occurrenceDate,
+    businessType: getRepricingGapSimulationBusinessTypes()[0] || "",
+    scale: "50",
+    repricingMonths: "3",
+    nextRepricingDate: addMonthsDateValue(occurrenceDate, 3),
+  };
+}
+
+function createRepricingGapSimulationDraftFromScenario(scenario) {
+  const baseDate = scenario?.baseDate || getDefaultRepricingGapTargetDate();
+  const baseSource = normalizeRepricingGapBaseSource(scenario?.baseSource || "current");
+  const entries = Array.isArray(scenario?.entries) && scenario.entries.length
+    ? scenario.entries.map((entry) => ({
+      occurrenceDate: entry.occurrenceDate || baseDate,
+      businessType: entry.businessType || getRepricingGapSimulationBusinessTypes()[0] || "",
+      scale: String(entry.scale ?? 50),
+      repricingMonths: String(entry.repricingMonths || "3"),
+      nextRepricingDate: entry.nextRepricingDate || addMonthsDateValue(entry.occurrenceDate || baseDate, Number(entry.repricingMonths || 3)),
+    }))
+    : [createDefaultRepricingGapSimulationEntry(baseDate)];
+  return {
+    simulationKind: "repricingGap",
+    baseDate,
+    baseSource,
+    baseMatrix: cloneRepricingGapMatrix(scenario?.baseMatrix || buildRepricingGapBaseMatrix(baseSource, baseDate)),
+    entries,
+    uploadFileName: "",
+    baseEdited: Boolean(scenario?.baseEdited),
+  };
+}
+
+function getRepricingGapSimulationDraft() {
+  if (appState.simulationDraft?.simulationKind !== "repricingGap" || !appState.simulationDraft?.baseMatrix) {
+    appState.simulationDraft = createRepricingGapSimulationDraftFromScenario();
+  }
+  return appState.simulationDraft;
+}
+
+function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSimulationDraft()) {
+  const pageFilters = ensurePageFilterState(page);
+  const entries = (draft.entries || []).map((entry) => {
+    const scale = Number(entry.scale || 0);
+    return {
+      occurrenceDate: entry.occurrenceDate || draft.baseDate,
+      businessType: entry.businessType || getRepricingGapSimulationBusinessTypes()[0] || "",
+      fundingRole: getSimulationFundingRoleByBusinessType(entry.businessType),
+      org: pageFilters.机构?.[0] || "法人汇总",
+      currency: pageFilters.币种?.[0] || "全折人民币",
+      scale: Number.isFinite(scale) ? scale : 0,
+      repricingMonths: String(entry.repricingMonths || "3"),
+      nextRepricingDate: entry.nextRepricingDate || addMonthsDateValue(entry.occurrenceDate || draft.baseDate, Number(entry.repricingMonths || 3)),
+      termMonths: Math.max(1, Number(entry.repricingMonths || 3)),
+      rateType: "固定利率",
+    };
+  });
+  const result = buildRepricingGapSimulationResult({
+    baseDate: draft.baseDate,
+    baseMatrix: draft.baseMatrix,
+    entries,
+  });
+  return {
+    simulationType: SIMULATION_MODE_NEW_BUSINESS,
+    simulationKind: "repricingGap",
+    sourceWidgetSeq: REPRICING_GAP_SIMULATION_WIDGET_SEQ,
+    baseDate: draft.baseDate,
+    baseSource: draft.baseSource,
+    baseMatrix: cloneRepricingGapMatrix(draft.baseMatrix),
+    simulatedMatrix: cloneRepricingGapMatrix(result.simulatedMatrix),
+    baseMetrics: result.baseMetrics,
+    simulatedMetrics: result.simulatedMetrics,
+    entryImpacts: result.entryImpacts,
+    baseEdited: Boolean(draft.baseEdited),
+    entries,
+    scale: entries.reduce((sum, entry) => sum + entry.scale, 0),
+    businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
+    fundingRole: getSharedSimulationValue(entries, "fundingRole", "来源/运用组合"),
+  };
+}
+
+function getLiquidityGapSimulationPerspective() {
+  return getBusinessAnalysisPerspectiveDefinition("liquidityBalanceStructure");
+}
+
+function getLiquidityGapSimulationGroups() {
+  return getLiquidityGapSimulationPerspective().groups || [];
+}
+
+function getLiquidityGapSimulationBusinessTypes() {
+  return getLiquidityGapSimulationGroups().flatMap((group) => group.items || []);
+}
+
+function getLiquidityGapSimulationCurrentDate() {
+  return appState.globalEndDate || getDefaultGlobalEndDate();
+}
+
+function getLiquidityCashFlowBucketIndex(baseDateValue, cashFlowDateValue) {
+  const baseDate = parseDateValue(baseDateValue);
+  const cashFlowDate = parseDateValue(cashFlowDateValue);
+  if (!baseDate || !cashFlowDate) return -1;
+  const dayDifference = Math.ceil((cashFlowDate - baseDate) / 86400000);
+  if (dayDifference < 1 || dayDifference > LIQUIDITY_CASH_FLOW_BUCKET_MAX_DAYS.at(-1)) return -1;
+  return LIQUIDITY_CASH_FLOW_BUCKET_MAX_DAYS.findIndex((maxDays) => dayDifference <= maxDays);
+}
+
+function buildCurrentLiquidityCashFlowGapMatrix() {
+  const perspective = getLiquidityGapSimulationPerspective();
+  const directionMap = perspective.cashFlowDirectionMap || {};
+  const matrix = {};
+  getLiquidityGapSimulationGroups().forEach((group, groupIndex) => {
+    (group.items || []).forEach((businessType, rowIndex) => {
+      const direction = directionMap[businessType] === "outflow" ? -1 : 1;
+      matrix[businessType] = LIQUIDITY_CASH_FLOW_BUCKETS.map((_, bucketIndex) => {
+        const base = 18 + ((groupIndex + 2) * 17 + (rowIndex + 3) * 11 + bucketIndex * 13) % 52;
+        const tenorFactor = [1.08, 1, 0.88, 0.72, 0.56][bucketIndex];
+        return Number((base * tenorFactor * direction).toFixed(1));
+      });
+    });
+  });
+  return matrix;
+}
+
+function buildRunoffLiquidityCashFlowGapMatrix(baseDateValue) {
+  const currentMatrix = buildCurrentLiquidityCashFlowGapMatrix();
+  const currentDate = parseDateValue(getLiquidityGapSimulationCurrentDate());
+  const baseDate = parseDateValue(baseDateValue);
+  const elapsedDays = currentDate && baseDate ? Math.max(0, Math.ceil((baseDate - currentDate) / 86400000)) : 0;
+  const runoffFactor = Math.max(0.42, 1 - elapsedDays / 520);
+  return Object.fromEntries(Object.entries(currentMatrix).map(([businessType, values]) => [
+    businessType,
+    values.map((value, bucketIndex) => Number((value * runoffFactor * (1 - bucketIndex * 0.035)).toFixed(1))),
+  ]));
+}
+
+function buildSubjectiveLiquidityCashFlowGapMatrix() {
+  return Object.fromEntries(getLiquidityGapSimulationBusinessTypes().map((businessType) => [
+    businessType,
+    LIQUIDITY_CASH_FLOW_BUCKETS.map(() => 0),
+  ]));
+}
+
+function normalizeLiquidityGapBaseSource(source) {
+  if (["current", "runoff", "subjective", "upload"].includes(source)) return source;
+  return "subjective";
+}
+
+function buildLiquidityCashFlowGapBaseMatrix(source = "current", baseDateValue = getLiquidityGapSimulationCurrentDate()) {
+  const normalizedSource = normalizeLiquidityGapBaseSource(source);
+  if (normalizedSource === "runoff") return buildRunoffLiquidityCashFlowGapMatrix(baseDateValue);
+  if (["subjective", "upload"].includes(normalizedSource)) return buildSubjectiveLiquidityCashFlowGapMatrix();
+  return buildCurrentLiquidityCashFlowGapMatrix();
+}
+
+function cloneLiquidityCashFlowGapMatrix(matrix = {}) {
+  return Object.fromEntries(getLiquidityGapSimulationBusinessTypes().map((businessType) => [
+    businessType,
+    Array.from({ length: LIQUIDITY_CASH_FLOW_BUCKETS.length }, (_, bucketIndex) =>
+      Number(matrix[businessType]?.[bucketIndex] || 0)
+    ),
+  ]));
+}
+
+function calculateLiquidityCashFlowGapMetrics(matrix = {}) {
+  const businessTypes = getLiquidityGapSimulationBusinessTypes();
+  const bucketTotals = LIQUIDITY_CASH_FLOW_BUCKETS.map((_, bucketIndex) =>
+    Number(businessTypes.reduce(
+      (sum, businessType) => sum + Number(matrix[businessType]?.[bucketIndex] || 0),
+      0
+    ).toFixed(1))
+  );
+  const bucketInflows = LIQUIDITY_CASH_FLOW_BUCKETS.map((_, bucketIndex) =>
+    Number(businessTypes.reduce((sum, businessType) => {
+      const value = Number(matrix[businessType]?.[bucketIndex] || 0);
+      return sum + Math.max(0, value);
+    }, 0).toFixed(1))
+  );
+  const bucketOutflows = LIQUIDITY_CASH_FLOW_BUCKETS.map((_, bucketIndex) =>
+    Number(businessTypes.reduce((sum, businessType) => {
+      const value = Number(matrix[businessType]?.[bucketIndex] || 0);
+      return sum + Math.abs(Math.min(0, value));
+    }, 0).toFixed(1))
+  );
+  const cumulativeTotals = bucketTotals.map((_, bucketIndex) =>
+    Number(bucketTotals.slice(0, bucketIndex + 1).reduce((sum, value) => sum + value, 0).toFixed(1))
+  );
+  const cumulativeInflows = bucketInflows.map((_, bucketIndex) =>
+    Number(bucketInflows.slice(0, bucketIndex + 1).reduce((sum, value) => sum + value, 0).toFixed(1))
+  );
+  const cumulativeOutflows = bucketOutflows.map((_, bucketIndex) =>
+    Number(bucketOutflows.slice(0, bucketIndex + 1).reduce((sum, value) => sum + value, 0).toFixed(1))
+  );
+  const gapRatios = cumulativeTotals.map((gap, bucketIndex) => cumulativeOutflows[bucketIndex]
+    ? Number(((gap / cumulativeOutflows[bucketIndex]) * 100).toFixed(2))
+    : 0
+  );
+  return {
+    bucketTotals,
+    bucketInflows,
+    bucketOutflows,
+    cumulativeTotals,
+    cumulativeInflows,
+    cumulativeOutflows,
+    gapRatios,
+    nextDayGap: cumulativeTotals[0] || 0,
+    thirtyDayGap: cumulativeTotals[2] || 0,
+    ninetyDayGap: cumulativeTotals[3] || 0,
+    oneYearGap: cumulativeTotals[4] || 0,
+  };
+}
+
+function applyNewBusinessToLiquidityCashFlowGapMatrix(baseMatrix, entries = [], baseDateValue) {
+  const simulatedMatrix = cloneLiquidityCashFlowGapMatrix(baseMatrix);
+  const supportedBusinessTypes = new Set(getLiquidityGapSimulationBusinessTypes());
+  const horizonEnd = addDays(baseDateValue, LIQUIDITY_CASH_FLOW_BUCKET_MAX_DAYS.at(-1));
+  const entryImpacts = entries.map((entry, entryIndex) => {
+    if (!supportedBusinessTypes.has(entry.businessType)) {
+      return { entryIndex, included: false, reason: "业务类型不属于流动性现金流缺口表", flowImpacts: [] };
+    }
+    if (!entry.occurrenceDate || entry.occurrenceDate > horizonEnd) {
+      return { entryIndex, included: false, reason: "发生时间超出一年测算区间", flowImpacts: [] };
+    }
+    const flowImpacts = (entry.cashFlows || []).map((cashFlow, cashFlowIndex) => {
+      const amount = Number(cashFlow.amount || 0);
+      const bucketIndex = getLiquidityCashFlowBucketIndex(baseDateValue, cashFlow.date);
+      if (!cashFlow.date || bucketIndex < 0) {
+        return { cashFlowIndex, included: false, reason: "现金流日期不在基准日后一年内" };
+      }
+      if (entry.occurrenceDate && cashFlow.date < entry.occurrenceDate) {
+        return { cashFlowIndex, included: false, reason: "现金流日期早于业务发生时间" };
+      }
+      const currentValue = Number(simulatedMatrix[entry.businessType]?.[bucketIndex] || 0);
+      simulatedMatrix[entry.businessType][bucketIndex] = Number((currentValue + amount).toFixed(1));
+      return {
+        cashFlowIndex,
+        included: true,
+        date: cashFlow.date,
+        amount,
+        bucketIndex,
+        bucket: LIQUIDITY_CASH_FLOW_BUCKETS[bucketIndex],
+      };
+    });
+    return {
+      entryIndex,
+      included: flowImpacts.some((impact) => impact.included),
+      businessType: entry.businessType,
+      scale: Number(entry.scale || 0),
+      flowImpacts,
+    };
+  });
+  return { simulatedMatrix, entryImpacts };
+}
+
+function buildLiquidityGapSimulationResult(scenarioOrDraft) {
+  const baseDate = scenarioOrDraft?.baseDate || getLiquidityGapSimulationCurrentDate();
+  const baseMatrix = cloneLiquidityCashFlowGapMatrix(
+    scenarioOrDraft?.baseMatrix || buildCurrentLiquidityCashFlowGapMatrix()
+  );
+  const { simulatedMatrix, entryImpacts } = applyNewBusinessToLiquidityCashFlowGapMatrix(
+    baseMatrix,
+    scenarioOrDraft?.entries || [],
+    baseDate
+  );
+  return {
+    baseDate,
+    baseMatrix,
+    simulatedMatrix,
+    baseMetrics: calculateLiquidityCashFlowGapMetrics(baseMatrix),
+    simulatedMetrics: calculateLiquidityCashFlowGapMetrics(simulatedMatrix),
+    entryImpacts,
+  };
+}
+
+function getLiquidityGapBaseSourceLabel(source, baseEdited = false) {
+  const normalizedSource = normalizeLiquidityGapBaseSource(source);
+  const label = normalizedSource === "runoff"
+    ? "存量现金流滚动"
+    : normalizedSource === "subjective"
+      ? "自主编制现金流缺口表"
+      : normalizedSource === "upload"
+        ? "上传现金流缺口表"
+        : "当前现金流缺口表";
+  return `${label}${baseEdited ? "（已调整）" : ""}`;
+}
+
+function createDefaultLiquidityGapCashFlow(baseDateValue, occurrenceDateValue, amount = "-50") {
+  const occurrenceDate = occurrenceDateValue || addDays(baseDateValue, 1);
+  return { date: occurrenceDate, amount: String(amount) };
+}
+
+function createDefaultLiquidityGapSimulationEntry(baseDateValue = getLiquidityGapSimulationCurrentDate()) {
+  const occurrenceDate = addDays(baseDateValue, 1);
+  const businessTypes = getLiquidityGapSimulationBusinessTypes();
+  return {
+    occurrenceDate,
+    businessType: businessTypes.includes("各项贷款") ? "各项贷款" : businessTypes[0] || "",
+    scale: "50",
+    cashFlows: [createDefaultLiquidityGapCashFlow(baseDateValue, occurrenceDate)],
+  };
+}
+
+function createLiquidityGapSimulationDraftFromScenario(scenario) {
+  const baseDate = scenario?.baseDate || getLiquidityGapSimulationCurrentDate();
+  const baseSource = normalizeLiquidityGapBaseSource(scenario?.baseSource || "current");
+  const entries = Array.isArray(scenario?.entries) && scenario.entries.length
+    ? scenario.entries.map((entry) => ({
+      occurrenceDate: entry.occurrenceDate || addDays(baseDate, 1),
+      businessType: entry.businessType || getLiquidityGapSimulationBusinessTypes()[0] || "",
+      scale: String(entry.scale ?? 50),
+      cashFlows: Array.isArray(entry.cashFlows) && entry.cashFlows.length
+        ? entry.cashFlows.map((cashFlow) => ({
+          date: cashFlow.date || entry.occurrenceDate || addDays(baseDate, 1),
+          amount: String(cashFlow.amount ?? 0),
+        }))
+        : [createDefaultLiquidityGapCashFlow(baseDate, entry.occurrenceDate, entry.scale ?? -50)],
+    }))
+    : [createDefaultLiquidityGapSimulationEntry(baseDate)];
+  return {
+    simulationKind: "liquidityGap",
+    baseDate,
+    baseSource,
+    baseMatrix: cloneLiquidityCashFlowGapMatrix(
+      scenario?.baseMatrix || buildLiquidityCashFlowGapBaseMatrix(baseSource, baseDate)
+    ),
+    entries,
+    uploadFileName: "",
+    baseEdited: Boolean(scenario?.baseEdited),
+  };
+}
+
+function getLiquidityGapSimulationDraft() {
+  if (appState.simulationDraft?.simulationKind !== "liquidityGap" || !appState.simulationDraft?.baseMatrix) {
+    appState.simulationDraft = createLiquidityGapSimulationDraftFromScenario();
+  }
+  return appState.simulationDraft;
+}
+
+function getLiquiditySimulationFundingRoleByBusinessType(businessType) {
+  const side = getLiquidityGapSimulationPerspective().sideMap?.[businessType];
+  return ["liability", "offBalanceOutflow"].includes(side) ? "资金来源" : "资金运用";
+}
+
+function normalizeLiquidityGapSimulationScenario(page, draft = getLiquidityGapSimulationDraft()) {
+  const pageFilters = ensurePageFilterState(page);
+  const entries = (draft.entries || []).map((entry) => {
+    const scale = Number(entry.scale || 0);
+    const cashFlows = (entry.cashFlows || []).map((cashFlow) => {
+      const amount = Number(cashFlow.amount || 0);
+      return {
+        date: cashFlow.date || entry.occurrenceDate || addDays(draft.baseDate, 1),
+        amount: Number.isFinite(amount) ? amount : 0,
+      };
+    });
+    const latestCashFlowDate = cashFlows.map((cashFlow) => cashFlow.date).sort().at(-1) || entry.occurrenceDate;
+    const baseDate = parseDateValue(draft.baseDate);
+    const latestDate = parseDateValue(latestCashFlowDate);
+    const termMonths = baseDate && latestDate ? Math.max(1, Math.ceil((latestDate - baseDate) / 2592000000)) : 1;
+    return {
+      occurrenceDate: entry.occurrenceDate || addDays(draft.baseDate, 1),
+      businessType: entry.businessType || getLiquidityGapSimulationBusinessTypes()[0] || "",
+      fundingRole: getLiquiditySimulationFundingRoleByBusinessType(entry.businessType),
+      org: pageFilters.机构?.[0] || "法人汇总",
+      currency: pageFilters.币种?.[0] || "全折人民币",
+      scale: Number.isFinite(scale) ? scale : 0,
+      termMonths,
+      cashFlows,
+    };
+  });
+  const result = buildLiquidityGapSimulationResult({
+    baseDate: draft.baseDate,
+    baseMatrix: draft.baseMatrix,
+    entries,
+  });
+  const totalCashFlow = entries.reduce((sum, entry) =>
+    sum + entry.cashFlows.reduce((flowSum, cashFlow) => flowSum + Number(cashFlow.amount || 0), 0), 0
+  );
+  return {
+    simulationType: SIMULATION_MODE_NEW_BUSINESS,
+    simulationKind: "liquidityGap",
+    sourceWidgetSeq: LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ,
+    baseDate: draft.baseDate,
+    baseSource: draft.baseSource,
+    baseMatrix: cloneLiquidityCashFlowGapMatrix(draft.baseMatrix),
+    simulatedMatrix: cloneLiquidityCashFlowGapMatrix(result.simulatedMatrix),
+    baseMetrics: result.baseMetrics,
+    simulatedMetrics: result.simulatedMetrics,
+    entryImpacts: result.entryImpacts,
+    baseEdited: Boolean(draft.baseEdited),
+    entries,
+    scale: Number(entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0).toFixed(1)),
+    totalCashFlow: Number(totalCashFlow.toFixed(1)),
+    businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
+    fundingRole: totalCashFlow < 0 ? "资金来源" : "资金运用",
+    termMonths: Math.max(1, ...entries.map((entry) => Number(entry.termMonths || 1))),
+  };
+}
+
+function renderWidgetSimulationButton(widget) {
+  const pageId = getCurrentPage()?.id;
+  if (isRepricingGapSimulationWidget(widget) && pageId === "interest-risk") {
+    return `<button class="widget-action widget-action--simulation" type="button" data-open-simulation="interest-risk" data-simulation-widget="${REPRICING_GAP_SIMULATION_WIDGET_SEQ}">模拟测算</button>`;
+  }
+  if (isLiquidityGapSimulationWidget(widget) && pageId === "liquidity-risk") {
+    return `<button class="widget-action widget-action--simulation" type="button" data-open-simulation="liquidity-risk" data-simulation-widget="${LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ}">模拟测算</button>`;
+  }
+  return "";
+}
+
+function renderWidgetSimulationSummary(widget) {
+  const pageId = getCurrentPage()?.id;
+  const simulation = getPageSimulation(pageId);
+  if (!simulation) return "";
+  if (isRepricingGapSimulationWidget(widget) && Number(simulation.sourceWidgetSeq) === REPRICING_GAP_SIMULATION_WIDGET_SEQ) {
+    const totalScale = getSimulationEntries(simulation).reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
+    const result = buildRepricingGapSimulationResult(simulation);
+    const ratioDelta = Number((result.simulatedMetrics.ratio - result.baseMetrics.ratio).toFixed(2));
+    return `
+      <div class="simulation-summary simulation-summary--widget">
+        <span class="simulation-summary__item">测算基准：${simulation.baseDate}</span>
+        <span class="simulation-summary__item">${getRepricingGapBaseSourceLabel(simulation.baseSource, simulation.baseEdited)}</span>
+        <span class="simulation-summary__item">新业务：${getSimulationEntries(simulation).length}笔</span>
+        <span class="simulation-summary__item">规模净额：${Number(totalScale.toFixed(1))}亿元</span>
+        <span class="simulation-summary__item">基准：${result.baseMetrics.ratio.toFixed(2)}%</span>
+        <span class="simulation-summary__item">测算后：${result.simulatedMetrics.ratio.toFixed(2)}%</span>
+        <span class="simulation-summary__item">变化：${ratioDelta >= 0 ? "+" : ""}${ratioDelta.toFixed(2)}pct</span>
+        <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}" data-simulation-widget="${REPRICING_GAP_SIMULATION_WIDGET_SEQ}">调整测算</button>
+        <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
+      </div>
+    `;
+  }
+  if (isLiquidityGapSimulationWidget(widget) && Number(simulation.sourceWidgetSeq) === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ) {
+    const result = buildLiquidityGapSimulationResult(simulation);
+    const totalScale = getSimulationEntries(simulation).reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
+    const cashFlowCount = getSimulationEntries(simulation).reduce((sum, entry) => sum + (entry.cashFlows || []).length, 0);
+    const gapDelta = Number((result.simulatedMetrics.oneYearGap - result.baseMetrics.oneYearGap).toFixed(1));
+    return `
+      <div class="simulation-summary simulation-summary--widget">
+        <span class="simulation-summary__item">测算基准：${simulation.baseDate}</span>
+        <span class="simulation-summary__item">${getLiquidityGapBaseSourceLabel(simulation.baseSource, simulation.baseEdited)}</span>
+        <span class="simulation-summary__item">新业务：${getSimulationEntries(simulation).length}笔</span>
+        <span class="simulation-summary__item">现金流：${cashFlowCount}笔</span>
+        <span class="simulation-summary__item">业务规模：${Number(totalScale.toFixed(1))}亿元</span>
+        <span class="simulation-summary__item">基准1年累计缺口：${result.baseMetrics.oneYearGap.toFixed(1)}亿元</span>
+        <span class="simulation-summary__item">测算后：${result.simulatedMetrics.oneYearGap.toFixed(1)}亿元</span>
+        <span class="simulation-summary__item">变化：${gapDelta >= 0 ? "+" : ""}${gapDelta.toFixed(1)}亿元</span>
+        <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}" data-simulation-widget="${LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ}">调整测算</button>
+        <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
+      </div>
+    `;
+  }
+  return "";
+}
+
 function getPageSimulation(pageId = getCurrentPage()?.id) {
   if (!pageId) return null;
   return appState.pageSimulations[pageId] || null;
@@ -49,15 +764,29 @@ function getDefaultSimulationDraftMode(page, simulation) {
 
 function closeSimulationModal() {
   appState.simulationModalPageId = null;
+  appState.simulationModalWidgetSeq = null;
   appState.simulationDraftMode = SIMULATION_MODE_NEW_BUSINESS;
   appState.simulationDraft = null;
   appState.hedgeSimulationDraft = null;
 }
 
-function openSimulationModal(pageId) {
+function openSimulationModal(pageId, widgetSeq = null) {
   const page = data.pages.find((item) => item.id === pageId) || getCurrentPage();
   const simulation = getPageSimulation(pageId);
   appState.simulationModalPageId = pageId;
+  appState.simulationModalWidgetSeq = Number(widgetSeq || simulation?.sourceWidgetSeq || 0) || null;
+  if (isRepricingGapSimulationWidget(appState.simulationModalWidgetSeq)) {
+    appState.simulationDraftMode = SIMULATION_MODE_NEW_BUSINESS;
+    appState.simulationDraft = createRepricingGapSimulationDraftFromScenario(simulation);
+    appState.hedgeSimulationDraft = null;
+    return;
+  }
+  if (isLiquidityGapSimulationWidget(appState.simulationModalWidgetSeq)) {
+    appState.simulationDraftMode = SIMULATION_MODE_NEW_BUSINESS;
+    appState.simulationDraft = createLiquidityGapSimulationDraftFromScenario(simulation);
+    appState.hedgeSimulationDraft = null;
+    return;
+  }
   appState.simulationDraftMode = getDefaultSimulationDraftMode(page, simulation);
   appState.simulationDraft = createSimulationDraftFromScenario(
     page,
@@ -98,7 +827,8 @@ function getDefaultSimulationFundingRole(entryIndex = 0) {
 }
 
 function getSimulationFundingRoleByBusinessType(businessType) {
-  return BUSINESS_SIDE_MAP[businessType] === "liability" ? "资金来源" : "资金运用";
+  const side = REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] || BUSINESS_SIDE_MAP[businessType];
+  return side === "liability" ? "资金来源" : "资金运用";
 }
 
 function normalizeSimulationEntryRole(entry, entryIndex = 0) {
@@ -534,12 +1264,511 @@ function renderHedgeSimulationPanel(page) {
   `;
 }
 
+function sumRepricingGapValues(values = []) {
+  return Number(values.reduce((sum, value) => sum + Number(value || 0), 0).toFixed(1));
+}
+
+function renderRepricingGapBaseTable(draft) {
+  const renderBusinessRow = (businessType) => {
+    const values = draft.baseMatrix[businessType] || REPRICING_GAP_BUCKETS.map(() => 0);
+    return `
+      <tr data-repricing-base-row="${businessType}">
+        <th scope="row">${businessType}</th>
+        <td class="repricing-base-table__total">${sumRepricingGapValues(values)}</td>
+        ${values.map((value, bucketIndex) => `
+          <td>
+            <input
+              type="number"
+              step="0.1"
+              value="${Number(value || 0)}"
+              aria-label="${businessType} ${REPRICING_GAP_BUCKETS[bucketIndex]}"
+              data-repricing-base-cell="true"
+              data-business-type="${businessType}"
+              data-bucket-index="${bucketIndex}"
+            >
+          </td>
+        `).join("")}
+      </tr>
+    `;
+  };
+  const renderTotalRow = (group) => {
+    const bucketTotals = REPRICING_GAP_BUCKETS.map((_, bucketIndex) =>
+      sumRepricingGapValues(group.items.map((businessType) => draft.baseMatrix[businessType]?.[bucketIndex] || 0))
+    );
+    return `
+      <tr class="repricing-base-table__group-total" data-repricing-base-total="${group.category}">
+        <th scope="row">${group.category}总计</th>
+        <td>${sumRepricingGapValues(bucketTotals)}</td>
+        ${bucketTotals.map((value) => `<td>${value}</td>`).join("")}
+      </tr>
+    `;
+  };
+  return `
+    <div class="repricing-base-table-wrap">
+      <table class="repricing-base-table">
+        <thead>
+          <tr>
+            <th scope="col">业务类别</th>
+            <th scope="col">汇总</th>
+            ${REPRICING_GAP_BUCKETS.map((bucket) => `<th scope="col">${bucket}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${getRepricingGapSimulationGroups().map((group) => `${group.items.map(renderBusinessRow).join("")}${renderTotalRow(group)}`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderRepricingGapResultTable(matrix) {
+  const renderBusinessRow = (businessType) => {
+    const values = matrix[businessType] || REPRICING_GAP_BUCKETS.map(() => 0);
+    return `
+      <tr data-repricing-result-row="${businessType}">
+        <th scope="row">${businessType}</th>
+        <td class="repricing-base-table__total">${sumRepricingGapValues(values)}</td>
+        ${values.map((value) => `<td>${Number(value || 0).toFixed(1)}</td>`).join("")}
+      </tr>
+    `;
+  };
+  const renderTotalRow = (group) => {
+    const bucketTotals = REPRICING_GAP_BUCKETS.map((_, bucketIndex) =>
+      sumRepricingGapValues(group.items.map((businessType) => matrix[businessType]?.[bucketIndex] || 0))
+    );
+    return `
+      <tr class="repricing-base-table__group-total" data-repricing-result-total="${group.category}">
+        <th scope="row">${group.category}总计</th>
+        <td>${sumRepricingGapValues(bucketTotals)}</td>
+        ${bucketTotals.map((value) => `<td>${value.toFixed(1)}</td>`).join("")}
+      </tr>
+    `;
+  };
+  return `
+    <div class="repricing-base-table-wrap">
+      <table class="repricing-base-table repricing-result-table">
+        <thead>
+          <tr>
+            <th scope="col">业务类别</th>
+            <th scope="col">汇总</th>
+            ${REPRICING_GAP_BUCKETS.map((bucket) => `<th scope="col">${bucket}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${getRepricingGapSimulationGroups().map((group) => `${group.items.map(renderBusinessRow).join("")}${renderTotalRow(group)}`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderRepricingGapSimulationEntry(entry, entryIndex, entryCount) {
+  return `
+    <section class="repricing-simulation-entry" data-repricing-simulation-entry="${entryIndex}">
+      <div class="repricing-simulation-entry__header">
+        <h5>新业务 ${entryIndex + 1}</h5>
+        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-repricing-simulation-entry="${entryIndex}">删除</button>` : ""}
+      </div>
+      <div class="repricing-simulation-entry__fields">
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">发生时间</span>
+          <input class="simulation-form__control" type="date" value="${entry.occurrenceDate || ""}" max="${getRepricingGapSimulationDraft().baseDate}" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="occurrenceDate">
+        </label>
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">业务类型</span>
+          <select class="simulation-form__control" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="businessType">
+            ${getRepricingGapSimulationBusinessTypes().map((option) => `<option value="${option}" ${option === entry.businessType ? "selected" : ""}>${option}</option>`).join("")}
+          </select>
+        </label>
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">规模（亿元）</span>
+          <input class="simulation-form__control" type="number" step="0.1" value="${entry.scale ?? ""}" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="scale">
+        </label>
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">重定价频率</span>
+          <select class="simulation-form__control" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="repricingMonths">
+            ${REPRICING_FREQUENCY_OPTIONS.map((option) => `<option value="${option.value}" ${String(option.value) === String(entry.repricingMonths) ? "selected" : ""}>${option.label}</option>`).join("")}
+          </select>
+        </label>
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">下次重定价时间</span>
+          <input class="simulation-form__control" type="date" value="${entry.nextRepricingDate || ""}" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="nextRepricingDate">
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+function renderRepricingGapSimulationModal(page) {
+  const draft = getRepricingGapSimulationDraft();
+  const result = buildRepricingGapSimulationResult(draft);
+  const ratioDelta = Number((result.simulatedMetrics.ratio - result.baseMetrics.ratio).toFixed(2));
+  const sourceLabel = getRepricingGapBaseSourceLabel(draft.baseSource, draft.baseEdited);
+  return `
+    <div class="overlay-scrim" data-close-overlay="simulationModal"></div>
+    <section class="overlay-panel overlay-panel--matrix" role="dialog" aria-modal="true" aria-labelledby="simulationModalTitle">
+      <div class="overlay-panel__header">
+        <div>
+          <div class="overlay-panel__eyebrow">重定价缺口率</div>
+          <h3 id="simulationModalTitle">模拟测算</h3>
+        </div>
+        <button class="overlay-panel__close" type="button" data-close-overlay="simulationModal">关闭</button>
+      </div>
+      <section class="repricing-simulation-section">
+        <div class="repricing-simulation-section__header">
+          <h4>基准重定价缺口表</h4>
+          <div class="repricing-simulation-baseline-controls">
+            <label class="simulation-form__field simulation-form__field--inline">
+              <span class="simulation-form__label">目标月末</span>
+              <input class="simulation-form__control" type="date" min="${getRepricingGapCurrentDate()}" value="${draft.baseDate}" data-repricing-base-date="true">
+            </label>
+            <div class="repricing-quick-config" role="group" aria-label="快速配置">
+              <span>基准生成方式</span>
+              <button class="${draft.baseSource === "current" ? "is-active" : ""}" type="button" data-repricing-quick-config="current">当前缺口表平移</button>
+              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-repricing-quick-config="runoff">存量自然到期不续作</button>
+              <button class="${draft.baseSource === "subjective" ? "is-active" : ""}" type="button" data-repricing-quick-config="subjective">自主编制</button>
+            </div>
+            <label class="toolbar-action repricing-upload-action">
+              上传缺口表
+              <input type="file" accept=".csv,text/csv" data-repricing-base-upload="true">
+            </label>
+          </div>
+        </div>
+        <div class="repricing-simulation-source">
+          <span>当前基准：${sourceLabel}${draft.uploadFileName ? ` / ${draft.uploadFileName}` : ""}</span>
+          <strong>基准缺口率 ${result.baseMetrics.ratio.toFixed(2)}%</strong>
+        </div>
+        ${renderRepricingGapBaseTable(draft)}
+      </section>
+      <section class="repricing-simulation-section repricing-simulation-section--business">
+        <div class="repricing-simulation-section__header">
+          <h4>新业务录入</h4>
+          <button class="toolbar-action" type="button" data-add-repricing-simulation-entry="true">新增业务</button>
+        </div>
+        <div class="repricing-simulation-entry-list">
+          ${(draft.entries || []).map((entry, index) => renderRepricingGapSimulationEntry(entry, index, draft.entries.length)).join("")}
+        </div>
+      </section>
+      <section class="repricing-simulation-section repricing-simulation-section--result">
+        <div class="repricing-simulation-section__header">
+          <h4>测算后重定价缺口表</h4>
+        </div>
+        <div class="repricing-simulation-result-metrics">
+          <div><span>基准缺口率</span><strong>${result.baseMetrics.ratio.toFixed(2)}%</strong></div>
+          <div><span>测算后缺口率</span><strong>${result.simulatedMetrics.ratio.toFixed(2)}%</strong></div>
+          <div><span>缺口率变化</span><strong class="${ratioDelta >= 0 ? "is-up" : "is-down"}">${ratioDelta >= 0 ? "+" : ""}${ratioDelta.toFixed(2)}pct</strong></div>
+        </div>
+        ${renderRepricingGapResultTable(result.simulatedMatrix)}
+      </section>
+      <div class="overlay-panel__footer">
+        <button class="toolbar-action" type="button" data-close-overlay="simulationModal">取消</button>
+        <button class="toolbar-action toolbar-action--primary" type="button" data-apply-simulation="${page.id}" data-simulation-widget="${REPRICING_GAP_SIMULATION_WIDGET_SEQ}">应用测算</button>
+      </div>
+    </section>
+  `;
+}
+
+function getLiquidityGapGroupTotalLabel(group) {
+  const perspective = getLiquidityGapSimulationPerspective();
+  return perspective.totalRowLabels?.[group.category] || `${group.category}合计`;
+}
+
+function renderLiquidityCashFlowGapTable(matrix, editable = false) {
+  const renderBusinessRow = (businessType) => {
+    const values = matrix[businessType] || LIQUIDITY_CASH_FLOW_BUCKETS.map(() => 0);
+    const cells = values.map((value, bucketIndex) => editable
+      ? `
+          <td>
+            <input
+              type="number"
+              step="0.1"
+              value="${Number(value || 0)}"
+              aria-label="${businessType} ${LIQUIDITY_CASH_FLOW_BUCKETS[bucketIndex]}"
+              data-liquidity-gap-base-cell="true"
+              data-business-type="${businessType}"
+              data-bucket-index="${bucketIndex}"
+            >
+          </td>
+        `
+      : `<td>${Number(value || 0).toFixed(1)}</td>`
+    ).join("");
+    return `
+      <tr data-liquidity-gap-${editable ? "base" : "result"}-row="${businessType}">
+        <th scope="row">${businessType}</th>
+        ${cells}
+      </tr>
+    `;
+  };
+  const renderGroup = (group) => {
+    const groupRows = (group.items || []).map(renderBusinessRow).join("");
+    if (!(getLiquidityGapSimulationPerspective().totalCategories || []).includes(group.category)) return groupRows;
+    const bucketTotals = LIQUIDITY_CASH_FLOW_BUCKETS.map((_, bucketIndex) =>
+      sumRepricingGapValues((group.items || []).map((businessType) => matrix[businessType]?.[bucketIndex] || 0))
+    );
+    const totalRow = `
+      <tr class="repricing-base-table__group-total" data-liquidity-gap-${editable ? "base" : "result"}-total="${group.category}">
+        <th scope="row">${getLiquidityGapGroupTotalLabel(group)}</th>
+        ${bucketTotals.map((value) => `<td>${Number(value).toFixed(1)}</td>`).join("")}
+      </tr>
+    `;
+    return `${totalRow}${groupRows}`;
+  };
+  return `
+    <div class="repricing-base-table-wrap liquidity-gap-base-table-wrap">
+      <table class="repricing-base-table liquidity-gap-base-table ${editable ? "" : "repricing-result-table"}">
+        <thead>
+          <tr>
+            <th scope="col">业务类别</th>
+            ${LIQUIDITY_CASH_FLOW_BUCKETS.map((bucket) => `<th scope="col">${bucket}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${getLiquidityGapSimulationGroups().map(renderGroup).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderLiquidityGapCashFlow(cashFlow, entryIndex, cashFlowIndex, cashFlowCount, entry) {
+  const draft = getLiquidityGapSimulationDraft();
+  const minimumDate = [addDays(draft.baseDate, 1), entry.occurrenceDate || ""].filter(Boolean).sort().at(-1);
+  const ordinal = cashFlowIndex === 0 ? "第一笔" : `第${cashFlowIndex + 1}笔`;
+  return `
+    <div class="liquidity-cash-flow-row" data-liquidity-cash-flow-row="${cashFlowIndex}">
+      <label class="simulation-form__field">
+        <span class="simulation-form__label">${ordinal}现金流日期</span>
+        <input
+          class="simulation-form__control"
+          type="date"
+          min="${minimumDate}"
+          max="${addDays(draft.baseDate, 365)}"
+          value="${cashFlow.date || ""}"
+          data-liquidity-gap-entry-index="${entryIndex}"
+          data-liquidity-cash-flow-index="${cashFlowIndex}"
+          data-liquidity-cash-flow-field="date"
+        >
+      </label>
+      <label class="simulation-form__field">
+        <span class="simulation-form__label">${ordinal}现金流金额（亿元）</span>
+        <input
+          class="simulation-form__control"
+          type="number"
+          step="0.1"
+          value="${cashFlow.amount ?? ""}"
+          data-liquidity-gap-entry-index="${entryIndex}"
+          data-liquidity-cash-flow-index="${cashFlowIndex}"
+          data-liquidity-cash-flow-field="amount"
+        >
+      </label>
+      ${cashFlowCount > 1 ? `<button class="simulation-entry__remove liquidity-cash-flow-row__remove" type="button" data-remove-liquidity-cash-flow="${cashFlowIndex}" data-liquidity-gap-entry-index="${entryIndex}">删除</button>` : ""}
+    </div>
+  `;
+}
+
+function renderLiquidityGapSimulationEntry(entry, entryIndex, entryCount) {
+  const draft = getLiquidityGapSimulationDraft();
+  const cashFlows = Array.isArray(entry.cashFlows) && entry.cashFlows.length
+    ? entry.cashFlows
+    : [createDefaultLiquidityGapCashFlow(draft.baseDate, entry.occurrenceDate)];
+  return `
+    <section class="repricing-simulation-entry liquidity-gap-simulation-entry" data-liquidity-gap-simulation-entry="${entryIndex}">
+      <div class="repricing-simulation-entry__header">
+        <h5>新业务 ${entryIndex + 1}</h5>
+        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-liquidity-gap-entry="${entryIndex}">删除业务</button>` : ""}
+      </div>
+      <div class="liquidity-gap-simulation-entry__body">
+        <div class="liquidity-gap-simulation-entry__fields">
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">发生时间</span>
+            <input class="simulation-form__control" type="date" min="${draft.baseDate}" max="${addDays(draft.baseDate, 365)}" value="${entry.occurrenceDate || ""}" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="occurrenceDate">
+          </label>
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">业务类型</span>
+            <select class="simulation-form__control" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="businessType">
+              ${getLiquidityGapSimulationBusinessTypes().map((option) => `<option value="${option}" ${option === entry.businessType ? "selected" : ""}>${option}</option>`).join("")}
+            </select>
+          </label>
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">规模（亿元）</span>
+            <input class="simulation-form__control" type="number" step="0.1" value="${entry.scale ?? ""}" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="scale">
+          </label>
+        </div>
+        <div class="liquidity-cash-flow-list">
+          <div class="liquidity-cash-flow-list__header">
+            <span>现金流计划</span>
+            <span>正数为流入，负数为流出</span>
+          </div>
+          ${cashFlows.map((cashFlow, cashFlowIndex) =>
+            renderLiquidityGapCashFlow(cashFlow, entryIndex, cashFlowIndex, cashFlows.length, entry)
+          ).join("")}
+          <button class="toolbar-action liquidity-cash-flow-list__add" type="button" data-add-liquidity-cash-flow="${entryIndex}">增加现金流</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderLiquidityGapSimulationModal(page) {
+  const draft = getLiquidityGapSimulationDraft();
+  const result = buildLiquidityGapSimulationResult(draft);
+  const oneYearGapDelta = Number((result.simulatedMetrics.oneYearGap - result.baseMetrics.oneYearGap).toFixed(1));
+  const sourceLabel = getLiquidityGapBaseSourceLabel(draft.baseSource, draft.baseEdited);
+  return `
+    <div class="overlay-scrim" data-close-overlay="simulationModal"></div>
+    <section class="overlay-panel overlay-panel--matrix" role="dialog" aria-modal="true" aria-labelledby="simulationModalTitle">
+      <div class="overlay-panel__header">
+        <div>
+          <div class="overlay-panel__eyebrow">流动性缺口</div>
+          <h3 id="simulationModalTitle">模拟测算</h3>
+        </div>
+        <button class="overlay-panel__close" type="button" data-close-overlay="simulationModal">关闭</button>
+      </div>
+      <section class="repricing-simulation-section">
+        <div class="repricing-simulation-section__header">
+          <h4>基准现金流缺口表</h4>
+          <div class="repricing-simulation-baseline-controls">
+            <label class="simulation-form__field simulation-form__field--inline">
+              <span class="simulation-form__label">测算基准日</span>
+              <input class="simulation-form__control" type="date" min="${getLiquidityGapSimulationCurrentDate()}" value="${draft.baseDate}" data-liquidity-gap-base-date="true">
+            </label>
+            <div class="repricing-quick-config" role="group" aria-label="快速配置">
+              <span>基准生成方式</span>
+              <button class="${draft.baseSource === "current" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="current">当前现金流缺口表</button>
+              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="runoff">存量现金流滚动</button>
+              <button class="${draft.baseSource === "subjective" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="subjective">自主编制</button>
+            </div>
+            <label class="toolbar-action repricing-upload-action">
+              上传现金流缺口表
+              <input type="file" accept=".csv,text/csv" data-liquidity-gap-base-upload="true">
+            </label>
+          </div>
+        </div>
+        <div class="repricing-simulation-source">
+          <span>当前基准：${sourceLabel}${draft.uploadFileName ? ` / ${draft.uploadFileName}` : ""}；金额正数为流入，负数为流出</span>
+          <strong>基准1年累计缺口 ${result.baseMetrics.oneYearGap.toFixed(1)}亿元</strong>
+        </div>
+        ${renderLiquidityCashFlowGapTable(draft.baseMatrix, true)}
+      </section>
+      <section class="repricing-simulation-section repricing-simulation-section--business">
+        <div class="repricing-simulation-section__header">
+          <h4>新业务录入</h4>
+          <button class="toolbar-action" type="button" data-add-liquidity-gap-entry="true">新增业务</button>
+        </div>
+        <div class="repricing-simulation-entry-list liquidity-gap-simulation-entry-list">
+          ${(draft.entries || []).map((entry, index) => renderLiquidityGapSimulationEntry(entry, index, draft.entries.length)).join("")}
+        </div>
+      </section>
+      <section class="repricing-simulation-section repricing-simulation-section--result">
+        <div class="repricing-simulation-section__header">
+          <h4>测算后现金流缺口表</h4>
+        </div>
+        <div class="repricing-simulation-result-metrics">
+          <div><span>基准1年累计缺口</span><strong>${result.baseMetrics.oneYearGap.toFixed(1)}亿元</strong></div>
+          <div><span>测算后1年累计缺口</span><strong>${result.simulatedMetrics.oneYearGap.toFixed(1)}亿元</strong></div>
+          <div><span>累计缺口变化</span><strong class="${oneYearGapDelta >= 0 ? "is-down" : "is-up"}">${oneYearGapDelta >= 0 ? "+" : ""}${oneYearGapDelta.toFixed(1)}亿元</strong></div>
+        </div>
+        ${renderLiquidityCashFlowGapTable(result.simulatedMatrix)}
+      </section>
+      <div class="overlay-panel__footer">
+        <button class="toolbar-action" type="button" data-close-overlay="simulationModal">取消</button>
+        <button class="toolbar-action toolbar-action--primary" type="button" data-apply-simulation="${page.id}" data-simulation-widget="${LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ}">应用测算</button>
+      </div>
+    </section>
+  `;
+}
+
+function parseCsvRecords(text) {
+  const records = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"' && quoted && text[index + 1] === '"') {
+      value += '"';
+      index += 1;
+    } else if (char === '"') quoted = !quoted;
+    else if (char === "," && !quoted) {
+      row.push(value.trim());
+      value = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(value.trim());
+      if (row.some(Boolean)) records.push(row);
+      row = [];
+      value = "";
+    } else value += char;
+  }
+  row.push(value.trim());
+  if (row.some(Boolean)) records.push(row);
+  return records;
+}
+
+function applyRepricingGapUploadedCsv(text, fileName = "") {
+  const records = parseCsvRecords(String(text || "").replace(/^\uFEFF/, ""));
+  if (records.length < 2) return false;
+  const header = records[0];
+  const bucketIndexes = REPRICING_GAP_BUCKETS.map((bucket) => header.indexOf(bucket));
+  if (bucketIndexes.some((index) => index < 0)) return false;
+  const draft = getRepricingGapSimulationDraft();
+  const nextMatrix = buildSubjectiveRepricingGapMatrix();
+  records.slice(1).forEach((record) => {
+    const businessType = record[0];
+    if (!nextMatrix[businessType]) return;
+    nextMatrix[businessType] = bucketIndexes.map((index) => Number(record[index] || 0));
+  });
+  appState.simulationDraft = {
+    ...draft,
+    baseSource: "upload",
+    baseMatrix: nextMatrix,
+    uploadFileName: fileName,
+    baseEdited: true,
+  };
+  return true;
+}
+
+function applyLiquidityGapUploadedCsv(text, fileName = "") {
+  const records = parseCsvRecords(String(text || "").replace(/^\uFEFF/, ""));
+  if (records.length < 2) return false;
+  const header = records[0];
+  const bucketIndexes = LIQUIDITY_CASH_FLOW_BUCKETS.map((bucket) => header.indexOf(bucket));
+  if (bucketIndexes.some((index) => index < 0)) return false;
+  const draft = getLiquidityGapSimulationDraft();
+  const nextMatrix = buildSubjectiveLiquidityCashFlowGapMatrix();
+  records.slice(1).forEach((record) => {
+    const businessType = record[0];
+    if (!nextMatrix[businessType]) return;
+    nextMatrix[businessType] = bucketIndexes.map((index) => Number(record[index] || 0));
+  });
+  appState.simulationDraft = {
+    ...draft,
+    baseSource: "upload",
+    baseMatrix: nextMatrix,
+    uploadFileName: fileName,
+    baseEdited: true,
+  };
+  return true;
+}
+
 function renderSimulationModal() {
   const page = data.pages.find((item) => item.id === appState.simulationModalPageId);
   if (!page) {
     simulationModalEl.innerHTML = "";
     simulationModalEl.classList.remove("is-open");
     simulationModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  if (isRepricingGapSimulationWidget(appState.simulationModalWidgetSeq)) {
+    simulationModalEl.innerHTML = renderRepricingGapSimulationModal(page);
+    simulationModalEl.classList.add("is-open");
+    simulationModalEl.setAttribute("aria-hidden", "false");
+    return;
+  }
+  if (isLiquidityGapSimulationWidget(appState.simulationModalWidgetSeq)) {
+    simulationModalEl.innerHTML = renderLiquidityGapSimulationModal(page);
+    simulationModalEl.classList.add("is-open");
+    simulationModalEl.setAttribute("aria-hidden", "false");
     return;
   }
   const activeMode = getSimulationDraftMode(page);
@@ -632,25 +1861,35 @@ function renderInsightModal() {
 }
 
 function getSimulationProfile(page, simulation) {
-  const side = simulation.fundingRole === "资金来源"
-    ? "liability"
-    : simulation.fundingRole === "资金运用"
-      ? "asset"
-      : BUSINESS_SIDE_MAP[simulation.businessType] || "asset";
-  const scaleWeight = Math.min(1.4, Number(simulation.scale || 0) / 120);
+  const hasCashFlowPlan = Array.isArray(simulation.cashFlows) && simulation.cashFlows.length > 0;
+  const netCashFlow = hasCashFlowPlan
+    ? simulation.cashFlows.reduce((sum, cashFlow) => sum + Number(cashFlow.amount || 0), 0)
+    : 0;
+  const side = hasCashFlowPlan && netCashFlow !== 0
+    ? netCashFlow < 0 ? "liability" : "asset"
+    : simulation.fundingRole === "资金来源"
+      ? "liability"
+      : simulation.fundingRole === "资金运用"
+        ? "asset"
+        : BUSINESS_SIDE_MAP[simulation.businessType] || "asset";
+  const scale = hasCashFlowPlan ? Math.abs(netCashFlow) : Number(simulation.scale || 0);
+  const scaleWeight = Math.min(1.4, Math.abs(scale) / 120);
   const tenorWeight = Math.min(1.2, Number(simulation.termMonths || 0) / 24);
   const hedgeWeight = simulation.simulationType === SIMULATION_MODE_HEDGE
     ? clampNumber(Number(simulation.hedgeCoverageRatio || 0.35), 0.08, 1)
     : 1;
   return {
     side,
+    scaleDirection: hasCashFlowPlan ? 1 : scale < 0 ? -1 : 1,
     impactScore: Number((0.08 + scaleWeight * 0.11 + tenorWeight * 0.07) * hedgeWeight).toFixed(3),
   };
 }
 
 function shouldRenderSimulationOverlay(widget, chartContext) {
   if (!chartContext?.pageId) return false;
-  if (!getPageSimulation(chartContext.pageId)) return false;
+  const simulation = getPageSimulation(chartContext.pageId);
+  if (!simulation) return false;
+  if (isRepricingGapSimulationWidget(widget) && Number(simulation.sourceWidgetSeq) === REPRICING_GAP_SIMULATION_WIDGET_SEQ) return false;
   if (!isSimulationPage(data.pages.find((page) => page.id === chartContext.pageId))) return false;
   if (!getWidgetSimulationBehavior(widget)) return false;
   if (String(widget?.componentType || "").includes("表格")) return false;
@@ -700,6 +1939,7 @@ function getSingleSimulationAdjustmentRatio(widget, chartContext, simulation, se
       direction *= Number(simulationDefaults.liabilityFxSeriesMultiplier) || 0.82;
     }
   }
+  direction *= profile.scaleDirection;
   const variationStep = Number(simulationDefaults.variationStep) || 0.035;
   const variation = 1 + (((widget.seq + seriesIndex * 17) % 9) - 4) * variationStep;
   return clampNumber(
@@ -713,9 +1953,9 @@ function getSimulationAdjustmentRatio(widget, chartContext, simulation, seriesLa
   const simulationDefaults = SIMULATION_RULE_CONFIG.defaults || {};
   const entries = getSimulationEntries(simulation);
   if (!entries.length) return 0;
-  const totalScale = entries.reduce((sum, entry) => sum + Math.max(1, Number(entry.scale || 0)), 0);
+  const totalScale = entries.reduce((sum, entry) => sum + Math.max(1, Math.abs(Number(entry.scale || 0))), 0);
   const weightedRatio = entries.reduce((sum, entry) => {
-    const weight = Math.max(1, Number(entry.scale || 0)) / totalScale;
+    const weight = Math.max(1, Math.abs(Number(entry.scale || 0))) / totalScale;
     return sum + getSingleSimulationAdjustmentRatio(widget, chartContext, entry, seriesLabel, seriesIndex, role) * weight;
   }, 0);
   return clampNumber(

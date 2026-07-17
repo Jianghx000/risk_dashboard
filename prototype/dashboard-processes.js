@@ -1,5 +1,28 @@
 ﻿/* Diagnostic process charts and drilldown modals. */
 
+const DIAGNOSTIC_FOREIGN_BRANCHES = ["香港分行", "纽约分行", "新加坡分行", "卢森堡分行", "伦敦分行", "悉尼分行"];
+
+function getDiagnosticFilterState(pageId, chartContextOrState = {}) {
+  if (chartContextOrState.filterState) return chartContextOrState.filterState;
+  return appState?.pageFilters?.[pageId] || {};
+}
+
+function getDiagnosticOrganizations(pageId, chartContextOrState = {}) {
+  const filterState = getDiagnosticFilterState(pageId, chartContextOrState);
+  const organizations = (filterState.机构 || []).filter(Boolean);
+  return organizations.length ? organizations : ["法人汇总"];
+}
+
+function isOverseasCapitalScope(organizations = []) {
+  return organizations.length > 0 && organizations.every((organization) =>
+    organization === "境外分行汇总" || DIAGNOSTIC_FOREIGN_BRANCHES.includes(organization)
+  );
+}
+
+function isSingleForeignBranchScope(organizations = []) {
+  return organizations.length === 1 && DIAGNOSTIC_FOREIGN_BRANCHES.includes(organizations[0]);
+}
+
 function renderEveRatioTrendChart(widget, chartContext) {
   const model = buildEveDiagnosticModel(widget, chartContext);
   const frame = createFrame(model.labels.length);
@@ -47,24 +70,20 @@ function renderEveRatioTrendChart(widget, chartContext) {
       </svg>
       ${popoverMarkup}
       ${renderSeriesLegend(widget, { ...chartContext, seriesList: ["△EVE"], allSeriesList: ["△EVE"] })}
+      ${renderManagementLimitLegend(widget, chartContext)}
     </div>
   `;
 }
 
 function renderEvePointPopover(widget, model, point, frame, index) {
   const ratio = model.ratios[index];
-  const worst = model.worstScenarios[index];
   const left = Number(((point.x / 700) * 100).toFixed(2));
   const top = Number(((point.y / 300) * 100).toFixed(2));
-  const space = model.limit - ratio;
   return `
-    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
-      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
-      <div class="eve-point-popover__grid">
-        <div><span>△EVE</span><strong>${formatEvePercent(ratio)}</strong></div>
-        <div><span>距限额</span><strong>${space.toFixed(1)}pct</strong></div>
-        <div><span>最不利情景</span><strong>${worst.name}</strong></div>
-        <div><span>经济价值变动</span><strong>${formatEveAmount(worst.value)}</strong></div>
+    <div class="eve-point-popover eve-point-popover--compact" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__grid eve-point-popover__grid--compact">
+        <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
+        <div><span>取值</span><strong>${formatEvePercent(ratio)}</strong></div>
       </div>
       <button
         class="eve-point-popover__action"
@@ -82,13 +101,17 @@ function renderEvePointPopover(widget, model, point, frame, index) {
 function buildEveDiagnosticModel(widget, chartContextOrState = {}) {
   const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
   const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
-  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || EVE_RATIO_WIDGET_SEQ, chartContextOrState.filterState || {}));
+  const filterState = getDiagnosticFilterState("interest-risk", chartContextOrState);
+  const organizations = getDiagnosticOrganizations("interest-risk", chartContextOrState);
+  const usesOverseasAllocatedCapital = isOverseasCapitalScope(organizations);
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || EVE_RATIO_WIDGET_SEQ, filterState));
   const count = labels.length;
   const normalizedOffset = signature % 17;
   const legalRwa = Array.from({ length: count }, (_, index) => Number((8200 + normalizedOffset * 4 + index * 34).toFixed(1)));
   const overseasRwa = Array.from({ length: count }, (_, index) => Number((858 + normalizedOffset * 0.8 + index * 7.6).toFixed(1)));
   const legalTierOne = Array.from({ length: count }, (_, index) => Number((4860 + normalizedOffset * 5 + index * 26).toFixed(1)));
-  const capital = overseasRwa.map((value, index) => Number(((value / legalRwa[index]) * legalTierOne[index]).toFixed(1)));
+  const overseasAllocatedCapital = overseasRwa.map((value, index) => Number(((value / legalRwa[index]) * legalTierOne[index]).toFixed(1)));
+  const capital = usesOverseasAllocatedCapital ? overseasAllocatedCapital : [...legalTierOne];
   const scenarios = EVE_SCENARIO_DEFINITIONS.map((scenario, scenarioIndex) => {
     const values = Array.from({ length: count }, (_, index) => {
       const wave = Math.sin((index + scenarioIndex + normalizedOffset / 5) / 1.8) * scenario.wave;
@@ -103,8 +126,8 @@ function buildEveDiagnosticModel(widget, chartContextOrState = {}) {
     , scenarios[0]);
     return { key: scenario.key, name: scenario.name, value: scenario.values[index] };
   });
-  const numerator = worstScenarios.map((scenario) => scenario.value);
-  const ratios = numerator.map((value, index) => Number(((Math.abs(value) / capital[index]) * 100).toFixed(1)));
+  const numerator = worstScenarios.map((scenario) => Number(Math.abs(scenario.value).toFixed(1)));
+  const ratios = numerator.map((value, index) => Number(((value / capital[index]) * 100).toFixed(1)));
   return {
     labels,
     displayLabels: buildEveDisplayLabels(labels),
@@ -113,7 +136,11 @@ function buildEveDiagnosticModel(widget, chartContextOrState = {}) {
     legalRwa,
     overseasRwa,
     legalTierOne,
+    overseasAllocatedCapital,
     capital,
+    organizations,
+    usesOverseasAllocatedCapital,
+    denominatorTitle: "本外币合计一级资本净额",
     scenarios,
     worstScenarios,
     numerator,
@@ -153,6 +180,40 @@ function scaleValuesToFrame(values, frame, minValue = 0, maxValue = 100) {
   }));
 }
 
+function getProcessComparisonIndex(state = {}, selectedIndex = 0, labelCount = 0) {
+  const explicitIndex = state.comparisonIndex;
+  if (
+    Number.isInteger(explicitIndex)
+    && explicitIndex >= 0
+    && explicitIndex < selectedIndex
+    && explicitIndex < labelCount
+  ) {
+    return explicitIndex;
+  }
+  return selectedIndex > 0 ? selectedIndex - 1 : -1;
+}
+
+function renderProcessComparisonControl(state, displayLabels, selectedIndex, dataAttribute) {
+  const defaultIndex = selectedIndex > 0 ? selectedIndex - 1 : -1;
+  const hasExplicitIndex = Number.isInteger(state.comparisonIndex)
+    && state.comparisonIndex >= 0
+    && state.comparisonIndex < selectedIndex;
+  const defaultLabel = defaultIndex >= 0
+    ? `上一期（默认：${displayLabels[defaultIndex]}）`
+    : "无可用基期";
+  return `
+    <label class="eve-process-comparison">
+      <span>比较基期</span>
+      <select ${dataAttribute}="true" ${selectedIndex <= 0 ? "disabled" : ""}>
+        <option value="" ${hasExplicitIndex ? "" : "selected"}>${defaultLabel}</option>
+        ${displayLabels.slice(0, selectedIndex).map((label, index) => `
+          <option value="${index}" ${hasExplicitIndex && state.comparisonIndex === index ? "selected" : ""}>${label}</option>
+        `).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderEveProcessModal() {
   const state = appState.eveProcessModal;
   if (!state) {
@@ -166,8 +227,10 @@ function renderEveProcessModal() {
   const model = buildEveDiagnosticModel(widget, {
     labels: state.labels,
     signature: state.signature,
+    filterState: getDiagnosticFilterState("interest-risk"),
   });
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "eve";
   const worst = model.worstScenarios[selectedIndex];
 
@@ -179,9 +242,12 @@ function renderEveProcessModal() {
         <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="eveProcessModal">关闭</button>
       </div>
       <div class="eve-process-modal__controls">
-        <div class="eve-process-date">
-          <span>当前日期</span>
-          <strong>${model.displayLabels[selectedIndex]}</strong>
+        <div class="eve-process-context">
+          <div class="eve-process-date">
+            <span>当前日期</span>
+            <strong>${model.displayLabels[selectedIndex]}</strong>
+          </div>
+          ${renderProcessComparisonControl(state, model.displayLabels, selectedIndex, "data-eve-process-comparison")}
         </div>
         <div class="eve-process-slider">
           <input
@@ -208,6 +274,7 @@ function renderEveProcessModal() {
               value: formatEvePercent(model.ratios[selectedIndex]),
               series: model.ratios,
               selectedIndex,
+              comparisonIndex,
               activeNode,
               changeType: "delta",
               valueFormat: "percent",
@@ -217,27 +284,29 @@ function renderEveProcessModal() {
             <div class="eve-process-factor-stack">
               ${renderEveProcessNode({
                 key: "numerator",
-                title: "分子",
-                note: "Max经济价值变动",
+                title: "最大经济价值变动",
                 value: formatEveAmount(model.numerator[selectedIndex]),
                 series: model.numerator.map(Math.abs),
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
                 isWorst: true,
-                actionText: "点击展开六情景 →",
+                actionText: state.numeratorExpanded ? "点击收回" : "点击展开",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
-              <div class="eve-process-division">÷</div>
+              <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
                 key: "denominator",
-                title: "分母",
-                note: "一级资本净额",
+                title: model.denominatorTitle,
                 value: formatEveAmount(model.capital[selectedIndex]),
                 series: model.capital,
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
-                actionText: "点击展开分母来源 →",
+                actionText: model.usesOverseasAllocatedCapital
+                  ? (state.denominatorExpanded ? "点击收回" : "点击展开")
+                  : "",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
@@ -246,13 +315,13 @@ function renderEveProcessModal() {
             <div class="eve-process-expansions">
               <div class="eve-process-expansion-slot">
                 ${state.numeratorExpanded
-                  ? renderEveScenarioExpansion(model, selectedIndex, activeNode, worst)
-                  : `<div class="eve-process-placeholder">点击左侧“分子”节点后，在这里向右展开六种监管利率情景。</div>`}
+                  ? renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst)
+                  : ""}
               </div>
               <div class="eve-process-expansion-slot">
-                ${state.denominatorExpanded
-                  ? renderEveDenominatorExpansion(model, selectedIndex, activeNode)
-                  : `<div class="eve-process-placeholder">点击左侧“分母”节点后，在这里向右展开一级资本净额的计算来源。</div>`}
+                ${model.usesOverseasAllocatedCapital && state.denominatorExpanded
+                  ? renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode)
+                  : ""}
               </div>
             </div>
           </div>
@@ -270,6 +339,7 @@ function renderEveProcessNode({
   value,
   series,
   selectedIndex,
+  comparisonIndex = selectedIndex - 1,
   activeNode,
   isWorst = false,
   actionText = "",
@@ -278,7 +348,7 @@ function renderEveProcessNode({
   valueFormat = "amount",
   labels = [],
 }) {
-  const change = formatProcessNodeChange(series, selectedIndex, changeType);
+  const change = formatProcessNodeChange(series, selectedIndex, comparisonIndex, changeType);
   const previewPayload = encodeProcessPreviewPayload({
     title,
     labels,
@@ -309,7 +379,7 @@ function renderEveProcessNode({
   `;
 }
 
-function renderEveScenarioExpansion(model, selectedIndex, activeNode, worst) {
+function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst) {
   return `
     <div class="eve-process-scenario-strip">
       ${model.scenarios.map((scenario) => {
@@ -321,6 +391,7 @@ function renderEveScenarioExpansion(model, selectedIndex, activeNode, worst) {
           value: formatEveAmount(scenario.values[selectedIndex]),
           series: scenario.values.map(Math.abs),
           selectedIndex,
+          comparisonIndex,
           activeNode,
           isWorst,
           valueFormat: "amount",
@@ -334,7 +405,7 @@ function renderEveScenarioExpansion(model, selectedIndex, activeNode, worst) {
   `;
 }
 
-function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
+function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode) {
   return `
     <div class="eve-process-capital-strip">
       ${renderEveProcessNode({
@@ -344,6 +415,7 @@ function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
         value: formatEveRwa(model.overseasRwa[selectedIndex]),
         series: model.overseasRwa,
         selectedIndex,
+        comparisonIndex,
         activeNode,
         valueFormat: "amount0",
         labels: model.displayLabels,
@@ -356,6 +428,7 @@ function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
         value: formatEveRwa(model.legalRwa[selectedIndex]),
         series: model.legalRwa,
         selectedIndex,
+        comparisonIndex,
         activeNode,
         valueFormat: "amount0",
         labels: model.displayLabels,
@@ -363,11 +436,12 @@ function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
       <span class="eve-process-mini-operator">×</span>
       ${renderEveProcessNode({
         key: "legal-tier-one",
-        title: "法人一级资本净额",
+        title: "法人本外币合计一级资本净额",
         note: "资本分摊基数",
         value: formatEveAmount(model.legalTierOne[selectedIndex]),
         series: model.legalTierOne,
         selectedIndex,
+        comparisonIndex,
         activeNode,
         valueFormat: "amount",
         labels: model.displayLabels,
@@ -376,32 +450,39 @@ function renderEveDenominatorExpansion(model, selectedIndex, activeNode) {
   `;
 }
 
-function formatProcessNodeChange(values = [], selectedIndex = 0, changeType = "rate") {
+function formatProcessNodeChange(values = [], selectedIndex = 0, comparisonIndex = selectedIndex - 1, changeType = "rate") {
   const current = Number(values?.[selectedIndex]);
-  const previous = Number(values?.[selectedIndex - 1]);
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) {
-    return { text: "较上期 --", className: "is-flat" };
+  const baseline = Number(values?.[comparisonIndex]);
+  if (!Number.isFinite(current) || !Number.isFinite(baseline) || comparisonIndex < 0) {
+    return { text: "较基期 --", className: "is-flat" };
   }
   if (changeType === "delta") {
-    const delta = Number((current - previous).toFixed(1));
+    const delta = Number((current - baseline).toFixed(1));
     return {
-      text: `较上期 ${formatSignedNumber(delta)}pct`,
+      text: `较基期 ${formatSignedNumber(delta)}pct`,
       className: getChangeClass(delta),
     };
   }
-  if (previous === 0) return { text: "较上期 --", className: "is-flat" };
-  const rate = Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
+  if (changeType === "numberDelta") {
+    const delta = Number((current - baseline).toFixed(2));
+    return {
+      text: `较基期 ${formatSignedNumber(delta, 2)}`,
+      className: getChangeClass(delta),
+    };
+  }
+  if (baseline === 0) return { text: "较基期 --", className: "is-flat" };
+  const rate = Number((((current - baseline) / Math.abs(baseline)) * 100).toFixed(1));
   return {
-    text: `较上期 ${formatSignedNumber(rate)}%`,
+    text: `较基期 ${formatSignedNumber(rate)}%`,
     className: getChangeClass(rate),
   };
 }
 
-function formatSignedNumber(value) {
+function formatSignedNumber(value, digits = 1) {
   const numeric = Number(value || 0);
-  if (numeric > 0) return `+${numeric.toFixed(1)}`;
-  if (numeric < 0) return numeric.toFixed(1);
-  return "0.0";
+  if (numeric > 0) return `+${numeric.toFixed(digits)}`;
+  if (numeric < 0) return numeric.toFixed(digits);
+  return Number(0).toFixed(digits);
 }
 
 function getChangeClass(value) {
@@ -533,13 +614,160 @@ function getLiquidityDiagnosticKind(widget) {
   return getConfiguredWidgetBehavior(widget).liquidityDiagnosticKind || "";
 }
 
+const LIQUIDITY_GAP_DIAGNOSTIC_TENOR_INDEX = { "1D": 0, "7D": 1, "30D": 2, "3M": 3, "1Y": 4 };
+const LIQUIDITY_GAP_DIAGNOSTIC_TENOR_WEIGHTS = [0.08, 0.22, 0.48, 0.72, 1];
+
+function getDiagnosticWidgetFilterState(pageId, widgetSeq, chartContextOrState = {}) {
+  if (chartContextOrState.filterState) return chartContextOrState.filterState;
+  return {
+    ...(appState?.pageFilters?.[pageId] || {}),
+    ...(appState?.widgetFilters?.[widgetSeq] || {}),
+  };
+}
+
+function buildLiquidityGapCumulativeSeries(count, normalizedOffset, tenorIndex, base, slope, wave, phase = 0) {
+  const horizonWeight = LIQUIDITY_GAP_DIAGNOSTIC_TENOR_WEIGHTS[tenorIndex] || LIQUIDITY_GAP_DIAGNOSTIC_TENOR_WEIGHTS[2];
+  return Array.from({ length: count }, (_, index) => Number((
+    (base + normalizedOffset * base * 0.0025 + index * slope) * horizonWeight
+    + Math.sin((index + normalizedOffset + phase) / 2.8) * wave * Math.sqrt(horizonWeight)
+  ).toFixed(1)));
+}
+
+function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
+  const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
+  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const filterState = getDiagnosticWidgetFilterState("liquidity-risk", widget?.seq || 49, chartContextOrState);
+  const selectedTenor = (filterState.期限长度 || []).find((value) => value in LIQUIDITY_GAP_DIAGNOSTIC_TENOR_INDEX) || "30D";
+  const selectedCaliber = selectedTenor === "30D"
+    ? ((filterState.口径 || []).find((value) => ["时点", "月日均"].includes(value)) || "时点")
+    : "时点";
+  const tenorIndex = LIQUIDITY_GAP_DIAGNOSTIC_TENOR_INDEX[selectedTenor] ?? 2;
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || 49, filterState));
+  const normalizedOffset = (signature % 29) + (selectedCaliber === "月日均" ? 7 : 0);
+  const count = labels.length;
+  const buildSeries = (base, slope, wave, phase) =>
+    buildLiquidityGapCumulativeSeries(count, normalizedOffset, tenorIndex, base, slope, wave, phase);
+
+  const assetTotal = buildSeries(620, 5.8, 18, 0);
+  const offBalanceIncome = buildSeries(48, 0.6, 3.4, 1);
+  const liabilityTotal = buildSeries(590, 5.1, 17, 2);
+  const offBalanceExpense = buildSeries(45, 0.55, 3.2, 3);
+  const internalTransactionAssets = buildSeries(24, 0.32, 2.2, 4);
+  const internalTransactionLiabilities = buildSeries(19, 0.28, 1.8, 5);
+  const demandDeposits = buildSeries(36, 0.42, 2.8, 6);
+  const noteDemandDeposits = buildSeries(8, 0.12, 0.9, 7);
+  const demandPlacements = buildSeries(22, 0.3, 2, 8);
+  const noteDemandPlacements = buildSeries(5, 0.08, 0.7, 9);
+  const maturityGap = assetTotal.map((value, index) => Number((
+    value + offBalanceIncome[index] - liabilityTotal[index] - offBalanceExpense[index]
+  ).toFixed(1)));
+  const cumulativeMaturityGap = maturityGap.map((value, index) => Number((
+    value + internalTransactionAssets[index] - internalTransactionLiabilities[index]
+  ).toFixed(1)));
+  const liquidityGap = cumulativeMaturityGap.map((value, index) => Number((
+    value
+    + demandDeposits[index]
+    - noteDemandDeposits[index]
+    + demandPlacements[index]
+    - noteDemandPlacements[index]
+  ).toFixed(1)));
+  const dueOnOffBalanceAssets = assetTotal.map((value, index) => Number((
+    value + offBalanceIncome[index] - internalTransactionAssets[index]
+  ).toFixed(1)));
+  const ratios = liquidityGap.map((value, index) => Number(((value / dueOnOffBalanceAssets[index]) * 100).toFixed(1)));
+
+  return {
+    kind: "liquidityGap",
+    labels,
+    displayLabels: buildEveDisplayLabels(labels),
+    signature,
+    selectedTenor,
+    selectedCaliber,
+    title: `${selectedTenor}流动性缺口率`,
+    numeratorTitle: `${selectedTenor}累计流动性缺口`,
+    denominatorTitle: `${selectedTenor}累计到期表内外资产`,
+    numerator: liquidityGap,
+    denominator: dueOnOffBalanceAssets,
+    ratios,
+    components: {
+      assetTotal,
+      offBalanceIncome,
+      liabilityTotal,
+      offBalanceExpense,
+      maturityGap,
+      internalTransactionAssets,
+      internalTransactionLiabilities,
+      cumulativeMaturityGap,
+      demandDeposits,
+      noteDemandDeposits,
+      demandPlacements,
+      noteDemandPlacements,
+      liquidityGap,
+      dueOnOffBalanceAssets,
+    },
+  };
+}
+
 function buildLiquidityDiagnosticModel(widget, chartContextOrState = {}) {
   const kind = chartContextOrState.kind || getLiquidityDiagnosticKind(widget);
+  if (kind === "liquidityGap") return buildLiquidityGapDiagnosticModel(widget, chartContextOrState);
   const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
   const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
   const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || 42, chartContextOrState.filterState || {}));
   const count = labels.length;
   const normalizedOffset = signature % 23;
+
+  if (kind === "liquidityRatio") {
+    const liquidityAssetItems = [
+      ["liquidity-cash", "1.1 现金", 55, 0.7, 4, 0],
+      ["liquidity-gold", "1.2 黄金", 8, 0.08, 0.7, 1],
+      ["liquidity-excess-reserves", "1.3 超额准备金存款", 75, 0.9, 5, 2],
+      ["liquidity-interbank-net-assets", "1.4 一个月内到期的同业往来款项轧差后资产方净额", 42, 0.55, 3, 3],
+      ["liquidity-receivables", "1.5 一个月内到期的应收利息及其他应收款", 31, 0.4, 2.4, 4],
+      ["liquidity-qualified-loans", "1.6 一个月内到期的合格贷款", 86, 1.1, 5.5, 5],
+      ["liquidity-bond-investments", "1.7 一个月内到期的债券投资", 64, 0.8, 4, 6],
+      ["liquidity-marketable-securities", "1.8 可随时变现的证券投资（不含1.7）", 52, 0.65, 3.5, 7],
+      ["liquidity-other-assets", "1.9 其他一个月内到期可变现的资产（剔除不良资产）", 28, 0.35, 2, 8],
+    ].map(([key, title, base, slope, wave, phase]) => ({
+      key,
+      title,
+      values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
+    }));
+    const liquidityLiabilityItems = [
+      ["liquidity-demand-deposits", "2.1 活期存款（不含财政性存款）", 112, 1.4, 6, 1],
+      ["liquidity-term-deposits", "2.2 一个月内到期的定期存款（不含财政性存款）", 96, 1.2, 5.5, 2],
+      ["liquidity-interbank-net-liabilities", "2.3 一个月内到期的同业往来款项轧差后负债方净额", 58, 0.75, 4, 3],
+      ["liquidity-issued-bonds", "2.4 一个月内到期的已发行债券", 44, 0.6, 3, 4],
+      ["liquidity-payables", "2.5 一个月内到期的应付利息和各项应付款", 34, 0.45, 2.6, 5],
+      ["liquidity-central-bank-borrowings", "2.6 一个月内到期的向中央银行借款", 30, 0.4, 2.3, 6],
+      ["liquidity-other-liabilities", "2.7 其他一个月内到期的负债", 36, 0.5, 2.8, 7],
+    ].map(([key, title, base, slope, wave, phase]) => ({
+      key,
+      title,
+      values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
+    }));
+    const liquidityAssets = sumDiagnosticSeries(liquidityAssetItems, count);
+    const liquidityLiabilities = sumDiagnosticSeries(liquidityLiabilityItems, count);
+    const ratios = liquidityAssets.map((value, index) =>
+      Number(((value / liquidityLiabilities[index]) * 100).toFixed(1))
+    );
+    return {
+      kind,
+      labels,
+      displayLabels: buildEveDisplayLabels(labels),
+      signature,
+      title: "流动性比例",
+      numeratorTitle: "流动性资产",
+      denominatorTitle: "流动性负债",
+      numerator: liquidityAssets,
+      denominator: liquidityLiabilities,
+      ratios,
+      components: {
+        liquidityAssetItems,
+        liquidityLiabilityItems,
+      },
+    };
+  }
 
   if (kind === "nsfr") {
     const availableStableFunding = Array.from({ length: count }, (_, index) =>
@@ -557,8 +785,8 @@ function buildLiquidityDiagnosticModel(widget, chartContextOrState = {}) {
       displayLabels: buildEveDisplayLabels(labels),
       signature,
       title: "净稳定资金比例NSFR",
-      numeratorTitle: "可用稳定资金规模",
-      denominatorTitle: "业务所需稳定资金",
+      numeratorTitle: "可用的稳定资金",
+      denominatorTitle: "所需的稳定资金",
       numerator: availableStableFunding,
       denominator: requiredStableFunding,
       ratios,
@@ -569,33 +797,53 @@ function buildLiquidityDiagnosticModel(widget, chartContextOrState = {}) {
     };
   }
 
+  const level1Assets = Array.from({ length: count }, (_, index) =>
+    Number((238 + normalizedOffset * 2.1 + index * 4.6 + Math.sin((index + normalizedOffset) / 2.8) * 14).toFixed(1))
+  );
+  const level2AAssets = Array.from({ length: count }, (_, index) =>
+    Number((78 + normalizedOffset * 0.8 + index * 1.7 + Math.cos((index + normalizedOffset) / 2.5) * 7).toFixed(1))
+  );
+  const level2BAssets = Array.from({ length: count }, (_, index) =>
+    Number((42 + normalizedOffset * 0.5 + index * 1.2 + Math.sin((index + normalizedOffset) / 3.2) * 5).toFixed(1))
+  );
+  const hqla = level1Assets.map((value, index) =>
+    Number((value + level2AAssets[index] + level2BAssets[index]).toFixed(1))
+  );
   const cashOutflows = Array.from({ length: count }, (_, index) =>
-    Number((330 + normalizedOffset * 2.8 + index * 5.8 + Math.sin((index + normalizedOffset) / 2.1) * 20).toFixed(1))
+    Number((548 + normalizedOffset * 3.4 + index * 6.8 + Math.sin((index + normalizedOffset) / 2.1) * 22).toFixed(1))
   );
   const cashInflows = Array.from({ length: count }, (_, index) =>
-    Number((118 + normalizedOffset * 1.5 + index * 3.2 + Math.cos((index + normalizedOffset) / 2.7) * 13).toFixed(1))
+    Number((258 + normalizedOffset * 1.7 + index * 3.5 + Math.cos((index + normalizedOffset) / 2.7) * 15).toFixed(1))
   );
-  const netOutflows = cashOutflows.map((value, index) => Number((value - cashInflows[index]).toFixed(1)));
-  const hqla = Array.from({ length: count }, (_, index) =>
-    Number((305 + normalizedOffset * 3.2 + index * 6.6 + Math.sin((index + normalizedOffset) / 3) * 16).toFixed(1))
+  const rawNetOutflows = cashOutflows.map((value, index) => Number((value - cashInflows[index]).toFixed(1)));
+  const minimumNetOutflows = cashOutflows.map((value) => Number((value * 0.25).toFixed(1)));
+  const adjustedNetOutflows = rawNetOutflows.map((value, index) =>
+    Number(Math.max(value, minimumNetOutflows[index]).toFixed(1))
   );
-  const ratios = netOutflows.map((value, index) => Number(((value / hqla[index]) * 100).toFixed(1)));
+  const ratios = hqla.map((value, index) =>
+    Number(((value / adjustedNetOutflows[index]) * 100).toFixed(1))
+  );
   return {
     kind: "lcr",
     labels,
     displayLabels: buildEveDisplayLabels(labels),
     signature,
     title: "流动性覆盖率LCR",
-    numeratorTitle: "未来30天现金净流出量",
-    denominatorTitle: "优质流动性资产HQLA",
-    numerator: netOutflows,
-    denominator: hqla,
+    numeratorTitle: "合格优质流动性资产HQLA",
+    denominatorTitle: "经调整后净现金流出",
+    numerator: hqla,
+    denominator: adjustedNetOutflows,
     ratios,
     components: {
       cashOutflows,
       cashInflows,
-      netOutflows,
+      rawNetOutflows,
+      minimumNetOutflows,
+      adjustedNetOutflows,
       hqla,
+      level1Assets,
+      level2AAssets,
+      level2BAssets,
     },
   };
 }
@@ -612,6 +860,7 @@ function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
     ? clampNumber(Number(selectedPopover.dateIndex), 0, model.labels.length - 1)
     : null;
   const color = model.kind === "nsfr" ? LINE_SERIES_PALETTE[2] : EVE_COLOR_PRIMARY;
+  const managementLimitOverlay = renderManagementLimitOverlay(widget, chartContext, frame, { maxValue });
   const pointMarkup = ratioPoints.map((point, index) => {
     const isSelected = index === selectedIndex;
     return `
@@ -640,11 +889,13 @@ function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
     <div class="chart-shell chart-shell--eve-ratio chart-shell--liquidity-ratio">
       <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         ${axis}
+        ${managementLimitOverlay}
         <polyline fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
         ${pointMarkup}
       </svg>
       ${popoverMarkup}
       ${renderSeriesLegend(widget, { ...chartContext, seriesList: [model.title], allSeriesList: [model.title], legendItems: [{ label: model.title, color }] })}
+      ${renderManagementLimitLegend(widget, chartContext)}
     </div>
   `;
 }
@@ -653,13 +904,10 @@ function renderLiquidityPointPopover(widget, model, point, index) {
   const left = Number(((point.x / 700) * 100).toFixed(2));
   const top = Number(((point.y / 300) * 100).toFixed(2));
   return `
-    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
-      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
-      <div class="eve-point-popover__grid">
-        <div><span>${model.kind === "nsfr" ? "NSFR" : "LCR"}</span><strong>${formatEvePercent(model.ratios[index])}</strong></div>
-        <div><span>分子</span><strong>${formatEveAmount(model.numerator[index])}</strong></div>
-        <div><span>分母</span><strong>${formatEveAmount(model.denominator[index])}</strong></div>
-        <div><span>口径</span><strong>${model.kind === "lcr" ? "30天" : "稳定资金"}</strong></div>
+    <div class="eve-point-popover eve-point-popover--compact" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__grid eve-point-popover__grid--compact">
+        <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
+        <div><span>取值</span><strong>${formatEvePercent(model.ratios[index])}</strong></div>
       </div>
       <button
         class="eve-point-popover__action"
@@ -678,7 +926,7 @@ function renderLiquidityPointPopover(widget, model, point, index) {
 function renderLiquidityDiagnosticRatioDataTable(widget, chartContext) {
   const model = buildLiquidityDiagnosticModel(widget, chartContext);
   const componentHeaders = model.kind === "lcr"
-    ? ["未来30天现金流出量", "未来30天现金流入量"]
+    ? ["一级资产", "2A资产", "2B资产", "现金流出", "现金流入", "原始净现金流出", "25%现金流出", "经调整后净现金流出"]
     : [];
   return `
     <div class="chart-shell chart-shell--data">
@@ -700,7 +948,16 @@ function renderLiquidityDiagnosticRatioDataTable(widget, chartContext) {
                 <td>${formatEvePercent(model.ratios[index])}</td>
                 <td>${formatEveAmount(model.numerator[index])}</td>
                 <td>${formatEveAmount(model.denominator[index])}</td>
-                ${model.kind === "lcr" ? `<td>${formatEveAmount(model.components.cashOutflows[index])}</td><td>${formatEveAmount(model.components.cashInflows[index])}</td>` : ""}
+                ${model.kind === "lcr" ? `
+                  <td>${formatEveAmount(model.components.level1Assets[index])}</td>
+                  <td>${formatEveAmount(model.components.level2AAssets[index])}</td>
+                  <td>${formatEveAmount(model.components.level2BAssets[index])}</td>
+                  <td>${formatEveAmount(model.components.cashOutflows[index])}</td>
+                  <td>${formatEveAmount(model.components.cashInflows[index])}</td>
+                  <td>${formatEveAmount(model.components.rawNetOutflows[index])}</td>
+                  <td>${formatEveAmount(model.components.minimumNetOutflows[index])}</td>
+                  <td>${formatEveAmount(model.components.adjustedNetOutflows[index])}</td>
+                ` : ""}
               </tr>
             `).join("")}
           </tbody>
@@ -724,10 +981,15 @@ function renderLiquidityProcessModal() {
     labels: state.labels,
     signature: state.signature,
     kind: state.kind,
+    filterState: getDiagnosticWidgetFilterState("liquidity-risk", widget.seq || state.widgetSeq || 42),
   });
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "ratio";
   const isLcr = model.kind === "lcr";
+  const isLiquidityRatio = model.kind === "liquidityRatio";
+  const isLiquidityGap = model.kind === "liquidityGap";
+  const hasExpandableFactors = isLcr || isLiquidityRatio || isLiquidityGap;
 
   liquidityProcessModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="liquidityProcessModal"></div>
@@ -737,9 +999,12 @@ function renderLiquidityProcessModal() {
         <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="liquidityProcessModal">关闭</button>
       </div>
       <div class="eve-process-modal__controls">
-        <div class="eve-process-date">
-          <span>当前日期</span>
-          <strong>${model.displayLabels[selectedIndex]}</strong>
+        <div class="eve-process-context">
+          <div class="eve-process-date">
+            <span>当前日期</span>
+            <strong>${model.displayLabels[selectedIndex]}</strong>
+          </div>
+          ${renderProcessComparisonControl(state, model.displayLabels, selectedIndex, "data-liquidity-process-comparison")}
         </div>
         <div class="eve-process-slider">
           <input
@@ -754,17 +1019,25 @@ function renderLiquidityProcessModal() {
           <div class="eve-process-slider__axis">
             ${model.displayLabels.map((label, index) => `<span class="${shouldShowProcessAxisLabel(model.displayLabels, index) ? "" : "is-muted"}">${shouldShowProcessAxisLabel(model.displayLabels, index) ? label : ""}</span>`).join("")}
           </div>
+          ${isLcr
+            ? `<div class="eve-process-formula">LCR = 合格优质流动性资产HQLA ÷ 经调整后净现金流出</div>`
+            : isLiquidityRatio
+              ? `<div class="eve-process-formula">流动性比例 = 流动性资产 ÷ 流动性负债</div>`
+              : isLiquidityGap
+                ? `<div class="eve-process-formula">${model.selectedTenor}流动性缺口率 = ${model.selectedTenor}累计流动性缺口 ÷ ${model.selectedTenor}累计到期表内外资产（分子分母为同一期限范围）</div>`
+                : `<div class="eve-process-formula">NSFR = 可用的稳定资金 ÷ 所需的稳定资金</div>`}
         </div>
       </div>
       <div class="eve-process-flow">
-        <div class="eve-process-flow__canvas">
-          <div class="eve-process-flow__lane">
+        <div class="eve-process-flow__canvas${isLiquidityRatio ? " liquidity-ratio-process-flow__canvas" : ""}">
+          <div class="eve-process-flow__lane${isLiquidityRatio ? " liquidity-ratio-process-flow__lane" : ""}">
             ${renderEveProcessNode({
               key: "ratio",
               title: model.title,
               value: formatEvePercent(model.ratios[selectedIndex]),
               series: model.ratios,
               selectedIndex,
+              comparisonIndex,
               activeNode,
               dataAttribute: "data-liquidity-process-node",
               changeType: "delta",
@@ -779,32 +1052,50 @@ function renderLiquidityProcessModal() {
                 value: formatEveAmount(model.numerator[selectedIndex]),
                 series: model.numerator,
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
-                actionText: isLcr ? "点击展开现金流出/流入 →" : "",
+                actionText: hasExpandableFactors ? (state.numeratorExpanded ? "点击收回" : "点击展开") : "",
                 dataAttribute: "data-liquidity-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
-              <div class="eve-process-division">÷</div>
+              <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
                 key: "denominator",
                 title: model.denominatorTitle,
                 value: formatEveAmount(model.denominator[selectedIndex]),
                 series: model.denominator,
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
+                actionText: hasExpandableFactors ? (state.denominatorExpanded ? "点击收回" : "点击展开") : "",
                 dataAttribute: "data-liquidity-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
             </div>
             <div class="eve-process-connector" aria-hidden="true"></div>
-            <div class="eve-process-expansions liquidity-process-expansions">
+            <div class="eve-process-expansions liquidity-process-expansions${hasExpandableFactors ? " liquidity-process-expansions--ratio" : ""}">
               <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
                 ${isLcr && state.numeratorExpanded
-                  ? renderLiquidityLcrNumeratorExpansion(model, selectedIndex, activeNode)
-                  : `<div class="eve-process-placeholder">${isLcr ? "点击左侧“未来30天现金净流出量”节点后，在这里向右展开现金流出量和现金流入量。" : "当前版本先穿透到“可用稳定资金规模”和“业务所需稳定资金”这一层，后续再继续细化。 "}</div>`}
+                  ? renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode)
+                  : isLiquidityRatio && state.numeratorExpanded
+                    ? renderLiquidityRatioComponentExpansion(model.components.liquidityAssetItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode)
+                    : isLiquidityGap && state.numeratorExpanded
+                      ? renderLiquidityGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNode)
+                    : ""}
               </div>
+              ${hasExpandableFactors ? `
+                <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                  ${isLcr && state.denominatorExpanded
+                    ? renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNode)
+                    : isLiquidityRatio && state.denominatorExpanded
+                      ? renderLiquidityRatioComponentExpansion(model.components.liquidityLiabilityItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode)
+                    : isLiquidityGap && state.denominatorExpanded
+                      ? renderLiquidityGapDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode)
+                    : ""}
+                </div>
+              ` : ""}
             </div>
           </div>
         </div>
@@ -815,25 +1106,180 @@ function renderLiquidityProcessModal() {
   liquidityProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderLiquidityLcrNumeratorExpansion(model, selectedIndex, activeNode) {
-  const nodeOptions = { selectedIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
+function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode) {
+  const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
   return `
-    <div class="eve-process-capital-strip liquidity-process-component-strip">
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "cash-outflow",
-        title: "未来30天现金流出量",
-        value: formatEveAmount(model.components.cashOutflows[selectedIndex]),
-        series: model.components.cashOutflows,
-      })}
-      <span class="eve-process-mini-operator">-</span>
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "cash-inflow",
-        title: "未来30天现金流入量",
-        value: formatEveAmount(model.components.cashInflows[selectedIndex]),
-        series: model.components.cashInflows,
-      })}
+    <div class="lcr-process-expansion">
+      <div class="lcr-process-expansion__formula">合格优质流动性资产HQLA = 一级资产 + 2A资产 + 2B资产</div>
+      <div class="eve-process-capital-strip liquidity-process-component-strip liquidity-process-component-strip--ratio">
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: "level-1-assets",
+          title: "一级资产",
+          value: formatEveAmount(model.components.level1Assets[selectedIndex]),
+          series: model.components.level1Assets,
+        })}
+        <span class="eve-process-mini-operator">+</span>
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: "level-2a-assets",
+          title: "2A资产",
+          value: formatEveAmount(model.components.level2AAssets[selectedIndex]),
+          series: model.components.level2AAssets,
+        })}
+        <span class="eve-process-mini-operator">+</span>
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: "level-2b-assets",
+          title: "2B资产",
+          value: formatEveAmount(model.components.level2BAssets[selectedIndex]),
+          series: model.components.level2BAssets,
+        })}
+      </div>
+    </div>
+  `;
+}
+
+function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNode = "") {
+  const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
+  return `
+    <div class="lcr-process-expansion">
+      <div class="lcr-process-expansion__formula">
+        经调整后净现金流出 = max（原始净现金流出，0.25 × 现金流出）
+      </div>
+      <div class="eve-process-capital-strip liquidity-process-component-strip liquidity-process-component-strip--ratio liquidity-process-component-strip--branch">
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: "raw-net-outflow",
+          title: "原始净现金流出",
+          value: formatEveAmount(model.components.rawNetOutflows[selectedIndex]),
+          series: model.components.rawNetOutflows,
+          actionText: detailExpandedNode === "raw-net-outflow" ? "点击收回" : "点击展开",
+        })}
+        <span class="eve-process-mini-operator eve-process-mini-operator--text">max</span>
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: "minimum-net-outflow",
+          title: "25%现金流出",
+          value: formatEveAmount(model.components.minimumNetOutflows[selectedIndex]),
+          series: model.components.minimumNetOutflows,
+        })}
+      </div>
+      ${detailExpandedNode === "raw-net-outflow" ? `
+        <div class="lcr-process-expansion__formula">原始净现金流出 = 现金流出 - 现金流入</div>
+        ${renderLiquidityGapFormulaStrip([
+          { key: "cash-outflow", title: "未来30天现金流出量", values: model.components.cashOutflows },
+          { key: "cash-inflow", title: "未来30天现金流入量", values: model.components.cashInflows, operator: "-" },
+        ], model, selectedIndex, comparisonIndex, activeNode)}
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderLiquidityRatioComponentExpansion(items, labels, selectedIndex, comparisonIndex, activeNode) {
+  const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount" };
+  return `
+    <div class="eve-process-capital-strip liquidity-process-component-strip liquidity-process-component-strip--ratio">
+      ${items.map((item, index) => `
+        ${index ? `<span class="eve-process-mini-operator">+</span>` : ""}
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: item.key,
+          title: item.title,
+          value: formatEveAmount(item.values[selectedIndex]),
+          series: item.values,
+          actionText: item.actionText || "",
+          labels,
+        })}
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderLiquidityGapFormulaStrip(items, model, selectedIndex, comparisonIndex, activeNode, layout = "leaf") {
+  const nodeOptions = {
+    selectedIndex,
+    comparisonIndex,
+    activeNode,
+    dataAttribute: "data-liquidity-process-node",
+    valueFormat: "amount",
+    labels: model.displayLabels,
+  };
+  return `
+    <div class="eve-process-capital-strip liquidity-process-component-strip liquidity-gap-process-strip${layout === "branch" ? " liquidity-gap-process-strip--branch" : ""}">
+      ${items.map((item, index) => `
+        ${index ? `<span class="eve-process-mini-operator">${item.operator || "+"}</span>` : ""}
+        ${renderEveProcessNode({
+          ...nodeOptions,
+          key: item.key,
+          title: item.title,
+          value: formatEveAmount(item.values[selectedIndex]),
+          series: item.values,
+          actionText: item.actionText || "",
+        })}
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderLiquidityGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNode = "") {
+  const components = model.components;
+  const showsCumulativeGapChildren = ["cumulative-maturity-gap", "maturity-gap"].includes(detailExpandedNode);
+  return `
+    <div class="liquidity-gap-process-detail">
+      <div class="lcr-process-expansion__formula">
+        ${model.selectedTenor}累计流动性缺口 = 累计到期期限缺口 + 3.5.2活期存款 - 附注活期存款 + 3.2活期存放 - 附注活期存放
+      </div>
+      ${renderLiquidityGapFormulaStrip([
+        {
+          key: "cumulative-maturity-gap",
+          title: "累计到期期限缺口",
+          values: components.cumulativeMaturityGap,
+          actionText: showsCumulativeGapChildren ? "点击收回" : "点击展开",
+        },
+        { key: "demand-deposits-adjustment", title: "3.5.2 活期存款", values: components.demandDeposits, operator: "+" },
+        { key: "note-demand-deposits-adjustment", title: "附注：活期存款", values: components.noteDemandDeposits, operator: "-" },
+        { key: "demand-placements-adjustment", title: "3.2 活期存放", values: components.demandPlacements, operator: "+" },
+        { key: "note-demand-placements-adjustment", title: "附注：活期存放", values: components.noteDemandPlacements, operator: "-" },
+      ], model, selectedIndex, comparisonIndex, activeNode, "branch")}
+      ${showsCumulativeGapChildren ? `
+        <div class="lcr-process-expansion__formula">累计到期期限缺口 = 到期期限缺口 + 内部交易资产 - 内部交易负债</div>
+        ${renderLiquidityGapFormulaStrip([
+          {
+            key: "maturity-gap",
+            title: "到期期限缺口",
+            values: components.maturityGap,
+            actionText: detailExpandedNode === "maturity-gap" ? "点击收回" : "点击展开",
+          },
+          { key: "internal-transaction-assets", title: "内部交易资产", values: components.internalTransactionAssets, operator: "+" },
+          { key: "internal-transaction-liabilities", title: "内部交易负债", values: components.internalTransactionLiabilities, operator: "-" },
+        ], model, selectedIndex, comparisonIndex, activeNode, "branch")}
+      ` : ""}
+      ${detailExpandedNode === "maturity-gap" ? `
+        <div class="lcr-process-expansion__formula">到期期限缺口 = 资产总计 + 表外收入 - 负债合计 - 表外支出</div>
+        ${renderLiquidityGapFormulaStrip([
+          { key: "asset-total", title: "资产总计", values: components.assetTotal },
+          { key: "off-balance-income", title: "表外收入", values: components.offBalanceIncome, operator: "+" },
+          { key: "liability-total", title: "负债合计", values: components.liabilityTotal, operator: "-" },
+          { key: "off-balance-expense", title: "表外支出", values: components.offBalanceExpense, operator: "-" },
+        ], model, selectedIndex, comparisonIndex, activeNode)}
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderLiquidityGapDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode) {
+  const components = model.components;
+  return `
+    <div class="liquidity-gap-process-detail">
+      <div class="lcr-process-expansion__formula">
+        ${model.selectedTenor}累计到期表内外资产 = 资产总计 + 表外收入 - 内部交易资产
+      </div>
+      ${renderLiquidityGapFormulaStrip([
+        { key: "denominator-asset-total", title: "资产总计", values: components.assetTotal },
+        { key: "denominator-off-balance-income", title: "表外收入", values: components.offBalanceIncome, operator: "+" },
+        { key: "denominator-internal-assets", title: "内部交易资产", values: components.internalTransactionAssets, operator: "-" },
+      ], model, selectedIndex, comparisonIndex, activeNode)}
     </div>
   `;
 }
@@ -842,8 +1288,12 @@ function renderRepricingGapRateChart(widget, chartContext) {
   const model = buildRepricingGapDiagnosticModel(widget, chartContext);
   const frame = createFrame(model.labels.length);
   const axis = renderAxes(frame, model.labels, "缺口率 (%)");
-  const ratioPoints = scaleValuesToFrame(model.ratios, frame, 0, 100);
+  const baselineRatios = model.baselineRatios || model.ratios;
+  const simulatedRatios = model.simulatedRatios || null;
+  const ratioPoints = scaleValuesToFrame(baselineRatios, frame, 0, 100);
   const ratioPath = ratioPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const simulatedPoints = simulatedRatios ? scaleValuesToFrame(simulatedRatios, frame, 0, 100) : [];
+  const simulatedPath = simulatedPoints.map((point) => `${point.x},${point.y}`).join(" ");
   const selectedPopover = appState.repricingGapPointPopover;
   const selectedIndex = selectedPopover?.widgetSeq === widget.seq
     ? clampNumber(Number(selectedPopover.dateIndex), 0, model.labels.length - 1)
@@ -882,27 +1332,48 @@ function renderRepricingGapRateChart(widget, chartContext) {
         ${axis}
         ${managementLimitOverlay}
         <polyline fill="none" stroke="${REPRICING_GAP_COLOR}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
+        ${simulatedRatios ? `<polyline fill="none" stroke="${EVE_COLOR_WORST}" stroke-width="3.6" stroke-dasharray="7 5" stroke-linecap="round" stroke-linejoin="round" points="${simulatedPath}"></polyline>` : ""}
         ${pointMarkup}
+        ${simulatedRatios && Number.isInteger(model.simulationTargetIndex) ? `
+          <circle
+            cx="${simulatedPoints[model.simulationTargetIndex].x}"
+            cy="${simulatedPoints[model.simulationTargetIndex].y}"
+            r="6"
+            fill="#ffffff"
+            stroke="${EVE_COLOR_WORST}"
+            stroke-width="3"
+            data-repricing-simulation-point="true"
+          >
+            <title>${model.displayLabels[model.simulationTargetIndex]} 测算后 ${formatRepricingGapPercent(simulatedRatios[model.simulationTargetIndex])}</title>
+          </circle>
+        ` : ""}
       </svg>
       ${popoverMarkup}
-      ${renderSeriesLegend(widget, { ...chartContext, seriesList: ["重定价缺口率"], allSeriesList: ["重定价缺口率"] })}
+      ${renderSeriesLegend(widget, {
+        ...chartContext,
+        seriesList: simulatedRatios ? ["基准重定价缺口率", "测算后重定价缺口率"] : ["重定价缺口率"],
+        allSeriesList: simulatedRatios ? ["基准重定价缺口率", "测算后重定价缺口率"] : ["重定价缺口率"],
+        legendItems: simulatedRatios
+          ? [
+            { label: "基准重定价缺口率", color: REPRICING_GAP_COLOR },
+            { label: "测算后重定价缺口率", color: EVE_COLOR_WORST },
+          ]
+          : [{ label: "重定价缺口率", color: REPRICING_GAP_COLOR }],
+      })}
+      ${renderManagementLimitLegend(widget, chartContext)}
     </div>
   `;
 }
 
 function renderRepricingGapPointPopover(widget, model, point, index) {
   const ratio = model.ratios[index];
-  const limitSpace = model.limit - ratio;
   const left = Number(((point.x / 700) * 100).toFixed(2));
   const top = Number(((point.y / 300) * 100).toFixed(2));
   return `
-    <div class="eve-point-popover" style="left:${left}%; top:${top}%;">
-      <div class="eve-point-popover__title">${model.displayLabels[index]}</div>
-      <div class="eve-point-popover__grid">
-        <div><span>缺口率</span><strong>${formatRepricingGapPercent(ratio)}</strong></div>
-        <div><span>距限额</span><strong>${limitSpace.toFixed(1)}pct</strong></div>
-        <div><span>分子</span><strong>${formatEveAmount(model.numerator[index])}</strong></div>
-        <div><span>分母</span><strong>${formatEveAmount(model.totalInterestAssets[index])}</strong></div>
+    <div class="eve-point-popover eve-point-popover--compact" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__grid eve-point-popover__grid--compact">
+        <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
+        <div><span>取值</span><strong>${formatRepricingGapPercent(ratio)}</strong></div>
       </div>
       <button
         class="eve-point-popover__action"
@@ -918,34 +1389,131 @@ function renderRepricingGapPointPopover(widget, model, point, index) {
   `;
 }
 
+function sumDiagnosticSeries(items = [], count = 0) {
+  return Array.from({ length: count }, (_, index) => Number(items.reduce((sum, item) =>
+    sum + Number((item.values || item)[index] || 0)
+  , 0).toFixed(1)));
+}
+
+function buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase = 0) {
+  return Array.from({ length: count }, (_, index) => Number((
+    base
+    + normalizedOffset * base * 0.003
+    + index * slope
+    + Math.sin((index + normalizedOffset + phase) / 2.7) * wave
+  ).toFixed(1)));
+}
+
 function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
   const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
-  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
-  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || widget?.sourceSeq || 9, chartContextOrState.filterState || {}));
+  const labels = rawLabels.length ? [...rawLabels] : buildMonthlyXAxisLabels();
+  const pageId = chartContextOrState.pageId || getCurrentPage()?.id || "interest-risk";
+  const filterState = getDiagnosticFilterState(pageId, chartContextOrState);
+  const organizations = getDiagnosticOrganizations(pageId, chartContextOrState);
+  const includesInternalTransactions = isSingleForeignBranchScope(organizations);
+  const simulation = typeof getPageSimulation === "function" ? getPageSimulation(pageId) : null;
+  const hasRepricingSimulation = Number(simulation?.sourceWidgetSeq) === 9 && simulation?.baseMatrix;
+  let simulationTargetIndex = -1;
+  if (hasRepricingSimulation) {
+    const targetDate = parseDateValue(simulation.baseDate);
+    const rangeStart = parseDateValue(appState.globalStartDate || getDefaultGlobalStartDate());
+    const rangeEnd = parseDateValue(appState.globalEndDate || getDefaultGlobalEndDate());
+    if (targetDate && rangeStart && rangeEnd) {
+      const monthOffset = (targetDate.getFullYear() - rangeStart.getFullYear()) * 12 + targetDate.getMonth() - rangeStart.getMonth();
+      if (monthOffset >= 0 && monthOffset < labels.length) simulationTargetIndex = monthOffset;
+      else if (targetDate > rangeEnd) {
+        labels.push(`${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}`);
+        simulationTargetIndex = labels.length - 1;
+      }
+    }
+  }
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || widget?.sourceSeq || 9, filterState));
   const count = labels.length;
   const normalizedOffset = signature % 19;
-  const totalInterestAssets = Array.from({ length: count }, (_, index) =>
-    Number((820 + normalizedOffset * 3.2 + index * 5.4 + Math.sin(index / 2.1) * 18).toFixed(1))
-  );
-  const adjustedInterestAssets = totalInterestAssets.map((value, index) =>
-    Number((value * (0.58 + ((index + normalizedOffset) % 5) * 0.012)).toFixed(1))
-  );
-  const adjustedInterestLiabilities = totalInterestAssets.map((value, index) =>
-    Number((value * (0.43 + ((index + normalizedOffset) % 4) * 0.011)).toFixed(1))
-  );
-  const demandDeposits = totalInterestAssets.map((value, index) =>
-    Number((value * (0.055 + ((index + normalizedOffset) % 3) * 0.007)).toFixed(1))
-  );
-  const derivativeReceivable = totalInterestAssets.map((value, index) =>
-    Number((value * (0.035 + Math.abs(Math.sin((index + normalizedOffset) / 3)) * 0.014)).toFixed(1))
-  );
-  const derivativePayable = totalInterestAssets.map((value, index) =>
-    Number((value * (0.024 + Math.abs(Math.cos((index + normalizedOffset) / 3.4)) * 0.012)).toFixed(1))
-  );
-  const numerator = adjustedInterestAssets.map((value, index) =>
-    Number((value - adjustedInterestLiabilities[index] + demandDeposits[index] + derivativeReceivable[index] - derivativePayable[index]).toFixed(1))
-  );
+  const assetItems = [
+    ["self-operated-loans", "自营贷款", 205, 2.4, 8, 0],
+    ["investment-assets", "投资类资产", 132, 1.8, 6, 1],
+    ["interbank-assets", "同业资产", 92, 1.3, 5, 2],
+    ["non-standard-investments", "自营非标投资", 64, 0.9, 4, 3],
+    ["central-bank-deposits", "存放央行", 38, 0.6, 3, 4],
+  ].map(([key, title, base, slope, wave, phase]) => ({
+    key,
+    title,
+    values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
+  }));
+  const liabilityItems = [
+    ["term-deposits", "定期存款", 188, 2.2, 8, 1],
+    ["interbank-liabilities", "同业负债", 105, 1.4, 6, 2],
+    ["issued-bonds", "发行债券", 72, 1.0, 5, 3],
+    ["central-bank-borrowings", "向央行借款", 36, 0.5, 3, 4],
+    ["lease-liabilities", "租赁负债", 18, 0.3, 2, 5],
+  ].map(([key, title, base, slope, wave, phase]) => ({
+    key,
+    title,
+    values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
+  }));
+  const internalAssetItem = {
+    key: "internal-transaction-assets",
+    title: "内部交易资产",
+    values: buildDiagnosticAmountSeries(count, normalizedOffset, 42, 0.7, 3, 2),
+  };
+  const internalLiabilityItem = {
+    key: "internal-transaction-liabilities",
+    title: "内部交易负债",
+    values: buildDiagnosticAmountSeries(count, normalizedOffset, 33, 0.6, 2.5, 4),
+  };
+  if (includesInternalTransactions) {
+    assetItems.push(internalAssetItem);
+    liabilityItems.push(internalLiabilityItem);
+  }
+  const bankBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 31, 0.4, 2.8, 1);
+  const bankBookPayable = buildDiagnosticAmountSeries(count, normalizedOffset, 26, 0.35, 2.4, 3);
+  const tradingBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 19, 0.28, 2.1, 2);
+  const tradingBookPayable = buildDiagnosticAmountSeries(count, normalizedOffset, 15, 0.24, 1.8, 5);
+  const bankBookDerivativeGap = bankBookReceivable.map((value, index) => Number((value - bankBookPayable[index]).toFixed(1)));
+  const tradingBookDerivativeGap = tradingBookReceivable.map((value, index) => Number((value - tradingBookPayable[index]).toFixed(1)));
+  const adjustedInterestAssets = sumDiagnosticSeries(assetItems, count);
+  const adjustedInterestLiabilities = sumDiagnosticSeries(liabilityItems, count);
+  const totalInterestAssetItems = assetItems.map((item) => ({
+    key: `total-${item.key}`,
+    title: item.title,
+    values: item.values.map((value, index) => Number((value * (1.48 + ((index + normalizedOffset) % 4) * 0.01)).toFixed(1))),
+  }));
+  const totalInterestAssets = sumDiagnosticSeries(totalInterestAssetItems, count);
+  const numerator = adjustedInterestAssets.map((value, index) => Number((
+    value
+    - adjustedInterestLiabilities[index]
+    + bankBookDerivativeGap[index]
+    + tradingBookDerivativeGap[index]
+  ).toFixed(1)));
   const ratios = numerator.map((value, index) => Number(((value / totalInterestAssets[index]) * 100).toFixed(1)));
+  let simulationResult = null;
+  let baselineRatios = null;
+  let simulatedRatios = null;
+  if (hasRepricingSimulation && simulationTargetIndex >= 0) {
+    simulationResult = buildRepricingGapSimulationResult(simulation);
+    baselineRatios = [...ratios];
+    simulatedRatios = [...ratios];
+    baselineRatios[simulationTargetIndex] = simulationResult.baseMetrics.ratio;
+    simulatedRatios[simulationTargetIndex] = simulationResult.simulatedMetrics.ratio;
+    ratios[simulationTargetIndex] = simulationResult.baseMetrics.ratio;
+    totalInterestAssets[simulationTargetIndex] = simulationResult.baseMetrics.totalInterestAssets;
+    const componentTotal = totalInterestAssetItems.reduce((sum, item) => sum + item.values[simulationTargetIndex], 0);
+    totalInterestAssetItems[0].values[simulationTargetIndex] = Number((
+      totalInterestAssetItems[0].values[simulationTargetIndex]
+      + simulationResult.baseMetrics.totalInterestAssets
+      - componentTotal
+    ).toFixed(1));
+    adjustedInterestAssets[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestAssets;
+    adjustedInterestLiabilities[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestLiabilities;
+    bankBookReceivable[simulationTargetIndex] = 0;
+    bankBookPayable[simulationTargetIndex] = 0;
+    bankBookDerivativeGap[simulationTargetIndex] = 0;
+    tradingBookReceivable[simulationTargetIndex] = 0;
+    tradingBookPayable[simulationTargetIndex] = 0;
+    tradingBookDerivativeGap[simulationTargetIndex] = 0;
+    numerator[simulationTargetIndex] = simulationResult.baseMetrics.repricingGap;
+  }
   return {
     labels,
     displayLabels: buildEveDisplayLabels(labels),
@@ -954,12 +1522,60 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     totalInterestAssets,
     adjustedInterestAssets,
     adjustedInterestLiabilities,
-    demandDeposits,
-    derivativeReceivable,
-    derivativePayable,
+    bankBookReceivable,
+    bankBookPayable,
+    bankBookDerivativeGap,
+    tradingBookReceivable,
+    tradingBookPayable,
+    tradingBookDerivativeGap,
+    assetItems,
+    liabilityItems,
+    totalInterestAssetItems,
+    organizations,
+    includesInternalTransactions,
+    scopeLabel: includesInternalTransactions ? "含内部交易" : "不含内部交易",
+    denominatorTitle: `总生息资产规模（${includesInternalTransactions ? "含内部交易" : "剔除内部交易"}）`,
     numerator,
     ratios,
+    baselineRatios,
+    simulatedRatios,
+    simulationTargetIndex,
+    simulationResult,
   };
+}
+
+function renderRepricingGapRateDataTable(widget, chartContext) {
+  const model = buildRepricingGapDiagnosticModel(widget, chartContext);
+  const hasSimulation = Boolean(model.simulatedRatios);
+  return `
+    <div class="chart-shell chart-shell--data">
+      <div class="table-shell">
+        <table class="chart-table chart-table--wide">
+          <thead>
+            <tr>
+              <th>${inferXAxisTitle(model.labels)}</th>
+              <th>${hasSimulation ? "基准重定价缺口率" : "重定价缺口率"}</th>
+              ${hasSimulation ? "<th>测算后重定价缺口率</th><th>变化</th>" : ""}
+            </tr>
+          </thead>
+          <tbody>
+            ${model.labels.map((label, index) => {
+              const baseline = model.baselineRatios?.[index] ?? model.ratios[index];
+              const simulated = model.simulatedRatios?.[index] ?? baseline;
+              const delta = Number((simulated - baseline).toFixed(2));
+              return `
+                <tr>
+                  <td>${label}</td>
+                  <td>${formatRepricingGapPercent(baseline)}</td>
+                  ${hasSimulation ? `<td>${formatRepricingGapPercent(simulated)}</td><td>${delta >= 0 ? "+" : ""}${delta.toFixed(2)}pct</td>` : ""}
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 function renderRepricingGapProcessModal() {
@@ -975,8 +1591,10 @@ function renderRepricingGapProcessModal() {
   const model = buildRepricingGapDiagnosticModel(widget, {
     labels: state.labels,
     signature: state.signature,
+    filterState: getDiagnosticFilterState("interest-risk"),
   });
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "ratio";
 
   repricingGapProcessModalEl.innerHTML = `
@@ -987,9 +1605,12 @@ function renderRepricingGapProcessModal() {
         <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="repricingGapProcessModal">关闭</button>
       </div>
       <div class="eve-process-modal__controls">
-        <div class="eve-process-date">
-          <span>当前日期</span>
-          <strong>${model.displayLabels[selectedIndex]}</strong>
+        <div class="eve-process-context">
+          <div class="eve-process-date">
+            <span>当前日期</span>
+            <strong>${model.displayLabels[selectedIndex]}</strong>
+          </div>
+          ${renderProcessComparisonControl(state, model.displayLabels, selectedIndex, "data-repricing-gap-process-comparison")}
         </div>
         <div class="eve-process-slider">
           <input
@@ -1004,6 +1625,7 @@ function renderRepricingGapProcessModal() {
           <div class="eve-process-slider__axis">
             ${model.displayLabels.map((label, index) => `<span class="${shouldShowProcessAxisLabel(model.displayLabels, index) ? "" : "is-muted"}">${shouldShowProcessAxisLabel(model.displayLabels, index) ? label : ""}</span>`).join("")}
           </div>
+          <div class="eve-process-formula">重定价缺口率 = 重定价缺口 ÷ ${model.denominatorTitle}</div>
         </div>
       </div>
       <div class="eve-process-flow">
@@ -1016,6 +1638,7 @@ function renderRepricingGapProcessModal() {
               value: formatRepricingGapPercent(model.ratios[selectedIndex]),
               series: model.ratios,
               selectedIndex,
+              comparisonIndex,
               activeNode,
               dataAttribute: "data-repricing-gap-process-node",
               changeType: "delta",
@@ -1026,37 +1649,49 @@ function renderRepricingGapProcessModal() {
             <div class="eve-process-factor-stack">
               ${renderEveProcessNode({
                 key: "numerator",
-                title: "分子",
-                note: "经期限调整后的重定价缺口",
+                title: "重定价缺口",
                 value: formatEveAmount(model.numerator[selectedIndex]),
                 series: model.numerator,
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
-                actionText: "点击展开组成项 →",
+                actionText: state.numeratorExpanded ? "点击收回" : "点击展开",
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
-              <div class="eve-process-division">÷</div>
+              <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
                 key: "denominator",
-                title: "分母",
-                note: "总生息资产规模",
+                title: model.denominatorTitle,
                 value: formatEveAmount(model.totalInterestAssets[selectedIndex]),
                 series: model.totalInterestAssets,
                 selectedIndex,
+                comparisonIndex,
                 activeNode,
+                actionText: state.denominatorExpanded ? "点击收回" : "点击展开",
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
               })}
             </div>
             <div class="eve-process-connector" aria-hidden="true"></div>
-            <div class="eve-process-expansions">
+            <div class="eve-process-expansions repricing-gap-process-expansions">
               <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
                 ${state.numeratorExpanded
-                  ? renderRepricingGapNumeratorExpansion(model, selectedIndex, activeNode)
-                  : `<div class="eve-process-placeholder">点击左侧“分子”节点后，在这里向右展开经期限调整后的重定价缺口组成项。</div>`}
+                  ? renderRepricingGapNumeratorExpansion(
+                    model,
+                    selectedIndex,
+                    comparisonIndex,
+                    activeNode,
+                    state.detailExpandedNodes || state.detailExpandedNode
+                  )
+                  : ""}
+              </div>
+              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                ${state.denominatorExpanded
+                  ? renderRepricingGapLeafGroup(model.denominatorTitle, model.totalInterestAssetItems, "+", model, selectedIndex, comparisonIndex, activeNode)
+                  : ""}
               </div>
             </div>
           </div>
@@ -1068,56 +1703,280 @@ function renderRepricingGapProcessModal() {
   repricingGapProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderRepricingGapNumeratorExpansion(model, selectedIndex, activeNode) {
-  const nodeOptions = { selectedIndex, activeNode, dataAttribute: "data-repricing-gap-process-node", valueFormat: "amount", labels: model.displayLabels };
+function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = []) {
+  const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-repricing-gap-process-node", valueFormat: "amount", labels: model.displayLabels };
+  const expandedNodeKeys = Array.isArray(detailExpandedNodes)
+    ? detailExpandedNodes
+    : detailExpandedNodes
+      ? [detailExpandedNodes]
+      : [];
+  const isExpanded = (key) => expandedNodeKeys.includes(key);
+  const branches = [
+    {
+      key: "adjusted-assets",
+      title: `资产端重定价规模（${model.scopeLabel}）`,
+      values: model.adjustedInterestAssets,
+      operator: "",
+      children: renderRepricingGapLeafGroup(
+        `资产端重定价规模（${model.scopeLabel}）`,
+        model.assetItems,
+        "+",
+        model,
+        selectedIndex,
+        comparisonIndex,
+        activeNode
+      ),
+    },
+    {
+      key: "adjusted-liabilities",
+      title: `负债端重定价规模（${model.scopeLabel}、不含活期）`,
+      values: model.adjustedInterestLiabilities,
+      operator: "-",
+      children: renderRepricingGapLeafGroup(
+        `负债端重定价规模（${model.scopeLabel}、不含活期）`,
+        model.liabilityItems,
+        "+",
+        model,
+        selectedIndex,
+        comparisonIndex,
+        activeNode
+      ),
+    },
+    {
+      key: "bank-book-derivative-gap",
+      title: "银行账簿表外衍生品缺口",
+      values: model.bankBookDerivativeGap,
+      operator: "+",
+      children: renderRepricingGapLeafGroup("银行账簿表外衍生品缺口", [
+        { key: "bank-book-receivable", title: "银行账簿表外衍生品应收", values: model.bankBookReceivable },
+        { key: "bank-book-payable", title: "银行账簿表外衍生品应付", values: model.bankBookPayable },
+      ], "-", model, selectedIndex, comparisonIndex, activeNode),
+    },
+    {
+      key: "trading-book-derivative-gap",
+      title: "交易账簿表外衍生品缺口",
+      values: model.tradingBookDerivativeGap,
+      operator: "+",
+      children: renderRepricingGapLeafGroup("交易账簿表外衍生品缺口", [
+        { key: "trading-book-receivable", title: "交易账簿表外衍生品应收", values: model.tradingBookReceivable },
+        { key: "trading-book-payable", title: "交易账簿表外衍生品应付", values: model.tradingBookPayable },
+      ], "-", model, selectedIndex, comparisonIndex, activeNode),
+    },
+  ];
   return `
-    <div class="eve-process-capital-strip repricing-gap-component-strip">
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "adjusted-assets",
-        title: "经期限调整后的生息资产",
-        note: "资产端重定价现金流",
-        value: formatEveAmount(model.adjustedInterestAssets[selectedIndex]),
-        series: model.adjustedInterestAssets,
-      })}
-      <span class="eve-process-mini-operator">-</span>
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "adjusted-liabilities",
-        title: "经期限调整后的付息负债",
-        note: "负债端重定价现金流",
-        value: formatEveAmount(model.adjustedInterestLiabilities[selectedIndex]),
-        series: model.adjustedInterestLiabilities,
-      })}
-      <span class="eve-process-mini-operator">+</span>
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "demand-deposits",
-        title: "活期存款",
-        note: "稳定沉淀部分",
-        value: formatEveAmount(model.demandDeposits[selectedIndex]),
-        series: model.demandDeposits,
-      })}
-      <span class="eve-process-mini-operator">+</span>
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "derivative-receivable",
-        title: "经期限调整后的表外衍生品应收",
-        note: "表外应收重定价现金流",
-        value: formatEveAmount(model.derivativeReceivable[selectedIndex]),
-        series: model.derivativeReceivable,
-      })}
-      <span class="eve-process-mini-operator">-</span>
-      ${renderEveProcessNode({
-        ...nodeOptions,
-        key: "derivative-payable",
-        title: "经期限调整后的表外衍生品应付",
-        note: "表外应付重定价现金流",
-        value: formatEveAmount(model.derivativePayable[selectedIndex]),
-        series: model.derivativePayable,
-      })}
+    <div class="repricing-gap-process-detail">
+      <div class="lcr-process-expansion__formula">
+        重定价缺口 = 资产端重定价规模 - 负债端重定价规模 + 银行账簿表外衍生品缺口 + 交易账簿表外衍生品缺口
+      </div>
+      <div class="repricing-gap-branch-tree">
+        ${branches.map((branch, index) => `
+          ${index ? `
+            <div class="repricing-gap-branch-tree__operator">
+              <span class="eve-process-mini-operator">${branch.operator}</span>
+            </div>
+          ` : ""}
+          <div class="repricing-gap-branch-row${isExpanded(branch.key) ? " is-expanded" : ""}">
+            ${renderEveProcessNode({
+              ...nodeOptions,
+              key: branch.key,
+              title: branch.title,
+              value: formatEveAmount(branch.values[selectedIndex]),
+              series: branch.values,
+              actionText: isExpanded(branch.key) ? "点击收回" : "点击展开",
+            })}
+            ${isExpanded(branch.key) ? `
+              <div class="eve-process-connector repricing-gap-branch-row__connector" aria-hidden="true"></div>
+              <div class="repricing-gap-branch-row__children">${branch.children}</div>
+            ` : ""}
+          </div>
+        `).join("")}
+      </div>
     </div>
   `;
+}
+
+function renderRepricingGapLeafGroup(title, items, operator, model, selectedIndex, comparisonIndex, activeNode) {
+  const nodeOptions = {
+    selectedIndex,
+    comparisonIndex,
+    activeNode,
+    dataAttribute: "data-repricing-gap-process-node",
+    valueFormat: "amount",
+    labels: model.displayLabels,
+  };
+  return `
+    <section class="repricing-gap-leaf-group">
+      <h4>${title}</h4>
+      <div class="repricing-gap-leaf-group__nodes">
+        ${items.map((item, index) => `
+          ${index ? `<span class="eve-process-mini-operator">${operator}</span>` : ""}
+          ${renderEveProcessNode({
+            ...nodeOptions,
+            key: item.key,
+            title: item.title,
+            value: formatEveAmount(item.values[selectedIndex]),
+            series: item.values,
+          })}
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderRepricingDurationGapProcessModal() {
+  const state = appState.repricingDurationGapProcessModal;
+  if (!state) {
+    repricingDurationGapProcessModalEl.innerHTML = "";
+    repricingDurationGapProcessModalEl.classList.remove("is-open");
+    repricingDurationGapProcessModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const target = findWidgetBySeq(state.widgetSeq || 15);
+  const widget = target?.widget || { seq: state.widgetSeq || 15, title: "资产负债重定价久期缺口" };
+  const model = buildRepricingDurationGapModel(widget, {
+    labels: state.labels,
+    signature: state.signature,
+  });
+  const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+  const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
+  const activeNode = state.activeNode || "duration-gap";
+
+  repricingDurationGapProcessModalEl.innerHTML = `
+    <div class="overlay-scrim" data-close-overlay="repricingDurationGapProcessModal"></div>
+    <section class="eve-process-modal" role="dialog" aria-modal="true" aria-labelledby="repricingDurationGapProcessModalTitle">
+      <div class="eve-process-modal__header">
+        <h3 id="repricingDurationGapProcessModalTitle">计算过程</h3>
+        <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="repricingDurationGapProcessModal">关闭</button>
+      </div>
+      <div class="eve-process-modal__controls">
+        <div class="eve-process-context">
+          <div class="eve-process-date">
+            <span>当前日期</span>
+            <strong>${model.displayLabels[selectedIndex]}</strong>
+          </div>
+          ${renderProcessComparisonControl(state, model.displayLabels, selectedIndex, "data-repricing-duration-gap-process-comparison")}
+        </div>
+        <div class="eve-process-slider">
+          <input
+            class="eve-process-slider__input"
+            type="range"
+            min="0"
+            max="${model.labels.length - 1}"
+            step="1"
+            value="${selectedIndex}"
+            data-repricing-duration-gap-process-date-slider="true"
+          >
+          <div class="eve-process-slider__axis">
+            ${model.displayLabels.map((label, index) => `<span class="${shouldShowProcessAxisLabel(model.displayLabels, index) ? "" : "is-muted"}">${shouldShowProcessAxisLabel(model.displayLabels, index) ? label : ""}</span>`).join("")}
+          </div>
+          <div class="eve-process-formula">资产负债重定价久期缺口 = 资产重定价久期 - 负债重定价久期</div>
+        </div>
+      </div>
+      <div class="eve-process-flow">
+        <div class="eve-process-flow__canvas">
+          <div class="eve-process-flow__lane">
+            ${renderEveProcessNode({
+              key: "duration-gap",
+              title: "资产负债重定价久期缺口",
+              value: formatDurationProcessValue(model.gaps[selectedIndex]),
+              series: model.gaps,
+              selectedIndex,
+              comparisonIndex,
+              activeNode,
+              dataAttribute: "data-repricing-duration-gap-process-node",
+              changeType: "numberDelta",
+              valueFormat: "number",
+              labels: model.displayLabels,
+            })}
+            <div class="eve-process-operator">=</div>
+            <div class="eve-process-factor-stack">
+              ${renderEveProcessNode({
+                key: "asset-duration",
+                title: "资产重定价久期",
+                value: formatDurationProcessValue(model.assetDurations[selectedIndex]),
+                series: model.assetDurations,
+                selectedIndex,
+                comparisonIndex,
+                activeNode,
+                actionText: state.assetExpanded ? "点击收回" : "点击展开",
+                dataAttribute: "data-repricing-duration-gap-process-node",
+                changeType: "numberDelta",
+                valueFormat: "number",
+                labels: model.displayLabels,
+              })}
+              <div class="eve-process-division">-</div>
+              ${renderEveProcessNode({
+                key: "liability-duration",
+                title: "负债重定价久期",
+                value: formatDurationProcessValue(model.liabilityDurations[selectedIndex]),
+                series: model.liabilityDurations,
+                selectedIndex,
+                comparisonIndex,
+                activeNode,
+                actionText: state.liabilityExpanded ? "点击收回" : "点击展开",
+                dataAttribute: "data-repricing-duration-gap-process-node",
+                changeType: "numberDelta",
+                valueFormat: "number",
+                labels: model.displayLabels,
+              })}
+            </div>
+            <div class="eve-process-connector" aria-hidden="true"></div>
+            <div class="eve-process-expansions">
+              <div class="eve-process-expansion-slot">
+                ${state.assetExpanded
+                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "asset")
+                  : ""}
+              </div>
+              <div class="eve-process-expansion-slot">
+                ${state.liabilityExpanded
+                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "liability")
+                  : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+  repricingDurationGapProcessModalEl.classList.add("is-open");
+  repricingDurationGapProcessModalEl.setAttribute("aria-hidden", "false");
+}
+
+function renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, side) {
+  const sideLabel = side === "asset" ? "资产端" : "负债端";
+  const rows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
+    .filter((row) => row.side === sideLabel);
+  return `
+    <div class="eve-process-scenario-strip repricing-duration-gap-component-strip">
+      ${rows.map((row) => {
+        const series = model.labels.map((_, index) => {
+          const rowAtDate = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, index)
+            .find((item) => item.businessType === row.businessType);
+          return rowAtDate?.contribution || 0;
+        });
+        return renderEveProcessNode({
+          key: `${side}:${row.businessType}`,
+          title: row.businessType,
+          value: formatDurationProcessValue(row.contribution),
+          series,
+          selectedIndex,
+          comparisonIndex,
+          activeNode,
+          dataAttribute: "data-repricing-duration-gap-process-node",
+          changeType: "numberDelta",
+          valueFormat: "number",
+          labels: model.displayLabels,
+        }).replace(
+          '<button class="eve-process-node',
+          '<button class="eve-process-node eve-process-node--compact'
+        );
+      }).join("")}
+    </div>
+  `;
+}
+
+function formatDurationProcessValue(value) {
+  return Number(value || 0).toFixed(2);
 }
 
 function shouldShowProcessAxisLabel(labels, index) {

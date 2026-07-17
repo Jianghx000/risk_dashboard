@@ -2,7 +2,7 @@ window.dashboardData = {
   "generatedAt": "2026-07-08 curated",
   "workbook": "风险管理驾驶舱（无图版）.xlsx",
   "pageCount": 3,
-  "widgetCount": 30,
+  "widgetCount": 26,
   "pages": [
     {
       "id": "interest-risk",
@@ -25,7 +25,7 @@ window.dashboardData = {
                   "seq": 1,
                   "title": "最大经济价值变动比例（△EVE ）走势",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：通过筛选机构和币种，展示所选择的机构和币种的最大经济价值变动比例的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
+                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。通过筛选机构和币种展示最大经济价值变动比例走势；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
@@ -125,7 +125,7 @@ window.dashboardData = {
                   "seq": 9,
                   "title": "重定价缺口率",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。原始要求：通过筛选机构、币种（二者均支持多选），展示所选择的机构在所选币种口径下的时点重定价缺口率走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
+                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。展示所选机构、币种的经期限调整重定价缺口率走势；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
@@ -138,6 +138,21 @@ window.dashboardData = {
                   "originPosition": "原始行9"
                 },
                 {
+                  "seq": 15,
+                  "title": "资产负债重定价久期缺口",
+                  "componentType": "穿透折线图",
+                  "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：时间序列（月频）。指标口径：资产负债重定价久期缺口 = 资产重定价久期 - 负债重定价久期。开发细化：采用折线图展示久期缺口走势，点击时间点后穿透展示当期资产端、负债端久期及分业务贡献。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：资产负债重定价久期缺口",
+                  "legendDescription": "图例：资产负债重定价久期缺口",
+                  "responseFields": "date_or_dimension_label, duration_gap, asset_duration, liability_duration, business_type",
+                  "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
+                  "devNote": "组件：折线图；点击时间点穿透展示久期缺口拆解"
+                },
+                {
                   "seq": 14,
                   "title": "分业务重定价期限分布",
                   "componentType": "期限分布图",
@@ -145,7 +160,7 @@ window.dashboardData = {
                   "grain": "时点快照",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：时间/维度项（按口径确定）",
+                  "axisDescription": "横轴：以全局结束时间为起点，将隔夜至11~12个月的13个重定价期限桶映射为实际日期区间",
                   "metricDescription": "指标：规模",
                   "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name",
@@ -163,107 +178,6 @@ window.dashboardData = {
               }
             },
             {
-              "id": "area-20",
-              "name": "重定价久期",
-              "groupKey": "repricing-duration",
-              "viewScope": "存量业务 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构",
-                "币种"
-              ],
-              "widgets": [
-                {
-                  "seq": 21,
-                  "title": "资产/负债重定价久期与差值",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：存量业务。原始要求：在同一张图中展示所选机构与币种口径下资产和负债的重定价久期，并同步展示二者差值。开发细化：采用柱线组合图实现，柱状图展示资产端和负债端重定价久期，折线展示久期差值，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：资产端重定价久期/负债端重定价久期/久期差值",
-                  "legendDescription": "图例：资产端重定价久期、负债端重定价久期、久期差值",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
-                  "devNote": "组件：双轴柱线组合图",
-                  "originPosition": "原始行21"
-                },
-                {
-                  "seq": 24,
-                  "title": "分业务重定价久期",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种；业务类型。联动规则：当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例多选控制。展示口径：存量业务。原始要求：展示不同业务分类的重定价久期走势图。开发细化：按业务类型拆线，切换机构、币种后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；业务类型：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], business_types[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：分业务重定价久期",
-                  "legendDescription": "图例：业务类型",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
-                  "devNote": "组件：折线图；按业务类型拆线展示",
-                  "layout": "full"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "repricingDuration",
-                "tabKey": "存量"
-              }
-            },
-            {
-              "id": "area-26",
-              "name": "重定价久期",
-              "groupKey": "repricing-duration",
-              "viewScope": "新发生业务 / 时间序列（月频）",
-              "sharedFilters": [
-                "机构",
-                "币种"
-              ],
-              "widgets": [
-                {
-                  "seq": 27,
-                  "title": "资产/负债重定价久期与差值",
-                  "componentType": "双轴柱线组合图",
-                  "displayDescription": "筛选项：机构；币种。联动规则：当前子页面下图表/表格共用机构、币种筛选器。展示口径：新发生业务。原始要求：在同一张图中展示所选机构与币种口径下新发生业务的资产和负债重定价久期，并同步展示二者差值。开发细化：采用柱线组合图实现，柱状图展示资产端和负债端重定价久期，折线展示久期差值，切换筛选项后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：资产端重定价久期/负债端重定价久期/久期差值",
-                  "legendDescription": "图例：资产端重定价久期、负债端重定价久期、久期差值",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器",
-                  "devNote": "组件：双轴柱线组合图",
-                  "originPosition": "原始行27"
-                },
-                {
-                  "seq": 30,
-                  "title": "分业务重定价久期",
-                  "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种；业务类型。联动规则：当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例多选控制。展示口径：新发生业务。原始要求：展示不同业务分类的新发生业务重定价久期走势图。开发细化：按业务类型拆线，切换机构、币种后整图联动刷新。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；业务类型：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], business_types[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：分业务重定价久期",
-                  "legendDescription": "图例：业务类型",
-                  "responseFields": "date_or_dimension_label, metric_value, series_name",
-                  "linkageRule": "当前子页面下图表/表格共用机构、币种筛选器，业务类型通过图例筛选",
-                  "devNote": "组件：折线图；按业务类型拆线展示"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly",
-                "tabGroup": "repricingDuration",
-                "tabKey": "新发生"
-              }
-            },
-            {
               "id": "area-interest-portfolio-duration",
               "name": "债券修正久期",
               "viewScope": "存量业务 / 限额监测",
@@ -276,7 +190,7 @@ window.dashboardData = {
                   "seq": 60,
                   "title": "债券修正久期",
                   "componentType": "限额折线图",
-                  "displayDescription": "筛选项：机构；币种。展示所选机构、币种口径下债券修正久期走势，指标为限额指标。",
+                  "displayDescription": "筛选项：机构；币种。展示所选机构、币种口径下债券修正久期走势；机构单选时，为所选币种中命中债券投资组合久期限额的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
@@ -307,7 +221,7 @@ window.dashboardData = {
                   "seq": 59,
                   "title": "债券投资规模",
                   "componentType": "限额双柱时序图",
-                  "displayDescription": "筛选项：机构；币种。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模，两个指标均为限额指标。",
+                  "displayDescription": "筛选项：机构；币种。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模；机构单选时，为所选币种中命中对应限额的币种显示各自限额线，并通过图例注明适用范围。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
@@ -325,13 +239,13 @@ window.dashboardData = {
               }
             }
           ],
-          "areaCount": 7,
-          "widgetCount": 12
+          "areaCount": 5,
+          "widgetCount": 9
         }
       ],
       "blockCount": 1,
-      "areaCount": 7,
-      "widgetCount": 12
+      "areaCount": 5,
+      "widgetCount": 9
     },
     {
       "id": "liquidity-risk",
@@ -418,7 +332,7 @@ window.dashboardData = {
                   "seq": 49,
                   "title": "流动性缺口",
                   "componentType": "折线图",
-                  "displayDescription": "筛选项：机构；币种；期限长度（1D/7D/30D/3M）；统计口径（仅30D生效，默认时点）。联动规则：同一第三层区域下的图表共用机构、币种、期限长度、统计口径筛选器。展示口径：月频 / 日频。开发细化：合并原流动性缺口（1D/7D/3M）和30日流动性缺口规模，采用柱状图+折线图实现，柱子表示流动性缺口规模，折线表示流动性缺口率，30D支持时点/月日均切换，1D/7D/3M不展示月日均口径。",
+                  "displayDescription": "筛选项：机构；币种；期限长度（1D/7D/30D/3M/1Y）；统计口径（仅30D支持时点/月日均，其他期限仅时点）。采用柱状图+折线图展示缺口规模和缺口率；机构单选时，为所选币种中同时命中30D时点或月日均限额口径的币种显示限额线，并通过图例注明适用范围。支持基于五期限桶现金流缺口表录入新业务及多笔现金流进行模拟测算。",
                   "grain": "月度",
                   "defaultFilters": "机构：默认全选；币种：默认全选；期限：默认30D；口径：默认时点",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
@@ -427,8 +341,24 @@ window.dashboardData = {
                   "legendDescription": "图例：币种",
                   "responseFields": "date_or_dimension_label, metric_value, series_name, metric_code",
                   "linkageRule": "同一第三层区域下所有四层图表/表格共用本区域筛选器",
-                  "devNote": "组件：折线图",
+                  "devNote": "组件：柱线组合图；支持现金流缺口模拟测算",
                   "originPosition": "原始行49、50合并"
+                },
+                {
+                  "seq": 53,
+                  "title": "流动性比例",
+                  "componentType": "折线图",
+                  "displayDescription": "筛选项：机构；币种。展示口径：月频 / 日频。点击趋势点可查看流动性资产、流动性负债及其组成项的计算过程。计算公式：流动性比例=流动性资产/流动性负债；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。",
+                  "grain": "月度",
+                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
+                  "axisDescription": "横轴：统计月",
+                  "metricDescription": "指标：流动性比例、流动性资产、流动性负债",
+                  "legendDescription": "图例：流动性比例",
+                  "responseFields": "date_or_dimension_label, liquidity_ratio, liquidity_assets, liquidity_liabilities",
+                  "linkageRule": "与流动性缺口共用本区域机构、币种筛选器",
+                  "devNote": "组件：折线图；支持点击趋势点查看计算过程",
+                  "originPosition": "新增"
                 }
               ],
               "filterPreset": "orgCurrency",
@@ -450,15 +380,15 @@ window.dashboardData = {
                   "seq": 54,
                   "title": "未来逐日资金流",
                   "componentType": "堆叠柱线组合图",
-                  "displayDescription": "筛选项：机构；币种；业务类型。联动规则：同一第三层区域下的图表共用机构、币种筛选器，业务类型通过图例筛选。展示口径：未来30天逐日。开发细化：参考分业务重定价期限分布图，以业务类型堆叠柱展示未来逐日资金流分布，并叠加当日净额、累计净额两条折线；数据页签展示对应业务明细。",
+                  "displayDescription": "筛选项：机构；币种；流动性业务类别。联动规则：同一第三层区域下的图表共用机构、币种筛选器，业务类别通过图例筛选。展示口径：未来30天逐日。按统一的流动性风险业务分类堆叠展示未来逐日资金流，并叠加当日净额、累计净额两条折线；数据页签展示对应业务明细。",
                   "grain": "日度",
                   "defaultFilters": "机构：默认全选；币种：默认全选",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计日期",
-                  "metricDescription": "指标：分业务资金流规模、当日净额、累计净额",
-                  "legendDescription": "图例：业务类型；折线：当日净额、累计净额",
+                  "metricDescription": "指标：分流动性业务类别资金流规模、当日净额、累计净额",
+                  "legendDescription": "图例：流动性业务类别；折线：当日净额、累计净额",
                   "responseFields": "date, business_type, business_id, counterparty, direction, amount, daily_net, cumulative_net",
-                  "linkageRule": "同一第三层区域下图表和明细数据共用本区域筛选器，业务类型图例控制堆叠柱展示范围",
+                  "linkageRule": "同一第三层区域下图表和明细数据共用本区域筛选器，流动性业务类别图例控制堆叠柱展示范围",
                   "devNote": "组件：堆叠柱线组合图；柱表示分业务资金流规模，两条线表示当日净额和累计净额，数据页展示业务明细",
                   "originPosition": "新增"
                 }
@@ -467,60 +397,15 @@ window.dashboardData = {
               "scopeMeta": {
                 "snapshotMode": "snapshot"
               }
-            },
-            {
-              "id": "area-investment-financing-funding-inflow",
-              "name": "资金融入",
-              "viewScope": "限额监测",
-              "sharedFilters": [
-                "机构",
-                "币种"
-              ],
-              "widgets": [
-                {
-                  "seq": 57,
-                  "title": "同业融入最长期限",
-                  "componentType": "限额折线图",
-                  "displayDescription": "筛选项：机构；币种。展示各机构、各币种的最长同业融入期限，指标为限额指标。",
-                  "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：统计月",
-                  "metricDescription": "指标：同业融入最长期限、限额",
-                  "legendDescription": "图例：机构/币种组合",
-                  "responseFields": "date_or_dimension_label, metric_value, limit_value, series_name",
-                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
-                  "devNote": "组件：限额折线图；折线表示最长期限，虚线表示限额"
-                },
-                {
-                  "seq": 58,
-                  "title": "同业融入期限结构",
-                  "componentType": "柱状图",
-                  "displayDescription": "筛选项：机构；币种。按原始期限 bucket 展示不同期限的同业融入规模占比。",
-                  "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
-                  "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
-                  "axisDescription": "横轴：原始期限 bucket",
-                  "metricDescription": "指标：同业融入规模占比",
-                  "legendDescription": "图例：期限 bucket",
-                  "responseFields": "tenor_bucket, scale_ratio",
-                  "linkageRule": "同一第三层区域下图表共用机构、币种筛选器",
-                  "devNote": "组件：柱状图；展示原始期限 bucket 的规模占比"
-                }
-              ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
-              }
             }
           ],
-          "areaCount": 5,
-          "widgetCount": 6
+          "areaCount": 4,
+          "widgetCount": 5
         }
       ],
       "blockCount": 1,
-      "areaCount": 5,
-      "widgetCount": 6
+      "areaCount": 4,
+      "widgetCount": 5
     },
     {
       "id": "business-change",
@@ -552,8 +437,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 73,
@@ -568,8 +452,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 79,
@@ -631,8 +514,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 84,
@@ -647,8 +529,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 89,
@@ -710,8 +591,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 91,
@@ -726,8 +606,7 @@ window.dashboardData = {
                   "legendDescription": "",
                   "responseFields": "",
                   "linkageRule": "",
-                  "devNote": "",
-                  "layout": "full"
+                  "devNote": ""
                 },
                 {
                   "seq": 96,

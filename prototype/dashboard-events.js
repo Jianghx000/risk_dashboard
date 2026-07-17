@@ -1,3 +1,18 @@
+function clearDiagnosticPointPopovers() {
+  const hasOpenPopover = Boolean(
+    appState.evePointPopover
+    || appState.liquidityMetricPointPopover
+    || appState.repricingGapPointPopover
+    || appState.repricingDurationGapPointPopover
+  );
+  if (!hasOpenPopover) return false;
+  appState.evePointPopover = null;
+  appState.liquidityMetricPointPopover = null;
+  appState.repricingGapPointPopover = null;
+  appState.repricingDurationGapPointPopover = null;
+  return true;
+}
+
 pageTabsEl.addEventListener("click", (event) => {
   const button = event.target.closest("[data-page-id]");
   if (!button) return;
@@ -18,7 +33,7 @@ globalFilterBarEl.addEventListener("click", (event) => {
   const openSimulationButton = event.target.closest("[data-open-simulation]");
   if (openSimulationButton) {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
-    openSimulationModal(pageId);
+    openSimulationModal(pageId, openSimulationButton.dataset.simulationWidget);
     render();
     return;
   }
@@ -44,6 +59,34 @@ if (globalEndInputEl) {
 }
 
 dashboardViewEl.addEventListener("click", (event) => {
+  const methodologyButton = event.target.closest("[data-open-business-methodology]");
+  if (methodologyButton) {
+    appState.businessMethodologyModal = {
+      widgetSeq: Number(methodologyButton.dataset.widgetSeq || 0),
+      methodologyKey: methodologyButton.dataset.methodologyKey || "",
+      analysisPerspective: getActiveAnalysisPerspective(),
+    };
+    renderBusinessChangeMethodologyModal();
+    return;
+  }
+
+  const perspectiveButton = event.target.closest("[data-analysis-perspective]");
+  if (perspectiveButton) {
+    const { analysisPerspective, pageId } = perspectiveButton.dataset;
+    appState.pageAnalysisPerspectives[pageId] = analysisPerspective;
+    appState.businessDrilldowns = {};
+    Object.keys(WIDGET_BEHAVIOR_CONFIG)
+      .filter((widgetSeq) => WIDGET_BEHAVIOR_CONFIG[widgetSeq]?.chartKind === "businessScaleGrowth")
+      .forEach((widgetSeq) => {
+        const widgetState = { ...(appState.widgetFilters[widgetSeq] || {}) };
+        delete widgetState["业务类型"];
+        delete widgetState.__legend_series__;
+        appState.widgetFilters[widgetSeq] = widgetState;
+      });
+    render();
+    return;
+  }
+
   const repricingMaturityCell = event.target.closest("[data-repricing-maturity-cell]");
   if (repricingMaturityCell) {
     const { widgetSeq, bucket, bucketIndex, businessType } = repricingMaturityCell.dataset;
@@ -76,6 +119,9 @@ dashboardViewEl.addEventListener("click", (event) => {
 
   const liquidityPoint = event.target.closest("[data-liquidity-point]");
   if (liquidityPoint) {
+    appState.evePointPopover = null;
+    appState.repricingGapPointPopover = null;
+    appState.repricingDurationGapPointPopover = null;
     appState.liquidityMetricPointPopover = {
       widgetSeq: Number(liquidityPoint.dataset.widgetSeq || 0),
       kind: liquidityPoint.dataset.liquidityKind || "",
@@ -96,15 +142,22 @@ dashboardViewEl.addEventListener("click", (event) => {
       dateIndex: Number(openLiquidityProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
       labels: String(openLiquidityProcessButton.dataset.liquidityLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
       signature: Number(openLiquidityProcessButton.dataset.liquiditySignature || sourceState.signature || 0),
+      comparisonIndex: null,
       activeNode: "ratio",
       numeratorExpanded: false,
+      denominatorExpanded: false,
+      detailExpandedNode: "",
     };
+    appState.liquidityMetricPointPopover = null;
     render();
     return;
   }
 
   const repricingGapPoint = event.target.closest("[data-repricing-gap-point]");
   if (repricingGapPoint) {
+    appState.evePointPopover = null;
+    appState.liquidityMetricPointPopover = null;
+    appState.repricingDurationGapPointPopover = null;
     appState.repricingGapPointPopover = {
       widgetSeq: Number(repricingGapPoint.dataset.widgetSeq || 0),
       sourceSeq: Number(repricingGapPoint.dataset.sourceWidgetSeq || repricingGapPoint.dataset.widgetSeq || 9),
@@ -112,6 +165,39 @@ dashboardViewEl.addEventListener("click", (event) => {
       labels: String(repricingGapPoint.dataset.repricingGapLabels || "").split("||").filter(Boolean),
       signature: Number(repricingGapPoint.dataset.repricingGapSignature || 0),
     };
+    render();
+    return;
+  }
+
+  const repricingDurationGapPoint = event.target.closest("[data-repricing-duration-gap-point]");
+  if (repricingDurationGapPoint) {
+    appState.evePointPopover = null;
+    appState.liquidityMetricPointPopover = null;
+    appState.repricingGapPointPopover = null;
+    appState.repricingDurationGapPointPopover = {
+      widgetSeq: Number(repricingDurationGapPoint.dataset.widgetSeq || 15),
+      dateIndex: Number(repricingDurationGapPoint.dataset.dateIndex || 0),
+      labels: String(repricingDurationGapPoint.dataset.repricingDurationGapLabels || "").split("||").filter(Boolean),
+      signature: Number(repricingDurationGapPoint.dataset.repricingDurationGapSignature || 0),
+    };
+    render();
+    return;
+  }
+
+  const openRepricingDurationGapProcessButton = event.target.closest("[data-open-repricing-duration-gap-process]");
+  if (openRepricingDurationGapProcessButton) {
+    const sourceState = appState.repricingDurationGapPointPopover || {};
+    appState.repricingDurationGapProcessModal = {
+      widgetSeq: Number(openRepricingDurationGapProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 15),
+      dateIndex: Number(openRepricingDurationGapProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
+      labels: String(openRepricingDurationGapProcessButton.dataset.repricingDurationGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      signature: Number(openRepricingDurationGapProcessButton.dataset.repricingDurationGapSignature || sourceState.signature || 0),
+      comparisonIndex: null,
+      activeNode: "duration-gap",
+      assetExpanded: false,
+      liabilityExpanded: false,
+    };
+    appState.repricingDurationGapPointPopover = null;
     render();
     return;
   }
@@ -125,15 +211,22 @@ dashboardViewEl.addEventListener("click", (event) => {
       dateIndex: Number(openRepricingGapProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
       labels: String(openRepricingGapProcessButton.dataset.repricingGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
       signature: Number(openRepricingGapProcessButton.dataset.repricingGapSignature || sourceState.signature || 0),
+      comparisonIndex: null,
       activeNode: "ratio",
       numeratorExpanded: false,
+      denominatorExpanded: false,
+      detailExpandedNodes: [],
     };
+    appState.repricingGapPointPopover = null;
     render();
     return;
   }
 
   const evePoint = event.target.closest("[data-eve-point]");
   if (evePoint) {
+    appState.liquidityMetricPointPopover = null;
+    appState.repricingGapPointPopover = null;
+    appState.repricingDurationGapPointPopover = null;
     appState.evePointPopover = {
       widgetSeq: Number(evePoint.dataset.widgetSeq || EVE_RATIO_WIDGET_SEQ),
       dateIndex: Number(evePoint.dataset.dateIndex || 0),
@@ -152,10 +245,12 @@ dashboardViewEl.addEventListener("click", (event) => {
       dateIndex: Number(openEveProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
       labels: String(openEveProcessButton.dataset.eveLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
       signature: Number(openEveProcessButton.dataset.eveSignature || sourceState.signature || 0),
+      comparisonIndex: null,
       activeNode: "eve",
       numeratorExpanded: false,
       denominatorExpanded: false,
     };
+    appState.evePointPopover = null;
     render();
     return;
   }
@@ -220,7 +315,7 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openSimulationButton = event.target.closest("[data-open-simulation]");
   if (openSimulationButton) {
     const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
-    openSimulationModal(pageId);
+    openSimulationModal(pageId, openSimulationButton.dataset.simulationWidget);
     render();
     return;
   }
@@ -312,6 +407,17 @@ dashboardViewEl.addEventListener("click", (event) => {
 
 });
 
+document.addEventListener("click", (event) => {
+  if (event.target.closest([
+    "[data-eve-point]",
+    "[data-liquidity-point]",
+    "[data-repricing-gap-point]",
+    "[data-repricing-duration-gap-point]",
+    ".eve-point-popover",
+  ].join(","))) return;
+  if (clearDiagnosticPointPopovers()) render();
+});
+
 dashboardViewEl.addEventListener("change", (event) => {
   const dateField = event.target.closest("[data-inline-date-filter]");
   if (!dateField) return;
@@ -329,6 +435,83 @@ dashboardViewEl.addEventListener("change", (event) => {
 });
 
 simulationModalEl.addEventListener("input", (event) => {
+  const liquidityBaseCell = event.target.closest("[data-liquidity-gap-base-cell]");
+  if (liquidityBaseCell) {
+    const draft = getLiquidityGapSimulationDraft();
+    const businessType = liquidityBaseCell.dataset.businessType;
+    const bucketIndex = Number(liquidityBaseCell.dataset.bucketIndex || 0);
+    const nextMatrix = cloneLiquidityCashFlowGapMatrix(draft.baseMatrix);
+    nextMatrix[businessType][bucketIndex] = Number(liquidityBaseCell.value || 0);
+    appState.simulationDraft = { ...draft, baseEdited: true, baseMatrix: nextMatrix };
+    return;
+  }
+  const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field]");
+  if (liquidityField) {
+    const draft = getLiquidityGapSimulationDraft();
+    const entryIndex = Number(liquidityField.dataset.liquidityGapEntryIndex || 0);
+    const fieldName = liquidityField.dataset.liquidityGapSimulationField;
+    const entries = draft.entries.map((entry, index) => {
+      if (index !== entryIndex) return entry;
+      const nextEntry = { ...entry, [fieldName]: liquidityField.value };
+      if (fieldName === "occurrenceDate") {
+        const minimumCashFlowDate = [addDays(draft.baseDate, 1), liquidityField.value].filter(Boolean).sort().at(-1);
+        nextEntry.cashFlows = (entry.cashFlows || []).map((cashFlow) => ({
+          ...cashFlow,
+          date: cashFlow.date && cashFlow.date >= minimumCashFlowDate ? cashFlow.date : minimumCashFlowDate,
+        }));
+      }
+      return nextEntry;
+    });
+    appState.simulationDraft = { ...draft, entries };
+    return;
+  }
+  const liquidityCashFlowField = event.target.closest("[data-liquidity-cash-flow-field]");
+  if (liquidityCashFlowField) {
+    const draft = getLiquidityGapSimulationDraft();
+    const entryIndex = Number(liquidityCashFlowField.dataset.liquidityGapEntryIndex || 0);
+    const cashFlowIndex = Number(liquidityCashFlowField.dataset.liquidityCashFlowIndex || 0);
+    const fieldName = liquidityCashFlowField.dataset.liquidityCashFlowField;
+    const entries = draft.entries.map((entry, index) => index === entryIndex
+      ? {
+        ...entry,
+        cashFlows: (entry.cashFlows || []).map((cashFlow, index) => index === cashFlowIndex
+          ? { ...cashFlow, [fieldName]: liquidityCashFlowField.value }
+          : cashFlow),
+      }
+      : entry
+    );
+    appState.simulationDraft = { ...draft, entries };
+    return;
+  }
+  const baseCell = event.target.closest("[data-repricing-base-cell]");
+  if (baseCell) {
+    const draft = getRepricingGapSimulationDraft();
+    const businessType = baseCell.dataset.businessType;
+    const bucketIndex = Number(baseCell.dataset.bucketIndex || 0);
+    const nextMatrix = cloneRepricingGapMatrix(draft.baseMatrix);
+    nextMatrix[businessType][bucketIndex] = Number(baseCell.value || 0);
+    appState.simulationDraft = { ...draft, baseEdited: true, baseMatrix: nextMatrix };
+    return;
+  }
+  const repricingField = event.target.closest("[data-repricing-simulation-field]");
+  if (repricingField) {
+    const draft = getRepricingGapSimulationDraft();
+    const entryIndex = Number(repricingField.dataset.repricingSimulationEntryIndex || 0);
+    const fieldName = repricingField.dataset.repricingSimulationField;
+    const entries = draft.entries.map((entry, index) => {
+      if (index !== entryIndex) return entry;
+      const nextEntry = { ...entry, [fieldName]: repricingField.value };
+      if (["occurrenceDate", "repricingMonths"].includes(fieldName) && nextEntry.occurrenceDate) {
+        nextEntry.nextRepricingDate = addMonthsDateValue(
+          nextEntry.occurrenceDate,
+          Number(nextEntry.repricingMonths || 1)
+        );
+      }
+      return nextEntry;
+    });
+    appState.simulationDraft = { ...draft, entries };
+    return;
+  }
   const field = event.target.closest("[data-simulation-field]");
   if (field) {
     const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
@@ -351,6 +534,76 @@ simulationModalEl.addEventListener("input", (event) => {
 });
 
 simulationModalEl.addEventListener("change", (event) => {
+  const liquidityBaseDate = event.target.closest("[data-liquidity-gap-base-date]");
+  if (liquidityBaseDate) {
+    const draft = getLiquidityGapSimulationDraft();
+    const nextBaseDate = liquidityBaseDate.value || getLiquidityGapSimulationCurrentDate();
+    const shouldRegenerateBase = ["current", "runoff"].includes(draft.baseSource) && !draft.baseEdited;
+    appState.simulationDraft = {
+      ...draft,
+      baseDate: nextBaseDate,
+      baseMatrix: shouldRegenerateBase
+        ? buildLiquidityCashFlowGapBaseMatrix(draft.baseSource, nextBaseDate)
+        : draft.baseMatrix,
+    };
+    renderSimulationModal();
+    return;
+  }
+  const liquidityBaseUpload = event.target.closest("[data-liquidity-gap-base-upload]");
+  if (liquidityBaseUpload) {
+    const file = liquidityBaseUpload.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      applyLiquidityGapUploadedCsv(text, file.name);
+      renderSimulationModal();
+    });
+    return;
+  }
+  const liquidityBaseCell = event.target.closest("[data-liquidity-gap-base-cell]");
+  if (liquidityBaseCell) {
+    renderSimulationModal();
+    return;
+  }
+  const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field], [data-liquidity-cash-flow-field]");
+  if (liquidityField) {
+    renderSimulationModal();
+    return;
+  }
+  const baseDate = event.target.closest("[data-repricing-base-date]");
+  if (baseDate) {
+    const draft = getRepricingGapSimulationDraft();
+    const nextBaseDate = getMonthEndDateValue(baseDate.value || getDefaultRepricingGapTargetDate());
+    const shouldRegenerateBase = ["current", "runoff"].includes(draft.baseSource) && !draft.baseEdited;
+    appState.simulationDraft = {
+      ...draft,
+      baseDate: nextBaseDate,
+      baseMatrix: shouldRegenerateBase
+        ? buildRepricingGapBaseMatrix(draft.baseSource, nextBaseDate)
+        : draft.baseMatrix,
+    };
+    renderSimulationModal();
+    return;
+  }
+  const baseUpload = event.target.closest("[data-repricing-base-upload]");
+  if (baseUpload) {
+    const file = baseUpload.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      applyRepricingGapUploadedCsv(text, file.name);
+      renderSimulationModal();
+    });
+    return;
+  }
+  const baseCell = event.target.closest("[data-repricing-base-cell]");
+  if (baseCell) {
+    renderSimulationModal();
+    return;
+  }
+  const repricingField = event.target.closest("[data-repricing-simulation-field]");
+  if (repricingField) {
+    renderSimulationModal();
+    return;
+  }
   const field = event.target.closest("[data-simulation-field]");
   if (field) {
     const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
@@ -378,6 +631,102 @@ simulationModalEl.addEventListener("click", (event) => {
   if (closeButton) {
     closeSimulationModal();
     render();
+    return;
+  }
+  const liquidityQuickConfigButton = event.target.closest("[data-liquidity-gap-quick-config]");
+  if (liquidityQuickConfigButton) {
+    const source = normalizeLiquidityGapBaseSource(liquidityQuickConfigButton.dataset.liquidityGapQuickConfig);
+    const draft = getLiquidityGapSimulationDraft();
+    appState.simulationDraft = {
+      ...draft,
+      baseSource: source,
+      baseMatrix: buildLiquidityCashFlowGapBaseMatrix(source, draft.baseDate),
+      uploadFileName: "",
+      baseEdited: false,
+    };
+    renderSimulationModal();
+    return;
+  }
+  const addLiquidityEntryButton = event.target.closest("[data-add-liquidity-gap-entry]");
+  if (addLiquidityEntryButton) {
+    const draft = getLiquidityGapSimulationDraft();
+    appState.simulationDraft = {
+      ...draft,
+      entries: [...draft.entries, createDefaultLiquidityGapSimulationEntry(draft.baseDate)],
+    };
+    renderSimulationModal();
+    return;
+  }
+  const removeLiquidityEntryButton = event.target.closest("[data-remove-liquidity-gap-entry]");
+  if (removeLiquidityEntryButton) {
+    const draft = getLiquidityGapSimulationDraft();
+    const removeIndex = Number(removeLiquidityEntryButton.dataset.removeLiquidityGapEntry);
+    appState.simulationDraft = { ...draft, entries: draft.entries.filter((_, index) => index !== removeIndex) };
+    renderSimulationModal();
+    return;
+  }
+  const addLiquidityCashFlowButton = event.target.closest("[data-add-liquidity-cash-flow]");
+  if (addLiquidityCashFlowButton) {
+    const draft = getLiquidityGapSimulationDraft();
+    const entryIndex = Number(addLiquidityCashFlowButton.dataset.addLiquidityCashFlow || 0);
+    const entries = draft.entries.map((entry, index) => {
+      if (index !== entryIndex) return entry;
+      const cashFlows = entry.cashFlows || [];
+      const latestDate = cashFlows.map((cashFlow) => cashFlow.date).filter(Boolean).sort().at(-1)
+        || entry.occurrenceDate
+        || addDays(draft.baseDate, 1);
+      const nextDate = addDays(latestDate, 30) > addDays(draft.baseDate, 365)
+        ? addDays(draft.baseDate, 365)
+        : addDays(latestDate, 30);
+      return { ...entry, cashFlows: [...cashFlows, { date: nextDate, amount: "0" }] };
+    });
+    appState.simulationDraft = { ...draft, entries };
+    renderSimulationModal();
+    return;
+  }
+  const removeLiquidityCashFlowButton = event.target.closest("[data-remove-liquidity-cash-flow]");
+  if (removeLiquidityCashFlowButton) {
+    const draft = getLiquidityGapSimulationDraft();
+    const entryIndex = Number(removeLiquidityCashFlowButton.dataset.liquidityGapEntryIndex || 0);
+    const cashFlowIndex = Number(removeLiquidityCashFlowButton.dataset.removeLiquidityCashFlow || 0);
+    const entries = draft.entries.map((entry, index) => index === entryIndex
+      ? { ...entry, cashFlows: (entry.cashFlows || []).filter((_, index) => index !== cashFlowIndex) }
+      : entry
+    );
+    appState.simulationDraft = { ...draft, entries };
+    renderSimulationModal();
+    return;
+  }
+  const quickConfigButton = event.target.closest("[data-repricing-quick-config]");
+  if (quickConfigButton) {
+    const source = normalizeRepricingGapBaseSource(quickConfigButton.dataset.repricingQuickConfig);
+    const draft = getRepricingGapSimulationDraft();
+    appState.simulationDraft = {
+      ...draft,
+      baseSource: source,
+      baseMatrix: buildRepricingGapBaseMatrix(source, draft.baseDate),
+      uploadFileName: "",
+      baseEdited: false,
+    };
+    renderSimulationModal();
+    return;
+  }
+  const addRepricingEntryButton = event.target.closest("[data-add-repricing-simulation-entry]");
+  if (addRepricingEntryButton) {
+    const draft = getRepricingGapSimulationDraft();
+    appState.simulationDraft = {
+      ...draft,
+      entries: [...draft.entries, createDefaultRepricingGapSimulationEntry(draft.baseDate)],
+    };
+    renderSimulationModal();
+    return;
+  }
+  const removeRepricingEntryButton = event.target.closest("[data-remove-repricing-simulation-entry]");
+  if (removeRepricingEntryButton) {
+    const draft = getRepricingGapSimulationDraft();
+    const removeIndex = Number(removeRepricingEntryButton.dataset.removeRepricingSimulationEntry);
+    appState.simulationDraft = { ...draft, entries: draft.entries.filter((_, index) => index !== removeIndex) };
+    renderSimulationModal();
     return;
   }
   const moduleLink = event.target.closest("[data-simulation-module-link]");
@@ -433,9 +782,13 @@ simulationModalEl.addEventListener("click", (event) => {
   const applyButton = event.target.closest("[data-apply-simulation]");
   if (applyButton) {
     const page = data.pages.find((item) => item.id === applyButton.dataset.applySimulation) || getCurrentPage();
-    appState.pageSimulations[page.id] = getSimulationDraftMode(page) === SIMULATION_MODE_HEDGE
-      ? normalizeHedgeSimulationScenario(page, getHedgeDraft(page))
-      : normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
+    appState.pageSimulations[page.id] = isRepricingGapSimulationWidget(appState.simulationModalWidgetSeq)
+      ? normalizeRepricingGapSimulationScenario(page)
+      : isLiquidityGapSimulationWidget(appState.simulationModalWidgetSeq)
+        ? normalizeLiquidityGapSimulationScenario(page)
+        : getSimulationDraftMode(page) === SIMULATION_MODE_HEDGE
+          ? normalizeHedgeSimulationScenario(page, getHedgeDraft(page))
+          : normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
     closeSimulationModal();
     render();
   }
@@ -451,9 +804,24 @@ insightModalEl.addEventListener("click", (event) => {
 eveProcessModalEl.addEventListener("input", (event) => {
   const slider = event.target.closest("[data-eve-process-date-slider]");
   if (!slider || !appState.eveProcessModal) return;
+  const dateIndex = Number(slider.value || 0);
+  const comparisonIndex = appState.eveProcessModal.comparisonIndex;
   appState.eveProcessModal = {
     ...appState.eveProcessModal,
-    dateIndex: Number(slider.value || 0),
+    dateIndex,
+    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
+      ? comparisonIndex
+      : null,
+  };
+  renderEveProcessModal();
+});
+
+eveProcessModalEl.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-eve-process-comparison]");
+  if (!select || !appState.eveProcessModal) return;
+  appState.eveProcessModal = {
+    ...appState.eveProcessModal,
+    comparisonIndex: select.value === "" ? null : Number(select.value),
   };
   renderEveProcessModal();
 });
@@ -478,11 +846,17 @@ eveProcessModalEl.addEventListener("click", (event) => {
   const nodeButton = event.target.closest("[data-eve-process-node]");
   if (!nodeButton || !appState.eveProcessModal) return;
   const nodeKey = nodeButton.dataset.eveProcessNode;
+  const collapseNumerator = nodeKey === "numerator" && appState.eveProcessModal.numeratorExpanded;
+  const collapseDenominator = nodeKey === "denominator" && appState.eveProcessModal.denominatorExpanded;
   appState.eveProcessModal = {
     ...appState.eveProcessModal,
-    activeNode: nodeKey,
-    numeratorExpanded: appState.eveProcessModal.numeratorExpanded || nodeKey === "numerator",
-    denominatorExpanded: appState.eveProcessModal.denominatorExpanded || nodeKey === "denominator",
+    activeNode: collapseNumerator || collapseDenominator ? "eve" : nodeKey,
+    numeratorExpanded: nodeKey === "numerator"
+      ? !appState.eveProcessModal.numeratorExpanded
+      : appState.eveProcessModal.numeratorExpanded,
+    denominatorExpanded: nodeKey === "denominator"
+      ? !appState.eveProcessModal.denominatorExpanded
+      : appState.eveProcessModal.denominatorExpanded,
   };
   renderEveProcessModal();
 });
@@ -490,9 +864,24 @@ eveProcessModalEl.addEventListener("click", (event) => {
 liquidityProcessModalEl.addEventListener("input", (event) => {
   const slider = event.target.closest("[data-liquidity-process-date-slider]");
   if (!slider || !appState.liquidityProcessModal) return;
+  const dateIndex = Number(slider.value || 0);
+  const comparisonIndex = appState.liquidityProcessModal.comparisonIndex;
   appState.liquidityProcessModal = {
     ...appState.liquidityProcessModal,
-    dateIndex: Number(slider.value || 0),
+    dateIndex,
+    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
+      ? comparisonIndex
+      : null,
+  };
+  renderLiquidityProcessModal();
+});
+
+liquidityProcessModalEl.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-liquidity-process-comparison]");
+  if (!select || !appState.liquidityProcessModal) return;
+  appState.liquidityProcessModal = {
+    ...appState.liquidityProcessModal,
+    comparisonIndex: select.value === "" ? null : Number(select.value),
   };
   renderLiquidityProcessModal();
 });
@@ -517,10 +906,29 @@ liquidityProcessModalEl.addEventListener("click", (event) => {
   const nodeButton = event.target.closest("[data-liquidity-process-node]");
   if (!nodeButton || !appState.liquidityProcessModal) return;
   const nodeKey = nodeButton.dataset.liquidityProcessNode;
+  const collapseNumerator = nodeKey === "numerator" && appState.liquidityProcessModal.numeratorExpanded;
+  const collapseDenominator = nodeKey === "denominator" && appState.liquidityProcessModal.denominatorExpanded;
+  const detailExpandedNode = appState.liquidityProcessModal.detailExpandedNode || "";
+  let nextDetailExpandedNode = detailExpandedNode;
+  if (nodeKey === "raw-net-outflow") {
+    nextDetailExpandedNode = detailExpandedNode === nodeKey ? "" : nodeKey;
+  } else if (nodeKey === "cumulative-maturity-gap") {
+    nextDetailExpandedNode = ["cumulative-maturity-gap", "maturity-gap"].includes(detailExpandedNode) ? "" : nodeKey;
+  } else if (nodeKey === "maturity-gap") {
+    nextDetailExpandedNode = detailExpandedNode === nodeKey ? "cumulative-maturity-gap" : nodeKey;
+  } else if (collapseNumerator || collapseDenominator) {
+    nextDetailExpandedNode = "";
+  }
   appState.liquidityProcessModal = {
     ...appState.liquidityProcessModal,
-    activeNode: nodeKey,
-    numeratorExpanded: appState.liquidityProcessModal.numeratorExpanded || nodeKey === "numerator",
+    activeNode: collapseNumerator || collapseDenominator ? "ratio" : nodeKey,
+    numeratorExpanded: nodeKey === "numerator"
+      ? !appState.liquidityProcessModal.numeratorExpanded
+      : appState.liquidityProcessModal.numeratorExpanded,
+    denominatorExpanded: nodeKey === "denominator"
+      ? !appState.liquidityProcessModal.denominatorExpanded
+      : appState.liquidityProcessModal.denominatorExpanded,
+    detailExpandedNode: nextDetailExpandedNode,
   };
   renderLiquidityProcessModal();
 });
@@ -528,9 +936,24 @@ liquidityProcessModalEl.addEventListener("click", (event) => {
 repricingGapProcessModalEl.addEventListener("input", (event) => {
   const slider = event.target.closest("[data-repricing-gap-process-date-slider]");
   if (!slider || !appState.repricingGapProcessModal) return;
+  const dateIndex = Number(slider.value || 0);
+  const comparisonIndex = appState.repricingGapProcessModal.comparisonIndex;
   appState.repricingGapProcessModal = {
     ...appState.repricingGapProcessModal,
-    dateIndex: Number(slider.value || 0),
+    dateIndex,
+    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
+      ? comparisonIndex
+      : null,
+  };
+  renderRepricingGapProcessModal();
+});
+
+repricingGapProcessModalEl.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-repricing-gap-process-comparison]");
+  if (!select || !appState.repricingGapProcessModal) return;
+  appState.repricingGapProcessModal = {
+    ...appState.repricingGapProcessModal,
+    comparisonIndex: select.value === "" ? null : Number(select.value),
   };
   renderRepricingGapProcessModal();
 });
@@ -555,12 +978,97 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
   const nodeButton = event.target.closest("[data-repricing-gap-process-node]");
   if (!nodeButton || !appState.repricingGapProcessModal) return;
   const nodeKey = nodeButton.dataset.repricingGapProcessNode;
+  const collapseNumerator = nodeKey === "numerator" && appState.repricingGapProcessModal.numeratorExpanded;
+  const collapseDenominator = nodeKey === "denominator" && appState.repricingGapProcessModal.denominatorExpanded;
+  const detailNodeKeys = ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"];
+  const legacyDetailNode = appState.repricingGapProcessModal.detailExpandedNode || "";
+  const currentDetailNodes = Array.isArray(appState.repricingGapProcessModal.detailExpandedNodes)
+    ? appState.repricingGapProcessModal.detailExpandedNodes
+    : legacyDetailNode
+      ? [legacyDetailNode]
+      : [];
+  let nextDetailNodes = [...currentDetailNodes];
+  if (detailNodeKeys.includes(nodeKey)) {
+    nextDetailNodes = currentDetailNodes.includes(nodeKey)
+      ? currentDetailNodes.filter((key) => key !== nodeKey)
+      : [...currentDetailNodes, nodeKey];
+  } else if (collapseNumerator) {
+    nextDetailNodes = [];
+  }
+  const nextModalState = { ...appState.repricingGapProcessModal };
+  delete nextModalState.detailExpandedNode;
   appState.repricingGapProcessModal = {
-    ...appState.repricingGapProcessModal,
-    activeNode: nodeKey,
-    numeratorExpanded: appState.repricingGapProcessModal.numeratorExpanded || nodeKey === "numerator",
+    ...nextModalState,
+    activeNode: collapseNumerator || collapseDenominator ? "ratio" : nodeKey,
+    numeratorExpanded: nodeKey === "numerator"
+      ? !appState.repricingGapProcessModal.numeratorExpanded
+      : appState.repricingGapProcessModal.numeratorExpanded,
+    denominatorExpanded: nodeKey === "denominator"
+      ? !appState.repricingGapProcessModal.denominatorExpanded
+      : appState.repricingGapProcessModal.denominatorExpanded,
+    detailExpandedNodes: nextDetailNodes,
   };
   renderRepricingGapProcessModal();
+});
+
+repricingDurationGapProcessModalEl.addEventListener("input", (event) => {
+  const slider = event.target.closest("[data-repricing-duration-gap-process-date-slider]");
+  if (!slider || !appState.repricingDurationGapProcessModal) return;
+  const dateIndex = Number(slider.value || 0);
+  const comparisonIndex = appState.repricingDurationGapProcessModal.comparisonIndex;
+  appState.repricingDurationGapProcessModal = {
+    ...appState.repricingDurationGapProcessModal,
+    dateIndex,
+    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
+      ? comparisonIndex
+      : null,
+  };
+  renderRepricingDurationGapProcessModal();
+});
+
+repricingDurationGapProcessModalEl.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-repricing-duration-gap-process-comparison]");
+  if (!select || !appState.repricingDurationGapProcessModal) return;
+  appState.repricingDurationGapProcessModal = {
+    ...appState.repricingDurationGapProcessModal,
+    comparisonIndex: select.value === "" ? null : Number(select.value),
+  };
+  renderRepricingDurationGapProcessModal();
+});
+
+repricingDurationGapProcessModalEl.addEventListener("click", (event) => {
+  const sparkline = event.target.closest("[data-process-sparkline]");
+  if (sparkline) {
+    const payload = decodeProcessPreviewPayload(sparkline.dataset.processPreview);
+    if (payload) {
+      appState.processSparklinePreview = payload;
+      renderProcessSparklinePreview();
+    }
+    return;
+  }
+
+  const closeButton = event.target.closest("[data-close-overlay='repricingDurationGapProcessModal']");
+  if (closeButton) {
+    appState.repricingDurationGapProcessModal = null;
+    render();
+    return;
+  }
+  const nodeButton = event.target.closest("[data-repricing-duration-gap-process-node]");
+  if (!nodeButton || !appState.repricingDurationGapProcessModal) return;
+  const nodeKey = nodeButton.dataset.repricingDurationGapProcessNode;
+  const collapseAsset = nodeKey === "asset-duration" && appState.repricingDurationGapProcessModal.assetExpanded;
+  const collapseLiability = nodeKey === "liability-duration" && appState.repricingDurationGapProcessModal.liabilityExpanded;
+  appState.repricingDurationGapProcessModal = {
+    ...appState.repricingDurationGapProcessModal,
+    activeNode: collapseAsset || collapseLiability ? "duration-gap" : nodeKey,
+    assetExpanded: nodeKey === "asset-duration"
+      ? !appState.repricingDurationGapProcessModal.assetExpanded
+      : appState.repricingDurationGapProcessModal.assetExpanded,
+    liabilityExpanded: nodeKey === "liability-duration"
+      ? !appState.repricingDurationGapProcessModal.liabilityExpanded
+      : appState.repricingDurationGapProcessModal.liabilityExpanded,
+  };
+  renderRepricingDurationGapProcessModal();
 });
 
 processSparklinePreviewEl.addEventListener("click", (event) => {
@@ -568,6 +1076,13 @@ processSparklinePreviewEl.addEventListener("click", (event) => {
   if (!closeButton) return;
   appState.processSparklinePreview = null;
   renderProcessSparklinePreview();
+});
+
+businessMethodologyModalEl.addEventListener("click", (event) => {
+  const closeButton = event.target.closest("[data-close-overlay='businessMethodologyModal']");
+  if (!closeButton) return;
+  appState.businessMethodologyModal = null;
+  renderBusinessChangeMethodologyModal();
 });
 
 filterPopoverEl.addEventListener("click", (event) => {
@@ -595,6 +1110,11 @@ filterPopoverEl.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (appState.businessMethodologyModal) {
+      appState.businessMethodologyModal = null;
+      renderBusinessChangeMethodologyModal();
+      return;
+    }
     if (appState.processSparklinePreview) {
       appState.processSparklinePreview = null;
       renderProcessSparklinePreview();
@@ -602,6 +1122,11 @@ document.addEventListener("keydown", (event) => {
     }
     if (appState.repricingGapProcessModal) {
       appState.repricingGapProcessModal = null;
+      render();
+      return;
+    }
+    if (appState.repricingDurationGapProcessModal) {
+      appState.repricingDurationGapProcessModal = null;
       render();
       return;
     }

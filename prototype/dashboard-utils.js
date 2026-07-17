@@ -10,6 +10,17 @@ function addMonthsDateValue(dateValue, offsetMonths) {
   return formatDateValue(nextDate);
 }
 
+function addClampedMonthsDateValue(dateValue, offsetMonths) {
+  const baseDate = parseDateValue(dateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  const targetMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + offsetMonths, 1);
+  const targetMonthLastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
+  return formatDateValue(new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth(),
+    Math.min(baseDate.getDate(), targetMonthLastDay)
+  ));
+}
+
 function formatDateValue(value) {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");

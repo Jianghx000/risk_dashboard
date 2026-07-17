@@ -1,162 +1,180 @@
 // Interest-risk chart renderers. Loaded after app.js so it can reuse shared dashboard helpers.
-function renderDurationGapComboChart(widget, chartContext) {
-  const frame = createFrame(chartContext.xLabels.length);
-  const axis = renderAxes(frame, chartContext.xLabels, "久期/差值");
-  const metricItems = ["资产端重定价久期", "负债端重定价久期", "久期差值"];
-  const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
-  const assetValues = buildMetricValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 17).map((value) => 18 + (value % 78));
-  const liabilityValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 31).map((value) => 16 + (value % 76));
-  const gapValues = assetValues.map((value, index) => Math.abs(value - liabilityValues[index]).toFixed(1)).map(Number);
-  const barWidth = Math.max(10, Math.min(18, getFrameMinStep(frame, chartContext.xLabels.length) * 0.22));
-  const barGap = Math.max(2, Math.min(5, getFrameMinStep(frame, chartContext.xLabels.length) * 0.05));
-  const assetBarColor = getBarFillColor("资产端重定价久期", metricItems, 0, 0.84);
-  const liabilityBarColor = getBarFillColor("负债端重定价久期", metricItems, 1, 0.84);
-  const gapLineColor = getPaletteColor("久期差值", metricItems, 0, "line");
-
-  const assetBars = selectedMetrics.includes("资产端重定价久期")
-    ? assetValues.map((value, index) => {
-        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
-        const x = center - barWidth - barGap / 2;
-        const y = frame.bottom - (frame.height * value) / 100;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor("资产端重定价久期", metricItems, 0, 0.28)}" stroke-width="1"></rect>`;
-      }).join("")
-    : "";
-
-  const liabilityBars = selectedMetrics.includes("负债端重定价久期")
-    ? liabilityValues.map((value, index) => {
-        const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
-        const x = center + barGap / 2;
-        const y = frame.bottom - (frame.height * value) / 100;
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor("负债端重定价久期", metricItems, 1, 0.28)}" stroke-width="1"></rect>`;
-      }).join("")
-    : "";
-
-  const gapPoints = gapValues.map((value, index) => ({
-    x: getFrameXPosition(frame, index, chartContext.xLabels.length),
-    y: frame.bottom - (frame.height * value) / 100,
-  }));
-  const simulationOverlay = selectedMetrics.includes("久期差值")
-    ? renderSimulationOverlay(frame, widget, chartContext, [{ label: "久期差值", points: gapPoints, role: "gap" }])
-    : "";
-
-  return `
-    <div class="chart-shell">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        ${axis}
-        ${assetBars}
-        ${liabilityBars}
-        ${selectedMetrics.includes("久期差值")
-          ? `
-            <polyline fill="none" stroke="${gapLineColor}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" points="${gapPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-            ${gapPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${gapLineColor}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
-          `
-          : ""}
-        ${simulationOverlay}
-      </svg>
-      ${renderSeriesLegend(widget, {
-        ...chartContext,
-        allSeriesList: metricItems,
-        seriesList: selectedMetrics,
-        legendItems: [
-          { label: "资产端重定价久期", color: assetBarColor },
-          { label: "负债端重定价久期", color: liabilityBarColor },
-          { label: "久期差值", color: gapLineColor },
-        ],
-      }, "__legend_metrics__")}
-    </div>
-  `;
+function buildRepricingDurationGapModel(widget, chartContextOrState = {}) {
+  const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
+  const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || 15, chartContextOrState.filterState || {}));
+  const assetDurations = labels.map((_, index) =>
+    Number((2.35 + (signature % 11) * 0.015 + Math.sin((index + signature) / 3.4) * 0.24 + index * 0.018).toFixed(2))
+  );
+  const liabilityDurations = labels.map((_, index) =>
+    Number((1.92 + (signature % 13) * 0.012 + Math.cos((index + signature) / 3.8) * 0.2 + index * 0.014).toFixed(2))
+  );
+  const gaps = assetDurations.map((value, index) => Number((value - liabilityDurations[index]).toFixed(2)));
+  return {
+    labels,
+    displayLabels: typeof buildEveDisplayLabels === "function" ? buildEveDisplayLabels(labels) : labels,
+    signature,
+    assetDurations,
+    liabilityDurations,
+    gaps,
+  };
 }
 
-function renderDurationGapComboDataTable(widget, chartContext) {
-  const assetValues = buildMetricValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature + 17).map((value) => 18 + (value % 78));
-  const liabilityValues = buildMetricValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 31).map((value) => 16 + (value % 76));
-  const gapValues = assetValues.map((value, index) => Number(Math.abs(value - liabilityValues[index]).toFixed(1)));
-  return `
-    <div class="chart-shell chart-shell--data">
-      <div class="table-shell">
-        <table class="chart-table chart-table--wide">
-          <thead>
-            <tr>
-              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
-              <th>资产端重定价久期</th>
-              <th>负债端重定价久期</th>
-              <th>久期差值</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${chartContext.xLabels.map((label, index) => `
-              <tr>
-                <td>${label}</td>
-                <td>${assetValues[index].toFixed(1)}</td>
-                <td>${liabilityValues[index].toFixed(1)}</td>
-                <td>${gapValues[index].toFixed(1)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function renderBusinessDurationRepricingChart(widget, chartContext) {
-  const frame = createFrame(chartContext.xLabels.length);
-  const axis = renderAxes(frame, chartContext.xLabels, "久期");
-  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
-  const seriesList = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 2);
-  const seriesMarkup = seriesList
-    .map((label, seriesIndex) => {
-      const color = getPaletteColor(label, allSeries, seriesIndex, "line");
-      const points = buildSeries(widget.seq + 31 + seriesIndex * 17, chartContext.xLabels.length, frame, chartContext.signature + seriesIndex * 37);
-      const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+function renderDurationGapAxis(frame, labels, minValue, maxValue) {
+  const tickValues = [minValue, minValue + (maxValue - minValue) * 0.25, minValue + (maxValue - minValue) * 0.5, minValue + (maxValue - minValue) * 0.75, maxValue];
+  const xTickMarkup = labels
+    .map((label, index) => {
+      const x = getFrameXPosition(frame, index, labels.length);
+      const displayLabel = formatXAxisTickLabel(label, index, labels);
       return `
-        <polyline fill="none" stroke="${color}" stroke-width="${seriesIndex === 0 ? 3.8 : 3.2}" stroke-linecap="round" stroke-linejoin="round" points="${polyline}"></polyline>
-        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
+        <line x1="${x}" y1="${frame.bottom}" x2="${x}" y2="${frame.bottom + 6}" stroke="rgba(109,165,215,0.35)" stroke-width="1"></line>
+        <text x="${x}" y="${frame.bottom + 22}" text-anchor="middle" class="axis-label axis-label--x">${displayLabel}</text>
       `;
     })
     .join("");
-
+  const yTickMarkup = tickValues
+    .map((tick) => {
+      const y = frame.bottom - (frame.height * (tick - minValue)) / (maxValue - minValue || 1);
+      return `
+        <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.14)" stroke-width="1"></line>
+        <text x="${frame.left - 14}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${Number(tick).toFixed(1)}</text>
+      `;
+    })
+    .join("");
+  const zeroMarkup = minValue < 0 && maxValue > 0
+    ? (() => {
+        const y = frame.bottom - (frame.height * (0 - minValue)) / (maxValue - minValue || 1);
+        return `<line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="rgba(109,165,215,0.38)" stroke-width="1.2"></line>`;
+      })()
+    : "";
   return `
-    <div class="chart-shell">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        ${axis}
-        ${seriesMarkup}
+    <text x="${frame.left - 52}" y="${frame.top - 6}" class="axis-title">久期缺口</text>
+    <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 46}" text-anchor="middle" class="axis-title">${inferXAxisTitle(labels)}</text>
+    <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
+    <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="rgba(109,165,215,0.42)" stroke-width="1.4"></line>
+    ${yTickMarkup}
+    ${zeroMarkup}
+    ${xTickMarkup}
+  `;
+}
+
+function getRepricingDurationGapSelectedIndex(widget, model) {
+  const state = appState.repricingDurationGapPointPopover;
+  if (Number(state?.widgetSeq) !== Number(widget.seq)) return null;
+  return clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
+}
+
+function renderRepricingDurationGapChart(widget, chartContext) {
+  const model = buildRepricingDurationGapModel(widget, chartContext);
+  const frame = createFrame(model.labels.length);
+  const minValue = Math.min(-0.2, ...model.gaps) - 0.12;
+  const maxValue = Math.max(0.2, ...model.gaps) + 0.12;
+  const points = scaleValuesToFrame(model.gaps, frame, minValue, maxValue);
+  const selectedIndex = getRepricingDurationGapSelectedIndex(widget, model);
+  const lineColor = getPaletteColor("资产负债重定价久期缺口", ["资产负债重定价久期缺口"], 0, "line");
+  const popoverMarkup = Number.isInteger(selectedIndex)
+    ? renderRepricingDurationGapPointPopover(widget, model, points[selectedIndex], selectedIndex)
+    : "";
+  return `
+    <div class="chart-shell chart-shell--repricing-duration-gap">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="资产负债重定价久期缺口走势">
+        ${renderDurationGapAxis(frame, model.labels, minValue, maxValue)}
+        <polyline fill="none" stroke="${lineColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+        ${points.map((point, index) => `
+          <circle
+            class="repricing-duration-gap-point ${index === selectedIndex ? "is-selected" : ""}"
+            cx="${point.x}"
+            cy="${point.y}"
+            r="${index === selectedIndex ? 6 : 4.7}"
+            fill="#ffffff"
+            stroke="${index === selectedIndex ? "#C36E49" : lineColor}"
+            stroke-width="3"
+            role="button"
+            tabindex="0"
+            data-repricing-duration-gap-point="true"
+            data-widget-seq="${widget.seq}"
+            data-date-index="${index}"
+            data-repricing-duration-gap-signature="${model.signature}"
+            data-repricing-duration-gap-labels="${model.labels.join("||")}"
+            aria-label="${model.displayLabels[index]} 查看资产负债重定价久期缺口拆解"
+          ></circle>
+        `).join("")}
       </svg>
+      ${popoverMarkup}
       ${renderSeriesLegend(widget, {
         ...chartContext,
-        allSeriesList: allSeries,
-        seriesList,
-        legendItems: allSeries.map((label, index) => ({
-          label,
-          filterValue: label,
-          color: getPaletteColor(label, allSeries, index, "line"),
-        })),
+        seriesList: ["资产负债重定价久期缺口"],
+        allSeriesList: ["资产负债重定价久期缺口"],
+        legendItems: [{ label: "资产负债重定价久期缺口", color: lineColor }],
       })}
     </div>
   `;
 }
 
-function renderBusinessDurationRepricingDataTable(widget, chartContext) {
-  const allSeries = chartContext.allSeriesList.length ? chartContext.allSeriesList : (FILTER_OPTIONS["业务类型"] || BUSINESS_DURATION_OPTIONS);
-  const seriesList = chartContext.seriesList.length ? chartContext.seriesList : allSeries.slice(0, 2);
+function renderRepricingDurationGapPointPopover(widget, model, point, index) {
+  const left = Number(((point.x / 700) * 100).toFixed(2));
+  const top = Number(((point.y / 300) * 100).toFixed(2));
+  return `
+    <div class="eve-point-popover eve-point-popover--compact" style="left:${left}%; top:${top}%;">
+      <div class="eve-point-popover__grid eve-point-popover__grid--compact">
+        <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
+        <div><span>取值</span><strong>${model.gaps[index].toFixed(2)}</strong></div>
+      </div>
+      <button
+        class="eve-point-popover__action"
+        type="button"
+        data-open-repricing-duration-gap-process="true"
+        data-widget-seq="${widget.seq}"
+        data-date-index="${index}"
+        data-repricing-duration-gap-signature="${model.signature}"
+        data-repricing-duration-gap-labels="${model.labels.join("||")}"
+      >查看计算过程</button>
+    </div>
+  `;
+}
+
+function buildRepricingDurationGapDetailRows(widget, chartContext, model, selectedIndex) {
+  const options = BUSINESS_DURATION_OPTIONS.length ? BUSINESS_DURATION_OPTIONS : Object.keys(BUSINESS_SIDE_MAP);
+  const selectedBusinessTypes = [
+    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "asset").slice(0, 4),
+    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "liability").slice(0, 4),
+  ];
+  const seed = Number(chartContext.signature || model.signature || createSignature(widget.seq + selectedIndex, {
+    ...(chartContext.filterState || {}),
+    日期: [model.labels[selectedIndex]],
+  }));
+  return selectedBusinessTypes.map((businessType, index) => {
+    const isAsset = BUSINESS_SIDE_MAP[businessType] === "asset";
+    const side = isAsset ? "资产端" : "负债端";
+    const scale = 42 + (buildMetricValues(widget.seq + index * 9, 1, seed + selectedIndex * 13)[0] % 86);
+    const baseDuration = isAsset ? model.assetDurations[selectedIndex] : model.liabilityDurations[selectedIndex];
+    const duration = Number(Math.max(0.12, baseDuration * (0.72 + ((seed + index * 5) % 18) / 100)).toFixed(2));
+    const contribution = Number(((scale / 260) * duration * (isAsset ? 1 : -1)).toFixed(2));
+    return { side, businessType, scale, duration, contribution };
+  });
+}
+
+function renderRepricingDurationGapDataTable(widget, chartContext) {
+  const model = buildRepricingDurationGapModel(widget, chartContext);
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
         <table class="chart-table chart-table--wide">
           <thead>
             <tr>
-              <th>${inferXAxisTitle(chartContext.xLabels)}</th>
-              ${seriesList.map((label) => `<th>${label}</th>`).join("")}
+              <th>${inferXAxisTitle(model.labels)}</th>
+              <th>资产重定价久期</th>
+              <th>负债重定价久期</th>
+              <th>资产负债重定价久期缺口</th>
             </tr>
           </thead>
           <tbody>
-            ${chartContext.xLabels.map((label, index) => `
+            ${model.labels.map((label, index) => `
               <tr>
                 <td>${label}</td>
-                ${seriesList.map((seriesLabel, seriesIndex) => {
-                  const values = buildMetricValues(widget.seq + 31 + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 37);
-                  return `<td>${values[index].toFixed(1)}</td>`;
-                }).join("")}
+                <td>${model.assetDurations[index].toFixed(2)}</td>
+                <td>${model.liabilityDurations[index].toFixed(2)}</td>
+                <td>${model.gaps[index].toFixed(2)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -164,32 +182,6 @@ function renderBusinessDurationRepricingDataTable(widget, chartContext) {
       </div>
     </div>
   `;
-}
-
-function buildDurationSeriesDefinitions(widget, chartContext) {
-  const orgOptions = uniqueList(chartContext.filterState["机构"] || FILTER_OPTIONS["机构"] || ["法人汇总"]);
-  const currencyOptions = uniqueList(chartContext.filterState["币种"] || FILTER_OPTIONS["币种"] || ["全折人民币"]);
-  const combinations = cartesianProduct([orgOptions, currencyOptions]);
-  return combinations.flatMap(([org, currency], comboIndex) => {
-    const baseSeed = widget.seq + 31 + comboIndex * 37;
-    const baseOffset = comboIndex * 113;
-    return [
-      {
-        label: `${org} / ${currency} / 资产端`,
-        seed: baseSeed,
-        signatureOffset: baseOffset,
-        colorIndex: comboIndex,
-        dashed: false,
-      },
-      {
-        label: `${org} / ${currency} / 负债端`,
-        seed: baseSeed + 13,
-        signatureOffset: baseOffset + 41,
-        colorIndex: comboIndex,
-        dashed: true,
-      },
-    ];
-  });
 }
 
 function renderNiiVolatilityComboChart(widget, chartContext) {
@@ -305,7 +297,43 @@ function isRepricingMaturityDistributionWidget(widget) {
   return Number(widget?.sourceSeq || widget?.seq) === 14;
 }
 
-function getMaturityDistributionBuckets() {
+function getRepricingMaturityTenorBuckets() {
+  return [
+    "隔夜", "隔夜~1个月", "1~2个月", "2~3个月", "3~4个月", "4~5个月", "5~6个月",
+    "6~7个月", "7~8个月", "8~9个月", "9~10个月", "10~11个月", "11~12个月",
+  ];
+}
+
+function formatRepricingMaturityRangeDate(dateValue) {
+  const date = parseDateValue(dateValue);
+  if (!date) return String(dateValue || "");
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function getRepricingMaturityDateRanges() {
+  const baseDate = appState.globalEndDate || getDefaultGlobalEndDate();
+  return getRepricingMaturityTenorBuckets().map((tenorBucket, index) => {
+    const startDate = index === 0
+      ? baseDate
+      : index === 1
+        ? addDays(baseDate, 1)
+        : addClampedMonthsDateValue(baseDate, index - 1);
+    const endDate = index === 0
+      ? addDays(baseDate, 1)
+      : addClampedMonthsDateValue(baseDate, index);
+    return {
+      tenorBucket,
+      startDate,
+      endDate,
+      label: `${formatRepricingMaturityRangeDate(startDate)}-${formatRepricingMaturityRangeDate(endDate)}`,
+    };
+  });
+}
+
+function getMaturityDistributionBuckets(widget) {
+  if (isRepricingMaturityDistributionWidget(widget)) {
+    return getRepricingMaturityDateRanges().map((range) => range.label);
+  }
   return ["2026-04-01", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30", "2026-10-31", "2026-11-30", "2026-12-31", "2027-01-31", "2027-02-28", "2027-03-31"];
 }
 
@@ -323,7 +351,7 @@ function getMaturityDistributionSelection(chartContext) {
 }
 
 function buildMaturityDistributionMatrix(widget, signature, selectedNames = []) {
-  const buckets = getMaturityDistributionBuckets();
+  const buckets = getMaturityDistributionBuckets(widget);
   const series = getMaturityDistributionSeries().filter((item) => !selectedNames.length || selectedNames.includes(item.name));
   const profile = [92, 74, 56, 48, 36, 28, 24, 22, 20, 19, 18, 18, 20];
 
@@ -456,7 +484,7 @@ function renderRepricingMaturityDistributionChart(widget, chartContext) {
   const matrix = buildMaturityDistributionMatrix(widget, chartContext.signature, selectedNames);
   const allSeries = getMaturityDistributionSeries().map((item) => item.name);
   const drilldown = getRepricingMaturityDrilldown(widget, matrix);
-  const frame = { left: 72, right: 560, top: 24, bottom: 224, width: 488, height: 200 };
+  const frame = { left: 50, right: 1058, top: 24, bottom: 150, width: 1008, height: 126 };
   const maxAbs = Math.max(
     120,
     ...matrix.rows.map((row) => Math.max(
@@ -477,12 +505,13 @@ function renderRepricingMaturityDistributionChart(widget, chartContext) {
       <text x="${frame.left - 12}" y="${y + 4}" text-anchor="end" class="axis-label axis-label--y">${tick}</text>
     `).join("")}
     <text x="${frame.left - 46}" y="${frame.top - 6}" class="axis-title">规模(亿元)</text>
-    <text x="${(frame.left + frame.right) / 2}" y="${frame.bottom + 48}" text-anchor="middle" class="axis-title">重定价期限</text>
     ${matrix.buckets.map((bucket, index) => {
       const x = frame.left + step * index + step * 0.5;
       return `
         <line x1="${x}" y1="${zeroY}" x2="${x}" y2="${zeroY + 6}" stroke="rgba(109,165,215,0.28)" stroke-width="1"></line>
-        <text x="${x}" y="${frame.bottom + 18}" text-anchor="end" transform="rotate(-38 ${x} ${frame.bottom + 18})" class="axis-label axis-label--x">${bucket}</text>
+        <g transform="translate(${x} ${frame.bottom + 18})">
+          <text x="0" y="0" text-anchor="start" transform="rotate(55)" class="axis-label axis-label--x repricing-maturity-axis-label">${bucket}</text>
+        </g>
       `;
     }).join("")}
   `;
@@ -525,10 +554,13 @@ function renderRepricingMaturityDistributionChart(widget, chartContext) {
     <div class="chart-shell chart-shell--repricing-maturity">
       <div class="repricing-maturity-layout">
         <div class="repricing-maturity-chart">
-          <svg viewBox="0 0 600 320" preserveAspectRatio="xMidYMid meet" aria-label="分业务重定价期限分布">
-            ${axisMarkup}
-            ${barsMarkup}
-          </svg>
+          <div class="repricing-maturity-chart__viewport">
+            <svg viewBox="0 0 1300 320" preserveAspectRatio="xMidYMid meet" aria-label="分业务重定价期限分布">
+              ${axisMarkup}
+              ${barsMarkup}
+            </svg>
+          </div>
+          <div class="repricing-maturity-chart__axis-title">重定价日期区间</div>
           ${renderMaturityDistributionLegend(widget, selectedNames)}
         </div>
         ${renderRepricingMaturityDetailTable(widget, chartContext, drilldown)}
@@ -546,9 +578,13 @@ function getRepricingMaturityDrilldown(widget, matrix) {
   const bucket = matrix.buckets?.includes(state.bucket) ? state.bucket : firstBucket;
   const businessType = visibleSeries.includes(state.businessType) ? state.businessType : firstBusinessType;
   const bucketIndex = Math.max(0, matrix.buckets?.indexOf(bucket) || 0);
+  const dateRange = getRepricingMaturityDateRanges()[bucketIndex];
   return {
     bucket,
     bucketIndex,
+    tenorBucket: dateRange?.tenorBucket || "",
+    rangeStartDate: dateRange?.startDate || "",
+    rangeEndDate: dateRange?.endDate || "",
     businessType,
     category: getBusinessCategoryByType(businessType),
   };
@@ -623,11 +659,12 @@ function buildRepricingMaturityDetailRows(widget, chartContext, drilldown) {
     category: drilldown.category,
     sourceWidgetSeq: widget.seq,
   });
-  const bucketDate = parseDateValue(drilldown.bucket) || parseDateValue(addMonthsDateValue(getDefaultGlobalEndDate(), drilldown.bucketIndex + 1));
-  const bucketAnchor = formatDateValue(bucketDate);
+  const rangeStart = parseDateValue(drilldown.rangeStartDate) || parseDateValue(appState.globalEndDate || getDefaultGlobalEndDate()) || new Date();
+  const rangeEnd = parseDateValue(drilldown.rangeEndDate) || rangeStart;
+  const rangeDays = Math.max(0, Math.round((rangeEnd - rangeStart) / 86400000));
   return seededRows.slice(0, 8 + (signature % 4)).map((row, index) => {
-    const repricingDate = addDays(bucketAnchor, (index % 7) - 3);
-    const repricingTermMonths = Math.max(1, Math.round(Math.abs((parseDateValue(repricingDate) - (parseDateValue(getDefaultGlobalEndDate()) || new Date())) / (1000 * 60 * 60 * 24 * 30))));
+    const repricingDate = addDays(formatDateValue(rangeStart), rangeDays ? index % (rangeDays + 1) : 0);
+    const repricingTermMonths = Math.max(1, drilldown.bucketIndex);
     return {
       ...row,
       repricingCounterparty: row.issuer || row.counterparty || "-",

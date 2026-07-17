@@ -14,10 +14,12 @@ window.dashboardConfig = {
       ],
       "币种": [
         "全折人民币",
+        "全折美元",
+        "全折欧元",
         "人民币",
         "外币折美元",
         "美元",
-        "港元",
+        "港币",
         "新加坡元",
         "欧元",
         "澳元",
@@ -44,7 +46,8 @@ window.dashboardConfig = {
         "1D",
         "7D",
         "30D",
-        "3M"
+        "3M",
+        "1Y"
       ],
       "时间区间": [
         "近1月",
@@ -89,26 +92,7 @@ window.dashboardConfig = {
       ]
     }
   },
-  "tabs": {
-    "重定价久期": [
-      {
-        "label": "存量",
-        "matchViewScope": "存量业务",
-        "matchScopeMeta": {
-          "tabGroup": "repricingDuration",
-          "tabKey": "存量"
-        }
-      },
-      {
-        "label": "新发生",
-        "matchViewScope": "新发生业务",
-        "matchScopeMeta": {
-          "tabGroup": "repricingDuration",
-          "tabKey": "新发生"
-        }
-      }
-    ]
-  },
+  "tabs": {},
   "pageBehavior": {
     "利率风险": {
       "simulationMode": "interest"
@@ -117,110 +101,138 @@ window.dashboardConfig = {
       "simulationMode": "liquidity"
     },
     "业务变动分析": {
-      "analysisPerspective": "interestBalanceStructure"
+      "analysisPerspective": "interestBalanceStructure",
+      "analysisPerspectiveOptions": [
+        "interestBalanceStructure",
+        "liquidityBalanceStructure"
+      ]
     }
   },
   "managementLimits": [
     {
       "indicator": "最大经济价值变动比例",
-      "values": {
-        "法人汇总": 28,
-        "境外分行汇总": 25,
-        "境内汇总": 30,
-        "纽约分行": 32,
-        "新加坡分行": 29,
-        "卢森堡分行": 27,
-        "伦敦分行": 31,
-        "悉尼分行": 26,
-        "香港分行": 30
-      },
       "widgetSeqs": [
         1
+      ],
+      "entries": [
+        {
+          "organization": "法人汇总",
+          "currency": "全折人民币",
+          "operator": "<=",
+          "value": 15,
+          "unit": "%"
+        }
       ]
     },
     {
-      "indicator": "净利息收入波动率",
-      "values": {
-        "法人汇总": 24,
-        "境外分行汇总": 22,
-        "境内汇总": 26,
-        "纽约分行": 28,
-        "新加坡分行": 25,
-        "卢森堡分行": 23,
-        "伦敦分行": 27,
-        "悉尼分行": 24,
-        "香港分行": 25
-      },
-      "widgetSeqs": [
-        7
-      ]
-    },
-    {
-      "indicator": "重定价缺口率",
-      "values": {
-        "法人汇总": 38,
-        "境外分行汇总": 34,
-        "境内汇总": 40,
-        "纽约分行": 42,
-        "新加坡分行": 37,
-        "卢森堡分行": 35,
-        "伦敦分行": 39,
-        "悉尼分行": 36,
-        "香港分行": 38
-      },
-      "widgetSeqs": [
-        9
-      ]
-    },
-    {
-      "indicator": "流动性覆盖率LCR",
-      "values": {
-        "法人汇总": 62,
-        "境外分行汇总": 58,
-        "境内汇总": 64,
-        "纽约分行": 67,
-        "新加坡分行": 61,
-        "卢森堡分行": 59,
-        "伦敦分行": 65,
-        "悉尼分行": 60,
-        "香港分行": 63
-      },
-      "widgetSeqs": [
-        42
-      ]
-    },
-    {
-      "indicator": "净稳定资金比例NSFR",
-      "values": {
-        "法人汇总": 66,
-        "境外分行汇总": 62,
-        "境内汇总": 68,
-        "纽约分行": 70,
-        "新加坡分行": 65,
-        "卢森堡分行": 63,
-        "伦敦分行": 69,
-        "悉尼分行": 64,
-        "香港分行": 67
-      },
-      "widgetSeqs": [
-        46
-      ]
-    },
-    {
-      "indicator": "流动性缺口",
-      "values": {
-        "法人汇总": 55,
-        "境外分行汇总": 50,
-        "境内汇总": 57,
-        "纽约分行": 60,
-        "新加坡分行": 54,
-        "卢森堡分行": 52,
-        "伦敦分行": 58,
-        "悉尼分行": 53,
-        "香港分行": 56
-      },
+      "indicator": "30天累计流动性缺口规模",
       "widgetSeqs": [
         49
+      ],
+      "entries": [
+        { "organization": "香港分行", "currency": "全折美元", "operator": ">=", "value": -10, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "香港分行", "currency": "全折美元", "operator": ">=", "value": -10, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "月日均" } },
+        { "organization": "纽约分行", "currency": "全折美元", "operator": ">=", "value": -4, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "纽约分行", "currency": "全折美元", "operator": ">=", "value": -4, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "月日均" } },
+        { "organization": "新加坡分行", "currency": "全折美元", "operator": ">=", "value": -5.5, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "新加坡分行", "currency": "全折美元", "operator": ">=", "value": -5, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "月日均" } },
+        { "organization": "卢森堡分行", "currency": "全折欧元", "operator": ">=", "value": -1, "unit": "亿欧元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "卢森堡分行", "currency": "全折欧元", "operator": ">=", "value": -1, "unit": "亿欧元", "filters": { "期限长度": "30D", "口径": "月日均" } },
+        { "organization": "伦敦分行", "currency": "全折美元", "operator": ">=", "value": -3.5, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "伦敦分行", "currency": "全折美元", "operator": ">=", "value": -3.5, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "月日均" } },
+        { "organization": "悉尼分行", "currency": "全折美元", "operator": ">=", "value": -2.5, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "时点" } },
+        { "organization": "悉尼分行", "currency": "全折美元", "operator": ">=", "value": -3, "unit": "亿美元", "filters": { "期限长度": "30D", "口径": "月日均" } }
+      ]
+    },
+    {
+      "indicator": "流动性比例",
+      "widgetSeqs": [
+        53
+      ],
+      "entries": [
+        { "organization": "纽约分行", "currency": "全折人民币", "operator": ">=", "value": 25, "unit": "%" },
+        { "organization": "伦敦分行", "currency": "全折人民币", "operator": ">=", "value": 25, "unit": "%" }
+      ]
+    },
+    {
+      "indicator": "债券投资组合久期",
+      "widgetSeqs": [
+        60
+      ],
+      "entries": [
+        { "organization": "香港分行", "currency": "外币折美元", "operator": "<=", "value": 4, "unit": "年" },
+        { "organization": "香港分行", "currency": "人民币", "operator": "<=", "value": 4, "unit": "年" },
+        { "organization": "纽约分行", "currency": "外币折美元", "operator": "<=", "value": 4.5, "unit": "年" },
+        { "organization": "纽约分行", "currency": "人民币", "operator": "<=", "value": 2, "unit": "年" },
+        { "organization": "新加坡分行", "currency": "外币折美元", "operator": "<=", "value": 3, "unit": "年" },
+        { "organization": "新加坡分行", "currency": "人民币", "operator": "<=", "value": 3, "unit": "年" },
+        { "organization": "卢森堡分行", "currency": "外币折美元", "operator": "<=", "value": 4, "unit": "年" },
+        { "organization": "卢森堡分行", "currency": "人民币", "operator": "<=", "value": 2, "unit": "年" },
+        { "organization": "伦敦分行", "currency": "外币折美元", "operator": "<=", "value": 4, "unit": "年" },
+        { "organization": "伦敦分行", "currency": "人民币", "operator": "<=", "value": 3, "unit": "年" },
+        { "organization": "悉尼分行", "currency": "外币折美元", "operator": "<=", "value": 4, "unit": "年" },
+        { "organization": "悉尼分行", "currency": "人民币", "operator": "<=", "value": 2, "unit": "年" }
+      ]
+    },
+    {
+      "indicator": "经期限调整的重定价缺口率",
+      "widgetSeqs": [
+        9
+      ],
+      "entries": [
+        { "organization": "香港分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "香港分行", "currency": "港币", "operator": "<=", "value": 50, "unit": "%" },
+        { "organization": "香港分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "香港分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" },
+        { "organization": "纽约分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "纽约分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "纽约分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" },
+        { "organization": "新加坡分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "新加坡分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "新加坡分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" },
+        { "organization": "卢森堡分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "卢森堡分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "卢森堡分行", "currency": "欧元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "卢森堡分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" },
+        { "organization": "伦敦分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "伦敦分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "伦敦分行", "currency": "港币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "伦敦分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" },
+        { "organization": "悉尼分行", "currency": "全折人民币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "悉尼分行", "currency": "美元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "悉尼分行", "currency": "港币", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "悉尼分行", "currency": "澳元", "operator": "<=", "value": 16, "unit": "%" },
+        { "organization": "悉尼分行", "currency": "人民币", "operator": "<=", "value": 25, "unit": "%" }
+      ]
+    },
+    {
+      "indicator": "债券投资规模",
+      "widgetSeqs": [
+        59
+      ],
+      "metricKey": "bondInvestmentScale",
+      "entries": [
+        { "organization": "香港分行", "currency": "全折美元", "operator": "<=", "value": 142, "unit": "亿美元" },
+        { "organization": "纽约分行", "currency": "全折美元", "operator": "<=", "value": 25, "unit": "亿美元" },
+        { "organization": "新加坡分行", "currency": "全折美元", "operator": "<=", "value": 32, "unit": "亿美元" },
+        { "organization": "卢森堡分行", "currency": "全折欧元", "operator": "<=", "value": 10, "unit": "亿欧元" },
+        { "organization": "伦敦分行", "currency": "全折美元", "operator": "<=", "value": 9, "unit": "亿美元" },
+        { "organization": "悉尼分行", "currency": "全折美元", "operator": "<=", "value": 16, "unit": "亿美元" }
+      ]
+    },
+    {
+      "indicator": "非金融企业债券投资规模",
+      "widgetSeqs": [
+        59
+      ],
+      "metricKey": "corporateBondScale",
+      "entries": [
+        { "organization": "香港分行", "currency": "全折美元", "operator": "<=", "value": 5, "unit": "亿美元" },
+        { "organization": "纽约分行", "currency": "全折美元", "operator": "<=", "value": 2, "unit": "亿美元" },
+        { "organization": "新加坡分行", "currency": "全折美元", "operator": "<=", "value": 2, "unit": "亿美元" },
+        { "organization": "卢森堡分行", "currency": "全折欧元", "operator": "<=", "value": 1, "unit": "亿欧元" },
+        { "organization": "伦敦分行", "currency": "全折美元", "operator": "<=", "value": 1, "unit": "亿美元" },
+        { "organization": "悉尼分行", "currency": "全折美元", "operator": "<=", "value": 1, "unit": "亿美元" }
       ]
     }
   ],
@@ -263,38 +275,9 @@ window.dashboardConfig = {
     "14": {
       "chartKind": "maturityDistribution"
     },
-    "21": {
-      "chartKind": "durationGapCombo",
-      "yAxisLabel": "久期"
-    },
-    "24": {
-      "chartKind": "businessDurationRepricing",
-      "fullWidth": false,
-      "maxSeries": 12,
-      "yAxisLabel": "久期",
-      "seriesFilters": {
-        "suppress": [
-          "机构",
-          "币种"
-        ]
-      }
-    },
-    "27": {
-      "chartKind": "durationGapCombo",
-      "fullWidth": false,
-      "yAxisLabel": "久期"
-    },
-    "30": {
-      "chartKind": "businessDurationRepricing",
-      "fullWidth": false,
-      "maxSeries": 12,
-      "yAxisLabel": "久期",
-      "seriesFilters": {
-        "suppress": [
-          "机构",
-          "币种"
-        ]
-      }
+    "15": {
+      "chartKind": "repricingDurationGap",
+      "yAxisLabel": "久期缺口"
     },
     "42": {
       "chartKind": "liquidityDiagnosticRatio",
@@ -319,17 +302,14 @@ window.dashboardConfig = {
         "口径"
       ]
     },
+    "53": {
+      "chartKind": "liquidityDiagnosticRatio",
+      "liquidityDiagnosticKind": "liquidityRatio",
+      "frequencyToggle": true
+    },
     "54": {
       "chartKind": "futureFundingFlow",
       "fullWidth": true
-    },
-    "57": {
-      "chartKind": "interbankFundingMaxTenor",
-      "yAxisLabel": "期限（天）"
-    },
-    "58": {
-      "chartKind": "interbankFundingTenorBucket",
-      "yAxisLabel": "规模占比"
     },
     "59": {
       "chartKind": "bondInvestmentScaleLimit",
@@ -357,20 +337,24 @@ window.dashboardConfig = {
       "detailTablePreset": "businessChangeDetail"
     },
     "83": {
-      "chartKind": "balanceScaleGrowth"
+      "chartKind": "balanceScaleGrowth",
+      "methodologyKey": "newMonthly"
     },
     "84": {
       "chartKind": "businessScaleGrowth",
-      "maxSeries": 12
+      "maxSeries": 12,
+      "methodologyKey": "newMonthly"
     },
     "85": {
       "tableKind": "businessDetail",
       "detailScope": "new",
-      "detailTablePreset": "businessChangeDetail"
+      "detailTablePreset": "businessChangeDetail",
+      "methodologyKey": "newDaily"
     },
     "89": {
       "tableKind": "businessStructure",
       "structureScope": "new",
+      "methodologyKey": "newDaily",
       "showDateFilter": true,
       "drilldownTargetSeq": 85,
       "inlineFilters": [
@@ -379,16 +363,19 @@ window.dashboardConfig = {
     },
     "90": {
       "chartKind": "balanceScaleGrowth",
-      "maturityTrend": true
+      "maturityTrend": true,
+      "methodologyKey": "maturityMonthly"
     },
     "91": {
       "chartKind": "businessScaleGrowth",
       "maturityTrend": true,
-      "maxSeries": 12
+      "maxSeries": 12,
+      "methodologyKey": "maturityMonthly"
     },
     "96": {
       "tableKind": "businessStructure",
       "structureScope": "maturity",
+      "methodologyKey": "maturityDaily",
       "showDateFilter": true,
       "maturityStructure": true,
       "drilldownTargetSeq": 97,
@@ -399,7 +386,8 @@ window.dashboardConfig = {
     "97": {
       "tableKind": "businessDetail",
       "detailScope": "maturity",
-      "detailTablePreset": "businessChangeDetail"
+      "detailTablePreset": "businessChangeDetail",
+      "methodologyKey": "maturityDaily"
     }
   },
   "widgetFilters": {
@@ -409,16 +397,6 @@ window.dashboardConfig = {
       }
     ],
     "14": [
-      {
-        "presetRef": "businessTypeLegend"
-      }
-    ],
-    "24": [
-      {
-        "presetRef": "businessTypeLegend"
-      }
-    ],
-    "30": [
       {
         "presetRef": "businessTypeLegend"
       }
@@ -513,8 +491,8 @@ window.dashboardConfig = {
       "name": "业务类型",
       "renderMode": "legend",
       "multi": true,
-      "optionsRef": "businessDurationOptions",
-      "defaultValuesRef": "businessDurationOptions"
+      "optionsRef": "liquidityBusinessTypes",
+      "defaultValuesRef": "liquidityBusinessTypes"
     },
     "liquidityTenorLegend": {
       "name": "期限长度",
@@ -524,7 +502,8 @@ window.dashboardConfig = {
         "1D",
         "7D",
         "30D",
-        "3M"
+        "3M",
+        "1Y"
       ],
       "defaultValues": [
         "30D"
@@ -590,15 +569,6 @@ window.dashboardConfig = {
     "areas": {},
     "widgets": {
       "4": {
-        "fullWidth": false
-      },
-      "24": {
-        "fullWidth": false
-      },
-      "27": {
-        "fullWidth": false
-      },
-      "30": {
         "fullWidth": false
       },
       "54": {
