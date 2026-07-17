@@ -16,7 +16,7 @@ const CONTENT_TYPES = {
   ".ico": "image/x-icon",
 };
 const TEXT = {
-  dashboardTitle: "\u98ce\u9669\u7ba1\u7406\u9a7e\u9a76\u8231",
+  dashboardTitle: "\u98ce\u9669\u5206\u6790\u89c6\u56fe",
   pages: [
     "\u5229\u7387\u98ce\u9669",
     "\u6d41\u52a8\u6027\u98ce\u9669",
@@ -1002,6 +1002,7 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(simulationModal.getByRole("heading", { name: TEXT.simulationButton, exact: true })).toBeVisible();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const baselineTable = simulationModal.locator(".repricing-base-table").first();
+  await expect(simulationModal.locator("[data-repricing-base-upload]").locator("..")).toContainText("\u4e0a\u4f20\u7f3a\u53e3\u8868");
   await expect(baselineTable.locator("thead th").nth(0)).toHaveText("\u4e1a\u52a1\u7c7b\u522b");
   await expect(baselineTable.locator("thead th:not(:first-child)")).toHaveCount(14);
   await expect(simulationModal.locator('[data-repricing-base-total="\u751f\u606f\u8d44\u4ea7"]')).toBeVisible();
@@ -1020,13 +1021,19 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await targetDateInput.fill("2026-08-31");
   await targetDateInput.blur();
   await expect(simulationModal).toContainText("\u57fa\u51c6\u7f3a\u53e3\u7387");
-  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u81ea\u7136\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
-  await expect(simulationModal.getByRole("button", { name: "\u5b58\u91cf\u81ea\u7136\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true })).toHaveClass(/is-active/);
-  await expect(simulationModal).toContainText("\u5b58\u91cf\u81ea\u7136\u5230\u671f\u4e0d\u7eed\u4f5c");
+  const repricingBaseOptions = simulationModal.locator("[data-repricing-quick-config]");
+  await expect(repricingBaseOptions).toHaveCount(2);
+  await expect(repricingBaseOptions).toHaveText([
+    "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c",
+    "\u81ea\u4e3b\u7f16\u5236",
+  ]);
+  await expect(simulationModal.getByRole("button", { name: "\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb", exact: true })).toHaveCount(0);
+  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
+  await expect(simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true })).toHaveClass(/is-active/);
+  await expect(simulationModal).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
   await simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true }).click();
+  await expect(simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true })).toHaveClass(/is-active/);
   await expect(simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first()).toHaveValue("0");
-  await simulationModal.getByRole("button", { name: "\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb", exact: true }).click();
-  await expect(simulationModal.getByRole("button", { name: "\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb", exact: true })).toHaveClass(/is-active/);
 
   const firstBaseCell = simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first();
   await firstBaseCell.fill("88.8");
@@ -1041,7 +1048,7 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   });
   await expect(simulationModal).toContainText("repricing-gap.csv");
   await expect(simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first()).toHaveValue("1");
-  await simulationModal.getByRole("button", { name: "\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb", exact: true }).click();
+  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
 
   await expect(simulationModal.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
   await expect(simulationModal.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
@@ -1071,7 +1078,7 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   const simulatedRatioText = await simulationModal.locator(".repricing-simulation-result-metrics strong").nth(1).textContent();
   expect(simulatedRatioText).not.toBe(baselineRatioText);
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
-  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
   await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u89c4\u6a21\u51c0\u989d\uff1a100\u4ebf\u5143");
   await expect(repricingGapWidget).toContainText("\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
   await expect(repricingGapWidget).toContainText("\u6d4b\u7b97\u540e\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
@@ -1084,6 +1091,19 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await liquidityGapWidget.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const liquidityBaselineTable = simulationModal.locator(".liquidity-gap-base-table").first();
+  const liquidityBaseOptions = simulationModal.locator("[data-liquidity-gap-quick-config]");
+  await expect(liquidityBaseOptions).toHaveCount(2);
+  await expect(liquidityBaseOptions).toHaveText([
+    "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c",
+    "\u81ea\u4e3b\u7f16\u5236",
+  ]);
+  await expect(simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true })).toHaveClass(/is-active/);
+  await expect(simulationModal.getByRole("button", { name: "\u5f53\u524d\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toHaveCount(0);
+  await simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true }).click();
+  await expect(simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true })).toHaveClass(/is-active/);
+  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
+  await expect(simulationModal.locator("[data-liquidity-gap-base-upload]").locator("..")).toContainText("\u4e0a\u4f20\u7f3a\u53e3\u8868");
+  await expect(simulationModal).not.toContainText("\u4e0a\u4f20\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868");
   await expect(liquidityBaselineTable.locator("thead th")).toHaveText([
     "\u4e1a\u52a1\u7c7b\u522b",
     ...TEXT.liquidityCashFlowBuckets,
@@ -1110,6 +1130,7 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   expect(Number((liquidityResultBucketValue - liquidityBaseBucketValue).toFixed(1))).toBe(25);
   await expect(simulationModal.getByRole("heading", { name: "\u6d4b\u7b97\u540e\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u73b0\u91d1\u6d41\uff1a2\u7b14");
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u57fa\u51c61\u5e74\u7d2f\u8ba1\u7f3a\u53e3");
   await expect(liquidityGapWidget.locator('[data-liquidity-gap-simulation-point="true"]')).toHaveCount(1);

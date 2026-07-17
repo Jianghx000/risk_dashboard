@@ -538,7 +538,7 @@ simulationModalEl.addEventListener("change", (event) => {
   if (liquidityBaseDate) {
     const draft = getLiquidityGapSimulationDraft();
     const nextBaseDate = liquidityBaseDate.value || getLiquidityGapSimulationCurrentDate();
-    const shouldRegenerateBase = ["current", "runoff"].includes(draft.baseSource) && !draft.baseEdited;
+    const shouldRegenerateBase = draft.baseSource === "runoff" && !draft.baseEdited;
     appState.simulationDraft = {
       ...draft,
       baseDate: nextBaseDate,
@@ -573,7 +573,7 @@ simulationModalEl.addEventListener("change", (event) => {
   if (baseDate) {
     const draft = getRepricingGapSimulationDraft();
     const nextBaseDate = getMonthEndDateValue(baseDate.value || getDefaultRepricingGapTargetDate());
-    const shouldRegenerateBase = ["current", "runoff"].includes(draft.baseSource) && !draft.baseEdited;
+    const shouldRegenerateBase = draft.baseSource === "runoff" && !draft.baseEdited;
     appState.simulationDraft = {
       ...draft,
       baseDate: nextBaseDate,

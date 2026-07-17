@@ -140,16 +140,15 @@ function buildSubjectiveRepricingGapMatrix() {
 }
 
 function normalizeRepricingGapBaseSource(source) {
-  if (source === "dynamic") return "runoff";
-  if (["current", "runoff", "subjective", "upload"].includes(source)) return source;
-  return "subjective";
+  if (["dynamic", "current"].includes(source)) return "runoff";
+  if (["runoff", "subjective", "upload"].includes(source)) return source;
+  return "runoff";
 }
 
-function buildRepricingGapBaseMatrix(source = "current", targetDateValue = getDefaultRepricingGapTargetDate()) {
+function buildRepricingGapBaseMatrix(source = "runoff", targetDateValue = getDefaultRepricingGapTargetDate()) {
   const normalizedSource = normalizeRepricingGapBaseSource(source);
   if (normalizedSource === "runoff") return buildRunoffRepricingGapMatrix(targetDateValue);
-  if (["subjective", "upload"].includes(normalizedSource)) return buildSubjectiveRepricingGapMatrix();
-  return buildCurrentRepricingGapMatrix();
+  return buildSubjectiveRepricingGapMatrix();
 }
 
 function cloneRepricingGapMatrix(matrix = {}) {
@@ -231,8 +230,10 @@ function applyNewBusinessToRepricingGapMatrix(baseMatrix, entries = [], targetDa
 }
 
 function buildRepricingGapSimulationResult(scenarioOrDraft) {
-  const baseMatrix = cloneRepricingGapMatrix(scenarioOrDraft?.baseMatrix || buildCurrentRepricingGapMatrix());
   const targetDate = scenarioOrDraft?.baseDate || getDefaultRepricingGapTargetDate();
+  const baseMatrix = cloneRepricingGapMatrix(
+    scenarioOrDraft?.baseMatrix || buildRepricingGapBaseMatrix("runoff", targetDate)
+  );
   const { simulatedMatrix, entryImpacts } = applyNewBusinessToRepricingGapMatrix(
     baseMatrix,
     scenarioOrDraft?.entries || [],
@@ -251,12 +252,10 @@ function buildRepricingGapSimulationResult(scenarioOrDraft) {
 function getRepricingGapBaseSourceLabel(source, baseEdited = false) {
   const normalizedSource = normalizeRepricingGapBaseSource(source);
   const label = normalizedSource === "runoff"
-    ? "存量自然到期不续作"
+    ? "存量到期不续作"
     : normalizedSource === "subjective"
-      ? "自主编制缺口表"
-      : normalizedSource === "upload"
-        ? "上传缺口表"
-        : "当前缺口表平移";
+      ? "自主编制"
+      : "上传缺口表";
   return `${label}${baseEdited ? "（已调整）" : ""}`;
 }
 
@@ -274,7 +273,7 @@ function createDefaultRepricingGapSimulationEntry(baseDate = getDefaultRepricing
 
 function createRepricingGapSimulationDraftFromScenario(scenario) {
   const baseDate = scenario?.baseDate || getDefaultRepricingGapTargetDate();
-  const baseSource = normalizeRepricingGapBaseSource(scenario?.baseSource || "current");
+  const baseSource = normalizeRepricingGapBaseSource(scenario?.baseSource || "runoff");
   const entries = Array.isArray(scenario?.entries) && scenario.entries.length
     ? scenario.entries.map((entry) => ({
       occurrenceDate: entry.occurrenceDate || baseDate,
@@ -405,15 +404,15 @@ function buildSubjectiveLiquidityCashFlowGapMatrix() {
 }
 
 function normalizeLiquidityGapBaseSource(source) {
-  if (["current", "runoff", "subjective", "upload"].includes(source)) return source;
-  return "subjective";
+  if (source === "current") return "runoff";
+  if (["runoff", "subjective", "upload"].includes(source)) return source;
+  return "runoff";
 }
 
-function buildLiquidityCashFlowGapBaseMatrix(source = "current", baseDateValue = getLiquidityGapSimulationCurrentDate()) {
+function buildLiquidityCashFlowGapBaseMatrix(source = "runoff", baseDateValue = getLiquidityGapSimulationCurrentDate()) {
   const normalizedSource = normalizeLiquidityGapBaseSource(source);
   if (normalizedSource === "runoff") return buildRunoffLiquidityCashFlowGapMatrix(baseDateValue);
-  if (["subjective", "upload"].includes(normalizedSource)) return buildSubjectiveLiquidityCashFlowGapMatrix();
-  return buildCurrentLiquidityCashFlowGapMatrix();
+  return buildSubjectiveLiquidityCashFlowGapMatrix();
 }
 
 function cloneLiquidityCashFlowGapMatrix(matrix = {}) {
@@ -518,7 +517,7 @@ function applyNewBusinessToLiquidityCashFlowGapMatrix(baseMatrix, entries = [], 
 function buildLiquidityGapSimulationResult(scenarioOrDraft) {
   const baseDate = scenarioOrDraft?.baseDate || getLiquidityGapSimulationCurrentDate();
   const baseMatrix = cloneLiquidityCashFlowGapMatrix(
-    scenarioOrDraft?.baseMatrix || buildCurrentLiquidityCashFlowGapMatrix()
+    scenarioOrDraft?.baseMatrix || buildLiquidityCashFlowGapBaseMatrix("runoff", baseDate)
   );
   const { simulatedMatrix, entryImpacts } = applyNewBusinessToLiquidityCashFlowGapMatrix(
     baseMatrix,
@@ -538,12 +537,10 @@ function buildLiquidityGapSimulationResult(scenarioOrDraft) {
 function getLiquidityGapBaseSourceLabel(source, baseEdited = false) {
   const normalizedSource = normalizeLiquidityGapBaseSource(source);
   const label = normalizedSource === "runoff"
-    ? "存量现金流滚动"
+    ? "存量到期不续作"
     : normalizedSource === "subjective"
-      ? "自主编制现金流缺口表"
-      : normalizedSource === "upload"
-        ? "上传现金流缺口表"
-        : "当前现金流缺口表";
+      ? "自主编制"
+      : "上传缺口表";
   return `${label}${baseEdited ? "（已调整）" : ""}`;
 }
 
@@ -565,7 +562,7 @@ function createDefaultLiquidityGapSimulationEntry(baseDateValue = getLiquidityGa
 
 function createLiquidityGapSimulationDraftFromScenario(scenario) {
   const baseDate = scenario?.baseDate || getLiquidityGapSimulationCurrentDate();
-  const baseSource = normalizeLiquidityGapBaseSource(scenario?.baseSource || "current");
+  const baseSource = normalizeLiquidityGapBaseSource(scenario?.baseSource || "runoff");
   const entries = Array.isArray(scenario?.entries) && scenario.entries.length
     ? scenario.entries.map((entry) => ({
       occurrenceDate: entry.occurrenceDate || addDays(baseDate, 1),
@@ -1367,7 +1364,7 @@ function renderRepricingGapSimulationEntry(entry, entryIndex, entryCount) {
     <section class="repricing-simulation-entry" data-repricing-simulation-entry="${entryIndex}">
       <div class="repricing-simulation-entry__header">
         <h5>新业务 ${entryIndex + 1}</h5>
-        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-repricing-simulation-entry="${entryIndex}">删除</button>` : ""}
+        ${entryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-repricing-simulation-entry="${entryIndex}">删除业务</button>` : ""}
       </div>
       <div class="repricing-simulation-entry__fields">
         <label class="simulation-form__field">
@@ -1424,8 +1421,7 @@ function renderRepricingGapSimulationModal(page) {
             </label>
             <div class="repricing-quick-config" role="group" aria-label="快速配置">
               <span>基准生成方式</span>
-              <button class="${draft.baseSource === "current" ? "is-active" : ""}" type="button" data-repricing-quick-config="current">当前缺口表平移</button>
-              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-repricing-quick-config="runoff">存量自然到期不续作</button>
+              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-repricing-quick-config="runoff">存量到期不续作</button>
               <button class="${draft.baseSource === "subjective" ? "is-active" : ""}" type="button" data-repricing-quick-config="subjective">自主编制</button>
             </div>
             <label class="toolbar-action repricing-upload-action">
@@ -1634,12 +1630,11 @@ function renderLiquidityGapSimulationModal(page) {
             </label>
             <div class="repricing-quick-config" role="group" aria-label="快速配置">
               <span>基准生成方式</span>
-              <button class="${draft.baseSource === "current" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="current">当前现金流缺口表</button>
-              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="runoff">存量现金流滚动</button>
+              <button class="${draft.baseSource === "runoff" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="runoff">存量到期不续作</button>
               <button class="${draft.baseSource === "subjective" ? "is-active" : ""}" type="button" data-liquidity-gap-quick-config="subjective">自主编制</button>
             </div>
             <label class="toolbar-action repricing-upload-action">
-              上传现金流缺口表
+              上传缺口表
               <input type="file" accept=".csv,text/csv" data-liquidity-gap-base-upload="true">
             </label>
           </div>
