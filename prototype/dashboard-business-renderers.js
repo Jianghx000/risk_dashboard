@@ -50,6 +50,46 @@ function renderBusinessChangeMethodologyModal() {
   businessMethodologyModalEl.setAttribute("aria-hidden", "false");
 }
 
+function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, selectedValues) {
+  const rangeMode = isMaturityStructureWidgetSeq(widgetSeq)
+    ? getMaturityStructureRangeMode(filterName, selectedValues)
+    : "historical";
+  const [startDate, endDate] = normalizeWidgetBusinessStructureDateRange(widgetSeq, selectedValues, null, filterName);
+  const monthEndOptions = getBusinessMonthEndSelectionOptions(rangeMode);
+  const renderOptions = (selectedDate) => monthEndOptions
+    .map((dateValue) => `<option value="${dateValue}" ${dateValue === selectedDate ? "selected" : ""}>${dateValue}</option>`)
+    .join("");
+  return `
+    <div class="chart-inline-control chart-inline-control--daterange">
+      <span class="chart-inline-control__label">${filterLabel}</span>
+      <div class="inline-date-range" data-month-end-range="true">
+        <label class="inline-date-range__field">
+          <span>开始月末</span>
+          <select
+            class="inline-date-range__input"
+            data-inline-date-filter="true"
+            data-month-end-only="true"
+            data-widget-seq="${widgetSeq}"
+            data-filter-name="${filterName}"
+            data-range-index="0"
+          >${renderOptions(startDate)}</select>
+        </label>
+        <label class="inline-date-range__field">
+          <span>结束月末</span>
+          <select
+            class="inline-date-range__input"
+            data-inline-date-filter="true"
+            data-month-end-only="true"
+            data-widget-seq="${widgetSeq}"
+            data-filter-name="${filterName}"
+            data-range-index="1"
+          >${renderOptions(endDate)}</select>
+        </label>
+      </div>
+    </div>
+  `;
+}
+
 function getMaturityStructureActiveScope(widgetSeq = 96) {
   const selected = (appState.widgetFilters[widgetSeq] || {}).__maturity_structure_scope__;
   return Array.isArray(selected) && selected[0] === "future" ? "future" : "historical";
@@ -78,6 +118,338 @@ function renderMaturityStructureHeaderTabs(widget) {
   `;
 }
 
+function getBusinessChangeFlowScope(widget) {
+  const behavior = getConfiguredWidgetBehavior(widget);
+  const methodologyKey = String(behavior.methodologyKey || "");
+  if (methodologyKey.startsWith("new")) return "new";
+  if (methodologyKey.startsWith("maturity")) return "maturity";
+  if (["new", "maturity"].includes(behavior.structureScope)) return behavior.structureScope;
+  if (["new", "maturity"].includes(behavior.detailScope)) return behavior.detailScope;
+  return "";
+}
+
+function getBusinessMonthSerial(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 12 + Number(match[2]) - 1;
+}
+
+function formatBusinessMonthKey(monthSerial) {
+  if (!Number.isFinite(monthSerial)) return "";
+  const year = Math.floor(monthSerial / 12);
+  const month = (monthSerial % 12 + 12) % 12;
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
+function getBusinessMonthKeyFromDateValue(dateValue) {
+  const match = String(dateValue || "").match(/^(\d{4})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}`;
+  const date = parseDateValue(dateValue);
+  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+}
+
+function getBusinessMonthEndDate(monthKey) {
+  const serial = getBusinessMonthSerial(monthKey);
+  if (!Number.isFinite(serial)) return getDefaultGlobalEndDate();
+  const year = Math.floor(serial / 12);
+  const month = (serial % 12 + 12) % 12;
+  return formatDateValue(new Date(year, month + 1, 0));
+}
+
+function getBusinessMonthStartDate(monthKey) {
+  const serial = getBusinessMonthSerial(monthKey);
+  if (!Number.isFinite(serial)) return getMonthStartDateValue(getDefaultGlobalEndDate());
+  const year = Math.floor(serial / 12);
+  const month = (serial % 12 + 12) % 12;
+  return formatDateValue(new Date(year, month, 1));
+}
+
+function getBusinessMonthKeysForDateRange(dateRange = []) {
+  const fallbackEnd = getLatestCompletedBusinessMonthEnd();
+  const startMonth = getBusinessMonthKeyFromDateValue(dateRange?.[0] || fallbackEnd);
+  const endMonth = getBusinessMonthKeyFromDateValue(dateRange?.[1] || fallbackEnd);
+  const startSerial = getBusinessMonthSerial(startMonth);
+  const endSerial = getBusinessMonthSerial(endMonth);
+  if (!Number.isFinite(startSerial) || !Number.isFinite(endSerial)) return [];
+  const lower = Math.min(startSerial, endSerial);
+  const upper = Math.max(startSerial, endSerial);
+  return Array.from({ length: upper - lower + 1 }, (_, index) => formatBusinessMonthKey(lower + index));
+}
+
+function getBusinessChangeTimelineMonthKeys(labels = []) {
+  return buildMonthlyTimelineEntries(labels).map((entry) => getBusinessMonthKeyFromDateValue(entry.rangeEnd || entry.date));
+}
+
+function formatBusinessTerm(monthsValue) {
+  const months = Math.max(0, Number(monthsValue || 0));
+  if (months >= 12) return `${(months / 12).toFixed(months % 12 === 0 ? 0 : 1)}年`;
+  return `${Math.max(1, Math.round(months))}个月`;
+}
+
+function getBusinessSnapshotCurrencyValues(chartContext) {
+  const selected = getSelectedCurrencies(chartContext).filter(Boolean);
+  return selected.length ? selected : ["全折人民币"];
+}
+
+function buildBusinessMonthEndSnapshotRows(monthKey, chartContext, options = {}) {
+  const targetSerial = getBusinessMonthSerial(monthKey);
+  if (!Number.isFinite(targetSerial)) return [];
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
+  const allowedBusinessTypes = new Set(options.businessTypes || groups.flatMap((group) => group.items));
+  const organizations = options.organizations || getSelectedOrganizations(chartContext);
+  const currencies = options.currencies || getBusinessSnapshotCurrencyValues(chartContext);
+  const customerPool = ["城投集团", "高端制造", "交通基础设施", "能源平台", "产业基金", "科技园区", "消费龙头", "医药集团"];
+  const rateBenchmarkPool = ["LPR 1Y", "LPR 5Y", "DR007", "SHIBOR 3M", "中债国债收益率"];
+  const rows = [];
+
+  groups.forEach((group) => {
+    group.items.filter((businessType) => allowedBusinessTypes.has(businessType)).forEach((businessType) => {
+      organizations.forEach((org) => {
+        currencies.forEach((currency) => {
+          for (let cohortSerial = targetSerial - 8; cohortSerial <= targetSerial; cohortSerial += 1) {
+            const cohortMonth = formatBusinessMonthKey(cohortSerial);
+            const seed = createSignature(6400, {
+              分析视角: [chartContext.analysisPerspective || "interestBalanceStructure"],
+              机构: [org],
+              币种: [currency],
+              业务类型: [businessType],
+              投放月份: [cohortMonth],
+            });
+            const lifetimeMonths = 3 + (seed % 5);
+            const ageMonths = targetSerial - cohortSerial;
+            if (ageMonths < 0 || ageMonths >= lifetimeMonths) continue;
+            const initialBalance = 3.2 + (seed % 86) / 10;
+            const balance = Number((initialBalance * (1 - (ageMonths / lifetimeMonths) * 0.68)).toFixed(1));
+            if (balance <= 0) continue;
+            const cohortYear = Math.floor(cohortSerial / 12);
+            const cohortMonthIndex = (cohortSerial % 12 + 12) % 12;
+            const startDate = formatDateValue(new Date(cohortYear, cohortMonthIndex, 2 + (seed % 24)));
+            const contractMaturityDate = getBusinessMonthEndDate(formatBusinessMonthKey(cohortSerial + lifetimeMonths));
+            const businessId = `MON-${cohortMonth.replace("-", "")}-${String((seed % 900000) + 100000).slice(-6)}`;
+            const rateValue = Number((1.6 + (seed % 33) / 10).toFixed(2));
+            const rateType = seed % 3 === 0 ? "浮动" : "固定";
+            const remainingTermMonthsValue = Math.max(1, lifetimeMonths - ageMonths);
+            const repricingTermMonths = rateType === "浮动" ? [1, 3, 6, 12][seed % 4] : remainingTermMonthsValue;
+            const durationValue = Number((Math.min(remainingTermMonthsValue, repricingTermMonths) / 12).toFixed(2));
+            const sideKey = perspective.sideMap?.[businessType] || BUSINESS_SIDE_MAP[businessType] || "asset";
+            rows.push({
+              businessKey: `${org}|${currency}|${businessType}|${businessId}`,
+              businessId,
+              org,
+              currency,
+              category: group.category,
+              businessType,
+              sideKey,
+              sideLabel: perspective.sideLabels?.[sideKey] || (sideKey === "liability" ? "负债" : "资产"),
+              counterparty: customerPool[seed % customerPool.length],
+              startDate,
+              contractMaturityDate,
+              balance,
+              rateValue,
+              rate: `${rateValue.toFixed(2)}%`,
+              priorRate: `${rateValue.toFixed(2)}%`,
+              rateType,
+              rateBenchmark: rateType === "浮动" ? rateBenchmarkPool[seed % rateBenchmarkPool.length] : "固定利率",
+              spread: rateType === "浮动" ? `+${20 + (seed % 96)}bp` : "不适用",
+              originalTermMonthsValue: lifetimeMonths,
+              remainingTermMonthsValue,
+              durationValue,
+              originalTerm: formatBusinessTerm(lifetimeMonths),
+              remainingTerm: formatBusinessTerm(remainingTermMonthsValue),
+              repricingCycle: rateType === "浮动" ? `${repricingTermMonths}个月` : "到期重定价",
+              repricingDate: rateType === "浮动" ? addMonthsDateValue(startDate, repricingTermMonths) : contractMaturityDate,
+              repricingDuration: `${durationValue.toFixed(2)}年`,
+              couponRate: `${rateValue.toFixed(2)}%`,
+              ytm: `${(rateValue + 0.18).toFixed(2)}%`,
+              modifiedDuration: durationValue.toFixed(1),
+            });
+          }
+        });
+      });
+    });
+  });
+  return rows;
+}
+
+function buildMonthlyBusinessChangeFacts(scope, monthKey, chartContext, options = {}) {
+  if (!["new", "maturity"].includes(scope)) return [];
+  const monthSerial = getBusinessMonthSerial(monthKey);
+  if (!Number.isFinite(monthSerial)) return [];
+  const previousMonthKey = formatBusinessMonthKey(monthSerial - 1);
+  const previousRows = buildBusinessMonthEndSnapshotRows(previousMonthKey, chartContext, options);
+  const currentRows = buildBusinessMonthEndSnapshotRows(monthKey, chartContext, options);
+  const previousMap = new Map(previousRows.map((row) => [row.businessKey, row]));
+  const currentMap = new Map(currentRows.map((row) => [row.businessKey, row]));
+  const businessKeys = new Set([...previousMap.keys(), ...currentMap.keys()]);
+  const facts = [];
+
+  businessKeys.forEach((businessKey) => {
+    const previousRow = previousMap.get(businessKey);
+    const currentRow = currentMap.get(businessKey);
+    const openingBalance = Number(previousRow?.balance || 0);
+    const closingBalance = Number(currentRow?.balance || 0);
+    const delta = Number((closingBalance - openingBalance).toFixed(1));
+    const amountValue = scope === "new" ? Math.max(delta, 0) : Math.max(-delta, 0);
+    if (amountValue <= 0) return;
+    const sourceRow = scope === "new" ? currentRow : previousRow;
+    if (!sourceRow) return;
+    const maturityDate = scope === "maturity"
+      ? (currentRow ? getBusinessMonthEndDate(monthKey) : sourceRow.contractMaturityDate)
+      : "";
+    facts.push({
+      ...sourceRow,
+      statMonth: monthKey,
+      comparisonStartDate: getBusinessMonthEndDate(previousMonthKey),
+      comparisonEndDate: getBusinessMonthEndDate(monthKey),
+      openingBalance,
+      closingBalance,
+      amountValue: Number(amountValue.toFixed(1)),
+      amount: `${amountValue.toFixed(1)}亿元`,
+      holdingScale: `${amountValue.toFixed(1)}亿元`,
+      maturityDate,
+    });
+  });
+  return facts.sort((left, right) => left.businessId.localeCompare(right.businessId));
+}
+
+function buildFutureContractMaturityFacts(monthKey, chartContext, options = {}) {
+  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  return buildBusinessMonthEndSnapshotRows(referenceMonthKey, chartContext, options)
+    .filter((row) => getBusinessMonthKeyFromDateValue(row.contractMaturityDate) === monthKey)
+    .map((row) => ({
+      ...row,
+      statMonth: monthKey,
+      comparisonStartDate: getBusinessMonthEndDate(referenceMonthKey),
+      comparisonEndDate: row.contractMaturityDate,
+      openingBalance: row.balance,
+      closingBalance: 0,
+      amountValue: row.balance,
+      amount: `${row.balance.toFixed(1)}亿元`,
+      holdingScale: `${row.balance.toFixed(1)}亿元`,
+      maturityDate: row.contractMaturityDate,
+    }));
+}
+
+function buildBusinessChangeFactsForMonth(scope, monthKey, chartContext, options = {}) {
+  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  if (scope === "maturity" && getBusinessMonthSerial(monthKey) > getBusinessMonthSerial(referenceMonthKey)) {
+    return buildFutureContractMaturityFacts(monthKey, chartContext, options);
+  }
+  return buildMonthlyBusinessChangeFacts(scope, monthKey, chartContext, options);
+}
+
+function buildBusinessChangeFactsForDateRange(scope, chartContext, dateRange = [], options = {}) {
+  const monthKeys = getBusinessMonthKeysForDateRange(dateRange);
+  return monthKeys.flatMap((monthKey) => options.future
+    ? buildFutureContractMaturityFacts(monthKey, chartContext, options)
+    : buildMonthlyBusinessChangeFacts(scope, monthKey, chartContext, options)
+  );
+}
+
+function calculateBusinessChangeGrowthValues(scaleValues = [], previousValue = null) {
+  return scaleValues.map((value, index) => {
+    const previous = Number(index === 0 ? previousValue : scaleValues[index - 1]);
+    if (!previous) return 0;
+    return Number((((Number(value || 0) - previous) / previous) * 100).toFixed(1));
+  });
+}
+
+function isBusinessChangeLiabilitySide(sideKey) {
+  return ["liability", "offBalanceOutflow"].includes(sideKey);
+}
+
+function buildBusinessChangeTrendData(widget, chartContext, businessTypes = []) {
+  const scope = getBusinessChangeFlowScope(widget);
+  const monthKeys = getBusinessChangeTimelineMonthKeys(chartContext.xLabels);
+  const options = businessTypes.length ? { businessTypes } : {};
+  const factsByMonth = monthKeys.map((monthKey) => buildBusinessChangeFactsForMonth(scope, monthKey, chartContext, options));
+  const previousMonthKey = monthKeys.length
+    ? formatBusinessMonthKey(getBusinessMonthSerial(monthKeys[0]) - 1)
+    : "";
+  const previousFacts = previousMonthKey
+    ? buildBusinessChangeFactsForMonth(scope, previousMonthKey, chartContext, options)
+    : [];
+  const firstScale = factsByMonth.map((facts) => Number(facts
+    .filter((row) => !isBusinessChangeLiabilitySide(row.sideKey))
+    .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1)));
+  const secondScale = factsByMonth.map((facts) => Number(facts
+    .filter((row) => isBusinessChangeLiabilitySide(row.sideKey))
+    .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1)));
+  const previousFirstScale = Number(previousFacts
+    .filter((row) => !isBusinessChangeLiabilitySide(row.sideKey))
+    .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1));
+  const previousSecondScale = Number(previousFacts
+    .filter((row) => isBusinessChangeLiabilitySide(row.sideKey))
+    .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1));
+  const scaleByBusinessType = Object.fromEntries(businessTypes.map((businessType) => [
+    businessType,
+    factsByMonth.map((facts) => Number(facts
+      .filter((row) => row.businessType === businessType)
+      .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1))),
+  ]));
+  return {
+    scope,
+    monthKeys,
+    factsByMonth,
+    firstScale,
+    secondScale,
+    firstGrowth: calculateBusinessChangeGrowthValues(firstScale, previousFirstScale),
+    secondGrowth: calculateBusinessChangeGrowthValues(secondScale, previousSecondScale),
+    scaleByBusinessType,
+    growthByBusinessType: Object.fromEntries(Object.entries(scaleByBusinessType).map(([businessType, values]) => [
+      businessType,
+      calculateBusinessChangeGrowthValues(
+        values,
+        Number(previousFacts
+          .filter((row) => row.businessType === businessType)
+          .reduce((sum, row) => sum + row.amountValue, 0).toFixed(1))
+      ),
+    ])),
+  };
+}
+
+function buildBusinessChangeScalePlotValues(seriesCollection = []) {
+  const maximum = Math.max(100, ...seriesCollection.flat().map((value) => Number(value || 0)));
+  return seriesCollection.map((series) => series.map((value) => Number(((Number(value || 0) / maximum) * 92).toFixed(2))));
+}
+
+function buildBusinessChangeGrowthPlotValues(values = []) {
+  return values.map((value) => clampNumber(50 + Number(value || 0), 6, 94));
+}
+
+function summarizeBusinessChangeFacts(facts = []) {
+  const scale = Number(facts.reduce((sum, row) => sum + Number(row.amountValue || 0), 0).toFixed(1));
+  const weighted = (picker) => {
+    if (!scale) return 0;
+    return facts.reduce((sum, row) => sum + Number(picker(row) || 0) * Number(row.amountValue || 0), 0) / scale;
+  };
+  return {
+    scale,
+    fixedRate: `${weighted((row) => row.rateType === "固定" ? 100 : 0).toFixed(1)}%`,
+    duration: `${weighted((row) => row.durationValue).toFixed(1)}年`,
+    averageOriginalTerm: `${(weighted((row) => row.originalTermMonthsValue) / 12).toFixed(1)}年`,
+    averageRemainingTerm: `${(weighted((row) => row.remainingTermMonthsValue) / 12).toFixed(1)}年`,
+    averageRate: `${weighted((row) => row.rateValue).toFixed(2)}%`,
+  };
+}
+
+function buildMonthlyBusinessChangeStructureRows(widget, chartContext, timeRangeValues = []) {
+  const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
+  const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
+  const organizations = getSelectedOrganizations(chartContext);
+  const scope = getBusinessChangeFlowScope(widget);
+  const future = scope === "maturity" && getMaturityStructureActiveScope(widget.seq) === "future";
+  const facts = buildBusinessChangeFactsForDateRange(scope, chartContext, timeRangeValues, { future });
+  return groups.flatMap((group) => group.items.map((businessType) => ({
+    category: group.category,
+    businessType,
+    orgValues: organizations.map((org) => summarizeBusinessChangeFacts(
+      facts.filter((row) => row.org === org && row.businessType === businessType)
+    )),
+  })));
+}
+
 function renderBalanceScaleGrowthChart(widget, chartContext) {
   const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const useWideFrame = isMaturityTrendWidget(widget);
@@ -89,10 +461,17 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
   const metricItems = perspective.balanceMetricLabels || ["资产规模", "负债规模", "资产增速", "负债增速"];
   const [firstScaleLabel, secondScaleLabel, firstGrowthLabel, secondGrowthLabel] = metricItems;
   const selectedMetrics = getLegendSelection(widget.seq, "__legend_metrics__", metricItems);
-  const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
-  const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
-  const assetGrowth = buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
-  const liabilityGrowth = buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
+  const flowScope = getBusinessChangeFlowScope(widget);
+  const trendData = flowScope ? buildBusinessChangeTrendData(widget, chartContext) : null;
+  const assetScale = trendData?.firstScale || buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
+  const liabilityScale = trendData?.secondScale || buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
+  const assetGrowth = trendData?.firstGrowth || buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
+  const liabilityGrowth = trendData?.secondGrowth || buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
+  const [assetScalePlot, liabilityScalePlot] = flowScope
+    ? buildBusinessChangeScalePlotValues([assetScale, liabilityScale])
+    : [assetScale, liabilityScale];
+  const assetGrowthPlot = flowScope ? buildBusinessChangeGrowthPlotValues(assetGrowth) : assetGrowth;
+  const liabilityGrowthPlot = flowScope ? buildBusinessChangeGrowthPlotValues(liabilityGrowth) : liabilityGrowth;
   const barWidth = Math.max(10, Math.min(20, getFrameMinStep(frame, chartContext.xLabels.length) * 0.24));
   const barGap = Math.max(2, Math.min(6, getFrameMinStep(frame, chartContext.xLabels.length) * 0.06));
 
@@ -105,9 +484,9 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
     ? assetScale.map((value, index) => {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center - barWidth - barGap / 2;
-        const y = frame.bottom - (frame.height * value) / 100;
+        const y = frame.bottom - (frame.height * assetScalePlot[index]) / 100;
         const isFuture = isMaturityFutureIndex(futureStartIndex, index);
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor(firstScaleLabel, metricItems, 0, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${assetBarColor}" stroke="${getBarStrokeColor(firstScaleLabel, metricItems, 0, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" data-business-change-month="${trendData?.monthKeys?.[index] || ""}" data-business-change-value="${Number(value).toFixed(1)}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
@@ -115,17 +494,17 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
     ? liabilityScale.map((value, index) => {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const x = center + barGap / 2;
-        const y = frame.bottom - (frame.height * value) / 100;
+        const y = frame.bottom - (frame.height * liabilityScalePlot[index]) / 100;
         const isFuture = isMaturityFutureIndex(futureStartIndex, index);
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor(secondScaleLabel, metricItems, 1, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${frame.bottom - y}" rx="8" fill="${liabilityBarColor}" stroke="${getBarStrokeColor(secondScaleLabel, metricItems, 1, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" data-business-change-month="${trendData?.monthKeys?.[index] || ""}" data-business-change-value="${Number(value).toFixed(1)}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("")
     : "";
 
-  const assetPoints = assetGrowth.map((value, index) => ({
+  const assetPoints = assetGrowthPlot.map((value, index) => ({
     x: getFrameXPosition(frame, index, chartContext.xLabels.length),
     y: frame.bottom - (frame.height * value) / 100,
   }));
-  const liabilityPoints = liabilityGrowth.map((value, index) => ({
+  const liabilityPoints = liabilityGrowthPlot.map((value, index) => ({
     x: getFrameXPosition(frame, index, chartContext.xLabels.length),
     y: frame.bottom - (frame.height * value) / 100,
   }));
@@ -162,10 +541,12 @@ function renderBalanceScaleGrowthChart(widget, chartContext) {
 function renderBalanceScaleGrowthDataTable(widget, chartContext) {
   const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const metricItems = perspective.balanceMetricLabels || ["资产规模", "负债规模", "资产增速", "负债增速"];
-  const assetScale = buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
-  const liabilityScale = buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
-  const assetGrowth = buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
-  const liabilityGrowth = buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
+  const flowScope = getBusinessChangeFlowScope(widget);
+  const trendData = flowScope ? buildBusinessChangeTrendData(widget, chartContext) : null;
+  const assetScale = trendData?.firstScale || buildBarValues(widget.seq + 7, chartContext.xLabels.length, chartContext.signature).map((value) => 24 + (value % 48));
+  const liabilityScale = trendData?.secondScale || buildBarValues(widget.seq + 19, chartContext.xLabels.length, chartContext.signature + 29).map((value) => 20 + (value % 46));
+  const assetGrowth = trendData?.firstGrowth || buildMetricValues(widget.seq + 31, chartContext.xLabels.length, chartContext.signature + 41).map((value) => 18 + (value % 78));
+  const liabilityGrowth = trendData?.secondGrowth || buildMetricValues(widget.seq + 43, chartContext.xLabels.length, chartContext.signature + 67).map((value) => 16 + (value % 76));
   return `
     <div class="chart-shell chart-shell--data">
       <div class="table-shell">
@@ -182,8 +563,8 @@ function renderBalanceScaleGrowthDataTable(widget, chartContext) {
                 <td>${label}</td>
                 <td>${assetScale[index].toFixed(1)}</td>
                 <td>${liabilityScale[index].toFixed(1)}</td>
-                <td>${assetGrowth[index].toFixed(1)}</td>
-                <td>${liabilityGrowth[index].toFixed(1)}</td>
+                <td>${assetGrowth[index].toFixed(1)}${flowScope ? "%" : ""}</td>
+                <td>${liabilityGrowth[index].toFixed(1)}${flowScope ? "%" : ""}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -213,18 +594,28 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
   const step = chartContext.xLabels.length <= 1 ? 0 : frame.width / (chartContext.xLabels.length - 1);
   const groupWidth = Math.max(24, step * 0.72);
   const barWidth = Math.max(6, Math.min(18, groupWidth / Math.max(seriesList.length, 1) - 4));
+  const flowScope = getBusinessChangeFlowScope(widget);
+  const trendData = flowScope ? buildBusinessChangeTrendData(widget, chartContext, seriesList) : null;
+  const scaleSeries = seriesList.map((label, seriesIndex) => trendData?.scaleByBusinessType?.[label]
+    || buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52))
+  );
+  const scalePlotSeries = flowScope ? buildBusinessChangeScalePlotValues(scaleSeries) : scaleSeries;
+  const growthSeries = seriesList.map((label, seriesIndex) => trendData?.growthByBusinessType?.[label]
+    || buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29).map((value) => 18 + (value % 76))
+  );
+  const growthPlotSeries = flowScope ? growthSeries.map(buildBusinessChangeGrowthPlotValues) : growthSeries;
 
   const barMarkup = seriesList
     .map((label, seriesIndex) => {
-      const values = buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52));
+      const values = scaleSeries[seriesIndex];
       return values.map((value, index) => {
         const center = getFrameXPosition(frame, index, chartContext.xLabels.length);
         const offset = (seriesIndex - (seriesList.length - 1) / 2) * (barWidth + 4);
         const x = center + offset - barWidth / 2;
-        const height = (frame.height * value) / 100;
+        const height = (frame.height * scalePlotSeries[seriesIndex][index]) / 100;
         const y = frame.bottom - height;
         const isFuture = isMaturityFutureIndex(futureStartIndex, index);
-        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${getBarFillColor(label, allSeries, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, allSeries, seriesIndex, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
+        return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="7" fill="${getBarFillColor(label, allSeries, seriesIndex, 0.82)}" stroke="${getBarStrokeColor(label, allSeries, seriesIndex, isFuture ? 0.5 : 0.28)}" stroke-width="1" opacity="${isFuture ? "0.52" : "1"}" data-business-change-month="${trendData?.monthKeys?.[index] || ""}" data-business-change-type="${label}" data-business-change-value="${Number(value).toFixed(1)}" ${isFuture ? 'stroke-dasharray="4 3"' : ""}></rect>`;
       }).join("");
     })
     .join("");
@@ -232,10 +623,10 @@ function renderBusinessScaleGrowthChart(widget, chartContext) {
   const lineMarkup = seriesList
     .map((label, seriesIndex) => {
       const color = getPaletteColor(label, allSeries, seriesIndex, "line");
-      const points = buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29)
+      const points = growthPlotSeries[seriesIndex]
         .map((value, index) => ({
           x: getFrameXPosition(frame, index, chartContext.xLabels.length),
-          y: frame.bottom - (frame.height * (18 + (value % 76))) / 100,
+          y: frame.bottom - (frame.height * (flowScope ? value : 18 + (value % 76))) / 100,
         }));
       return renderFutureAwareLine(points, color, seriesIndex === 0 ? 3.8 : 3.1, futureStartIndex);
     })
@@ -272,6 +663,8 @@ function renderBusinessScaleGrowthDataTable(widget, chartContext) {
   const selectedBusinesses = seriesList.length
     ? seriesList
     : defaultBusinessTypes;
+  const flowScope = getBusinessChangeFlowScope(widget);
+  const trendData = flowScope ? buildBusinessChangeTrendData(widget, chartContext, selectedBusinesses) : null;
 
   return `
     <div class="chart-shell chart-shell--data">
@@ -291,9 +684,11 @@ function renderBusinessScaleGrowthDataTable(widget, chartContext) {
               <tr>
                 <td>${axisLabel}</td>
                 ${selectedBusinesses.map((label, seriesIndex) => {
-                  const scaleValues = buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52));
-                  const growthValues = buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29).map((value) => 18 + (value % 76));
-                  return `<td>${scaleValues[index].toFixed(1)}</td><td>${growthValues[index].toFixed(1)}</td>`;
+                  const scaleValues = trendData?.scaleByBusinessType?.[label]
+                    || buildBarValues(widget.seq + seriesIndex * 17, chartContext.xLabels.length, chartContext.signature + seriesIndex * 31).map((value) => 18 + (value % 52));
+                  const growthValues = trendData?.growthByBusinessType?.[label]
+                    || buildMetricValues(widget.seq + 41 + seriesIndex * 13, chartContext.xLabels.length, chartContext.signature + seriesIndex * 29).map((value) => 18 + (value % 76));
+                  return `<td>${scaleValues[index].toFixed(1)}</td><td>${growthValues[index].toFixed(1)}${flowScope ? "%" : ""}</td>`;
                 }).join("")}
               </tr>
             `).join("")}
@@ -347,7 +742,7 @@ function renderBusinessStructureTableSection(widget, chartContext, options = {})
   const localFilter = options.showDateFilter
     ? `
       <div class="chart-inline-controls">
-        ${renderWidgetDateRangeInlineControl(widget.seq, options.filterName || "时间区间（起止）", "时间区间（起止）", timeRangeValues)}
+        ${renderWidgetDateRangeInlineControl(widget.seq, options.filterName || "时间区间（起止）", "统计月末区间", timeRangeValues)}
       </div>
     `
     : "";
@@ -504,6 +899,9 @@ function calculateApproximateMonthsBetween(startDateValue, endDateValue) {
 }
 
 function buildBusinessStructureRows(widget, chartContext, timeRangeValues = []) {
+  if (getBusinessChangeFlowScope(widget)) {
+    return buildMonthlyBusinessChangeStructureRows(widget, chartContext, timeRangeValues);
+  }
   const perspective = getBusinessAnalysisPerspectiveDefinition(chartContext.analysisPerspective);
   const groups = perspective.groups || BUSINESS_STRUCTURE_GROUPS;
   const isLiquidityPerspective = chartContext.analysisPerspective === "liquidityBalanceStructure";
@@ -631,7 +1029,7 @@ function formatBusinessDetailContext(widget, chartContext, drilldown, scopeMeta)
       : "";
   const dateText = scopeMeta.dateMode === "range" && Array.isArray(dateRange)
     ? `${dateRange[0]} 至 ${dateRange[1]}`
-    : `截至 ${getDefaultGlobalEndDate()}`;
+    : `截至 ${getBusinessStructureReferenceEndDate()}`;
   return `${perspective.label}口径 | ${scopeMeta.label}${maturityScopeLabel} > ${drilldown.businessType} | 机构：${institutions} | 币种：${currencies} | ${dateText}`;
 }
 
@@ -642,6 +1040,15 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
   const detailScope = behavior.detailScope || "stock";
   const scopeMeta = BUSINESS_DETAIL_SCOPE_META[detailScope] || BUSINESS_DETAIL_SCOPE_META.stock;
   const dateRange = getBusinessDrilldownDateRange(drilldown);
+  if (["new", "maturity"].includes(detailScope)) {
+    const future = detailScope === "maturity" && drilldown?.maturityTableScope === "future";
+    return buildBusinessChangeFactsForDateRange(detailScope, chartContext, dateRange || [], {
+      future,
+      businessTypes: [drilldown.businessType],
+    })
+      .filter((row) => row.businessType === drilldown.businessType)
+      .sort((left, right) => right.statMonth.localeCompare(left.statMonth) || left.businessId.localeCompare(right.businessId));
+  }
   const signature = createSignature(widget.seq, {
     机构: chartContext.filterState["机构"] || [],
     币种: chartContext.filterState["币种"] || [],
@@ -662,8 +1069,8 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
   const bondIssuerPool = ["国开行", "农业发展银行", "进出口银行", "财政部", "广东省政府", "江苏省政府", "招商局集团", "华能集团"];
   const rateBenchmarkPool = ["LPR 1Y", "LPR 5Y", "DR007", "SHIBOR 3M", "中债国债收益率"];
   const rowCount = 8 + (signature % 4);
-  const rangeStart = dateRange?.[0] || addDays(getDefaultGlobalEndDate(), -180);
-  const rangeEnd = dateRange?.[1] || getDefaultGlobalEndDate();
+  const rangeStart = dateRange?.[0] || getBusinessStructureReferenceStartDate();
+  const rangeEnd = dateRange?.[1] || getBusinessStructureReferenceEndDate();
   const selectedCurrencies = chartContext.filterState["币种"] || [];
   const explicitCurrencies = selectedCurrencies.filter((currency) => !["全折人民币", "外币折美元"].includes(currency));
   const currencyPool = explicitCurrencies.length
@@ -783,7 +1190,7 @@ function renderBusinessDetailTable(widget, chartContext) {
             </thead>
             <tbody>
               ${rows.map((row) => `
-                <tr>
+                <tr data-business-change-month="${row.statMonth || ""}">
                   ${columns.map((column) => `<td>${row[column.key] ?? ""}</td>`).join("")}
                 </tr>
               `).join("")}
@@ -804,7 +1211,7 @@ function isMaturityStructureWidgetSeq(widgetSeq) {
 }
 
 function buildFutureMaturityMonthlyLabels(monthCount = FUTURE_MATURITY_MONTH_COUNT) {
-  const cutoff = parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  const cutoff = parseDateValue(getBusinessStructureReferenceEndDate()) || new Date();
   const cursor = new Date(cutoff.getFullYear(), cutoff.getMonth() + 1, 1);
   return Array.from({ length: monthCount }, (_, index) => {
     const current = new Date(cursor.getFullYear(), cursor.getMonth() + index, 1);
@@ -814,8 +1221,7 @@ function buildFutureMaturityMonthlyLabels(monthCount = FUTURE_MATURITY_MONTH_COU
 }
 
 function applyMaturityTrendDateRangeToLabels(widget, labels, filterState = {}) {
-  const rangeStart = appState.globalStartDate;
-  const rangeEnd = appState.globalEndDate;
+  const [rangeStart, rangeEnd] = getBusinessAnalysisDateRange();
   const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   const historicalLabels = datedEntries
     .filter((entry) => isTimelineEntryWithinRange(entry, rangeStart, rangeEnd))
@@ -825,7 +1231,7 @@ function applyMaturityTrendDateRangeToLabels(widget, labels, filterState = {}) {
 
 function getMaturityFutureStartIndex(widget, labels = []) {
   if (!isMaturityTrendWidget(widget)) return -1;
-  const cutoff = getDefaultGlobalEndDate();
+  const cutoff = getBusinessStructureReferenceEndDate();
   const entries = buildMonthlyTimelineEntries(labels);
   return entries.findIndex((entry) => entry.rangeStart && entry.rangeStart > cutoff);
 }
@@ -864,51 +1270,159 @@ function renderFutureAwareLine(points, color, strokeWidth, futureStartIndex) {
   `;
 }
 
-function getDefaultBusinessStructureDateRange() {
-  const endDate = getDefaultGlobalEndDate();
-  return [getMonthStartDateValue(endDate), endDate];
+function getBusinessAnalysisMonthEndOptions() {
+  const firstMonthKey = getBusinessMonthKeyFromDateValue(getDefaultGlobalStartDate());
+  const lastMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate()));
+  const firstSerial = getBusinessMonthSerial(firstMonthKey);
+  const lastSerial = getBusinessMonthSerial(lastMonthKey);
+  if (!Number.isFinite(firstSerial) || !Number.isFinite(lastSerial)) return [];
+  const lower = Math.min(firstSerial, lastSerial);
+  const upper = Math.max(firstSerial, lastSerial);
+  return Array.from({ length: upper - lower + 1 }, (_, index) =>
+    getBusinessMonthEndDate(formatBusinessMonthKey(lower + index))
+  );
 }
 
-function getDefaultFutureBusinessStructureDateRange(referenceDateValue = getDefaultGlobalEndDate()) {
-  const startDate = addDays(referenceDateValue, 1);
-  return [startDate, addMonthsDateValue(startDate, FUTURE_MATURITY_MONTH_COUNT)];
+function getDefaultBusinessAnalysisDateRange() {
+  const options = getBusinessAnalysisMonthEndOptions();
+  const fallbackEnd = getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate());
+  return [options[0] || fallbackEnd, options[options.length - 1] || fallbackEnd];
+}
+
+function normalizeBusinessAnalysisDateRange(values = [], changedIndex = null) {
+  const options = getBusinessAnalysisMonthEndOptions();
+  const [defaultStart, defaultEnd] = getDefaultBusinessAnalysisDateRange();
+  const minimum = options[0] || defaultStart;
+  const maximum = options[options.length - 1] || defaultEnd;
+  let startDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[0] : "", defaultStart);
+  let endDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[1] : "", defaultEnd);
+  startDate = startDate < minimum ? minimum : startDate > maximum ? maximum : startDate;
+  endDate = endDate < minimum ? minimum : endDate > maximum ? maximum : endDate;
+  if (startDate > endDate) {
+    if (Number(changedIndex) === 0) endDate = startDate;
+    else startDate = endDate;
+  }
+  return [startDate, endDate];
+}
+
+function ensureBusinessAnalysisDateRange() {
+  const [defaultStart] = getDefaultBusinessAnalysisDateRange();
+  const normalized = normalizeBusinessAnalysisDateRange([defaultStart, appState.businessEndDate], 1);
+  [appState.businessStartDate, appState.businessEndDate] = normalized;
+  return normalized;
+}
+
+function getBusinessAnalysisDateRange() {
+  return ensureBusinessAnalysisDateRange();
+}
+
+function renderBusinessAnalysisDateRangeControl() {
+  if (!businessEndInputEl) return;
+  const [, endDate] = ensureBusinessAnalysisDateRange();
+  const options = getBusinessAnalysisMonthEndOptions();
+  const renderOptions = (selectedDate) => options
+    .map((dateValue) => `<option value="${dateValue}" ${dateValue === selectedDate ? "selected" : ""}>${dateValue}</option>`)
+    .join("");
+  businessEndInputEl.innerHTML = renderOptions(endDate);
+  businessEndInputEl.value = endDate;
+}
+
+function resetBusinessStructureDateRanges() {
+  const newBusinessState = appState.widgetFilters[89];
+  if (newBusinessState) delete newBusinessState["时间区间（起止）"];
+  const maturityState = appState.widgetFilters[96];
+  if (maturityState) {
+    delete maturityState["历史时间区间（起止）"];
+    delete maturityState["未来时间区间（起止）"];
+  }
+}
+
+function updateBusinessAnalysisDateRange(changedIndex, dateValue) {
+  const currentRange = ensureBusinessAnalysisDateRange();
+  currentRange[Number(changedIndex)] = dateValue || currentRange[Number(changedIndex)];
+  const normalized = normalizeBusinessAnalysisDateRange(currentRange, changedIndex);
+  [appState.businessStartDate, appState.businessEndDate] = normalized;
+  resetBusinessStructureDateRanges();
+  return normalized;
+}
+
+function getBusinessStructureReferenceEndDate() {
+  return typeof appState !== "undefined" && isDateValue(appState.businessEndDate)
+    ? appState.businessEndDate
+    : getDefaultBusinessAnalysisDateRange()[1];
+}
+
+function getBusinessStructureReferenceStartDate() {
+  return typeof appState !== "undefined" && isDateValue(appState.businessStartDate)
+    ? appState.businessStartDate
+    : getDefaultBusinessAnalysisDateRange()[0];
+}
+
+function getLatestCompletedBusinessMonthEnd(referenceDateValue = null) {
+  const resolvedReferenceDateValue = referenceDateValue
+    || (typeof appState !== "undefined" && isDateValue(appState.businessEndDate) ? appState.businessEndDate : getDefaultGlobalEndDate());
+  const referenceDate = parseDateValue(resolvedReferenceDateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
+  const currentMonthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
+  if (formatDateValue(currentMonthEnd) <= formatDateValue(referenceDate)) return formatDateValue(currentMonthEnd);
+  return formatDateValue(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0));
+}
+
+function normalizeBusinessMonthEndDate(dateValue, fallbackDateValue) {
+  if (!isDateValue(dateValue)) return fallbackDateValue;
+  return getBusinessMonthEndDate(getBusinessMonthKeyFromDateValue(dateValue));
+}
+
+function getBusinessMonthEndSelectionOptions(rangeMode = "historical") {
+  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  const cutoffSerial = getBusinessMonthSerial(cutoffMonthKey);
+  if (!Number.isFinite(cutoffSerial)) return [];
+  if (rangeMode === "future") {
+    return Array.from({ length: FUTURE_MATURITY_MONTH_COUNT }, (_, index) =>
+      getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + index + 1))
+    );
+  }
+  const referenceStartMonthKey = getBusinessMonthKeyFromDateValue(getBusinessStructureReferenceStartDate());
+  const referenceStartSerial = getBusinessMonthSerial(referenceStartMonthKey);
+  const firstSerial = Number.isFinite(referenceStartSerial)
+    ? Math.min(referenceStartSerial, cutoffSerial)
+    : cutoffSerial;
+  return Array.from({ length: cutoffSerial - firstSerial + 1 }, (_, index) =>
+    getBusinessMonthEndDate(formatBusinessMonthKey(firstSerial + index))
+  );
+}
+
+function getDefaultBusinessStructureDateRange() {
+  return [getBusinessStructureReferenceStartDate(), getBusinessStructureReferenceEndDate()];
+}
+
+function getDefaultFutureBusinessStructureDateRange(referenceDateValue = getBusinessStructureReferenceEndDate()) {
+  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(referenceDateValue));
+  const cutoffSerial = getBusinessMonthSerial(cutoffMonthKey);
+  if (!Number.isFinite(cutoffSerial)) return getDefaultBusinessStructureDateRange();
+  const startDate = getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + 1));
+  const endDate = getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + FUTURE_MATURITY_MONTH_COUNT));
+  return [startDate, endDate];
 }
 
 function isFutureBusinessDate(dateValue) {
-  return isDateValue(dateValue) && dateValue > getDefaultGlobalEndDate();
+  return isDateValue(dateValue) && dateValue > getLatestCompletedBusinessMonthEnd();
 }
 
 function normalizeBusinessStructureDateRange(values = [], options = {}) {
-  const allowFuture = Boolean(options.allowFuture);
-  const preventCrossBoundary = Boolean(options.preventCrossBoundary);
+  const rangeMode = options.rangeMode === "future" ? "future" : "historical";
   const changedIndex = options.changedIndex == null ? null : Number(options.changedIndex);
-  const [defaultStart, defaultEnd] = getDefaultBusinessStructureDateRange();
-  let startDate = Array.isArray(values) && isDateValue(values[0]) ? values[0] : defaultStart;
-  let endDate = Array.isArray(values) && isDateValue(values[1]) ? values[1] : defaultEnd;
-  if (!allowFuture && endDate > defaultEnd) endDate = defaultEnd;
-  if (allowFuture && preventCrossBoundary && isDateValue(startDate) && isDateValue(endDate)) {
-    const startIsFuture = isFutureBusinessDate(startDate);
-    const endIsFuture = isFutureBusinessDate(endDate);
-    if (startIsFuture !== endIsFuture) {
-      if (changedIndex === 0) {
-        endDate = startDate;
-      } else if (changedIndex === 1) {
-        if (endIsFuture) {
-          startDate = getMonthStartDateValue(endDate);
-          if (!isFutureBusinessDate(startDate)) startDate = addDays(defaultEnd, 1);
-        } else {
-          startDate = endDate;
-        }
-      } else if (endIsFuture) {
-        startDate = getMonthStartDateValue(endDate);
-        if (!isFutureBusinessDate(startDate)) startDate = addDays(defaultEnd, 1);
-      } else {
-        endDate = defaultEnd;
-      }
-    }
-  }
+  const selectionOptions = getBusinessMonthEndSelectionOptions(rangeMode);
+  const fallbackRange = rangeMode === "future"
+    ? getDefaultFutureBusinessStructureDateRange()
+    : getDefaultBusinessStructureDateRange();
+  const minimum = selectionOptions[0] || fallbackRange[0];
+  const maximum = selectionOptions[selectionOptions.length - 1] || fallbackRange[1];
+  let startDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[0] : "", fallbackRange[0]);
+  let endDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[1] : "", fallbackRange[1]);
+  startDate = startDate < minimum ? minimum : startDate > maximum ? maximum : startDate;
+  endDate = endDate < minimum ? minimum : endDate > maximum ? maximum : endDate;
   if (startDate > endDate) {
-    if (allowFuture && preventCrossBoundary && changedIndex === 0) {
+    if (changedIndex === 0) {
       endDate = startDate;
     } else {
       startDate = endDate;
@@ -928,18 +1442,7 @@ function normalizeWidgetBusinessStructureDateRange(widgetSeq, values = [], chang
     const rangeMode = getMaturityStructureRangeMode(filterName, values);
     const defaultRange = rangeMode === "future" ? getDefaultFutureBusinessStructureDateRange() : getDefaultBusinessStructureDateRange();
     const normalizedValues = Array.isArray(values) && values.length ? values : defaultRange;
-    const normalizedRange = normalizeBusinessStructureDateRange(normalizedValues, {
-      allowFuture: true,
-      preventCrossBoundary: true,
-      changedIndex,
-    });
-    if (rangeMode === "future" && !normalizedRange.every(isFutureBusinessDate)) {
-      return getDefaultFutureBusinessStructureDateRange();
-    }
-    if (rangeMode === "historical" && normalizedRange.some(isFutureBusinessDate)) {
-      return getDefaultBusinessStructureDateRange();
-    }
-    return normalizedRange;
+    return normalizeBusinessStructureDateRange(normalizedValues, { rangeMode, changedIndex });
   }
-  return normalizeBusinessStructureDateRange(values);
+  return normalizeBusinessStructureDateRange(values, { rangeMode: "historical", changedIndex });
 }

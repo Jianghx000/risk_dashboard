@@ -333,6 +333,7 @@ window.dashboardDomainConfig = {
         "new": [
           { "key": "businessId", "label": "业务编号" },
           { "key": "counterparty", "label": "客户" },
+          { "key": "statMonth", "label": "发生月份" },
           { "key": "startDate", "label": "起始日" },
           { "key": "contractMaturityDate", "label": "合同到期日" },
           { "key": "amount", "label": "新发生金额" },
@@ -348,6 +349,7 @@ window.dashboardDomainConfig = {
         "maturity": [
           { "key": "businessId", "label": "业务编号" },
           { "key": "counterparty", "label": "客户" },
+          { "key": "statMonth", "label": "到期月份" },
           { "key": "maturityDate", "label": "到期日" },
           { "key": "contractMaturityDate", "label": "合同到期日" },
           { "key": "amount", "label": "到期金额" },
@@ -513,6 +515,7 @@ window.dashboardDomainConfig = {
         "new": [
           { "key": "businessId", "label": "业务编号" },
           { "key": "counterparty", "label": "客户" },
+          { "key": "statMonth", "label": "发生月份" },
           { "key": "startDate", "label": "起始日" },
           { "key": "contractMaturityDate", "label": "合同到期日" },
           { "key": "currency", "label": "币种" },
@@ -523,6 +526,7 @@ window.dashboardDomainConfig = {
         "maturity": [
           { "key": "businessId", "label": "业务编号" },
           { "key": "counterparty", "label": "客户" },
+          { "key": "statMonth", "label": "到期月份" },
           { "key": "maturityDate", "label": "到期日" },
           { "key": "contractMaturityDate", "label": "合同到期日" },
           { "key": "currency", "label": "币种" },
@@ -546,20 +550,12 @@ window.dashboardDomainConfig = {
   },
   "businessChangeMethodology": {
     "newMonthly": {
-      "title": "月度新发生业务计算逻辑",
-      "logic": "比较本月末与上月末的业务时点截面，余额增加的部分计为本月新发生业务。计算公式：本月新发生 = Σ max（本月末余额 - 上月末余额，0）。"
-    },
-    "newDaily": {
-      "title": "新发生业务日度汇总计算逻辑",
-      "logic": "根据连续两天的业务时点截面轧差识别每日余额增加部分，再对用户选择日期区间内的每日新发生业务进行汇总。"
+      "title": "新发生业务月末轧差计算逻辑",
+      "logic": "业务变动分析使用独立于利率风险和流动性风险的月末结束时间；开始时间继续按系统默认规则自动确定，不提供用户修改。系统逐月比较本月末与上月末的业务编号明细截面，按业务编号形成每一个统计月独立的月度新发生业务明细表；余额增加部分计为当月新发生，计算公式为：当月新发生 = Σ max（本月末余额 - 上月末余额，0）。规模及增速图按月份汇总各月明细表；结构一览表和明细清单的统计区间仅允许选择月末日期，并汇总所选月末区间内各统计月份的月度明细表，不使用所选区间首尾时点重新轧差。"
     },
     "maturityMonthly": {
-      "title": "月度到期业务计算逻辑",
-      "logic": "比较本月末与上月末的业务时点截面，余额减少的部分计为本月到期业务。计算公式：本月到期 = Σ max（上月末余额 - 本月末余额，0）。"
-    },
-    "maturityDaily": {
-      "title": "到期业务日度汇总计算逻辑",
-      "logic": "根据连续两天的业务时点截面轧差识别每日余额减少部分，再对用户选择日期区间内的每日到期业务进行汇总。"
+      "title": "到期业务月末轧差计算逻辑",
+      "logic": "业务变动分析使用独立于利率风险和流动性风险的月末结束时间；开始时间继续按系统默认规则自动确定，不提供用户修改。系统逐月比较本月末与上月末的业务编号明细截面，按业务编号形成每一个统计月独立的月度到期业务明细表；余额减少部分计为当月到期，计算公式为：当月到期 = Σ max（上月末余额 - 本月末余额，0）。规模及增速图按月份汇总各月明细表；历史到期结构一览表和明细清单的统计区间仅允许选择月末日期，并汇总所选月末区间内各统计月份的月度明细表，不使用所选区间首尾时点重新轧差。未来合同到期的区间同样仅允许选择月末日期，并基于业务变动分析所选结束月末的存量业务及合同到期日进行推演。"
     }
   },
   "businessDetailScopeMeta": {
@@ -573,14 +569,14 @@ window.dashboardDomainConfig = {
     "new": {
       "label": "新发生业务",
       "emptyTitle": "选择业务类型查看新发生业务穿透明细",
-      "emptyDescription": "请先在上方“新发生业务资产负债结构一览表”中点击某个业务类型的“查看明细”，查看该时间区间内的具体业务。",
+      "emptyDescription": "请先在上方“新发生业务资产负债结构一览表”中点击某个业务类型的“查看明细”，查看所选时间范围内各月月末轧差形成的具体业务。",
       "amountLabel": "本期发生额",
       "dateMode": "range"
     },
     "maturity": {
       "label": "到期业务",
       "emptyTitle": "选择业务类型查看到期业务穿透明细",
-      "emptyDescription": "请先在上方“到期业务资产负债结构一览表”中点击某个业务类型的“查看明细”，查看该时间区间内的具体业务。",
+      "emptyDescription": "请先在上方“到期业务资产负债结构一览表”中点击某个业务类型的“查看明细”，查看所选时间范围内各月月末轧差形成的历史到期业务，或基于月末存量推演的未来合同到期业务。",
       "amountLabel": "到期金额",
       "dateMode": "range"
     }

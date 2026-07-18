@@ -355,6 +355,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         errors.append("pageBehavior should be an object")
     else:
         allowed_modes = {"interest", "liquidity", "generic"}
+        allowed_date_range_modes = {"independentMonthEnd"}
         allowed_analysis_perspectives = {"interestBalanceStructure", "liquidityBalanceStructure"}
         for page_name, behavior in page_behavior.items():
             if page_name not in page_names:
@@ -364,6 +365,11 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 continue
             if "simulationMode" in behavior and behavior.get("simulationMode") not in allowed_modes:
                 errors.append(f"pageBehavior.{page_name}.simulationMode should be one of: {', '.join(sorted(allowed_modes))}")
+            if "dateRangeMode" in behavior and behavior.get("dateRangeMode") not in allowed_date_range_modes:
+                errors.append(
+                    f"pageBehavior.{page_name}.dateRangeMode should be one of: "
+                    + ", ".join(sorted(allowed_date_range_modes))
+                )
             if (
                 "analysisPerspective" in behavior
                 and behavior.get("analysisPerspective") not in allowed_analysis_perspectives
@@ -378,6 +384,8 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         elif business_behavior.get("analysisPerspective") != "interestBalanceStructure":
             errors.append("pageBehavior.业务变动分析.analysisPerspective should be interestBalanceStructure")
         else:
+            if business_behavior.get("dateRangeMode") != "independentMonthEnd":
+                errors.append("pageBehavior.业务变动分析.dateRangeMode should be independentMonthEnd")
             perspective_options = business_behavior.get("analysisPerspectiveOptions")
             if not isinstance(perspective_options, list):
                 errors.append("pageBehavior.业务变动分析.analysisPerspectiveOptions should be a list")
@@ -429,7 +437,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                 if key in behavior and not isinstance(behavior.get(key), str):
                     errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
             if "methodologyKey" in behavior and behavior.get("methodologyKey") not in {
-                "newMonthly", "newDaily", "maturityMonthly", "maturityDaily"
+                "newMonthly", "maturityMonthly"
             }:
                 errors.append(f"widgetBehavior.{seq_text}.methodologyKey is invalid")
             detail_preset = behavior.get("detailTablePreset")
@@ -482,12 +490,12 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         expected_methodology_keys = {
             83: "newMonthly",
             84: "newMonthly",
-            85: "newDaily",
-            89: "newDaily",
+            85: "newMonthly",
+            89: "newMonthly",
             90: "maturityMonthly",
             91: "maturityMonthly",
-            96: "maturityDaily",
-            97: "maturityDaily",
+            96: "maturityMonthly",
+            97: "maturityMonthly",
         }
         for seq, expected_key in expected_methodology_keys.items():
             behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
@@ -1034,6 +1042,8 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderBusinessDetailTable",
         "function renderBusinessChangeMethodologyButton",
         "function renderBusinessChangeMethodologyModal",
+        "function buildMonthlyBusinessChangeFacts",
+        "function buildBusinessChangeFactsForDateRange",
     ):
         if business_renderer_function in text:
             errors.append(f"app.js should not define business-change renderers: {business_renderer_function}")
@@ -1364,7 +1374,7 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
     if not isinstance(business_methodology, dict):
         errors.append("dashboardDomainConfig.businessChangeMethodology should be an object")
     else:
-        for methodology_key in ("newMonthly", "newDaily", "maturityMonthly", "maturityDaily"):
+        for methodology_key in ("newMonthly", "maturityMonthly"):
             methodology_item = business_methodology.get(methodology_key)
             if not isinstance(methodology_item, dict):
                 errors.append(f"businessChangeMethodology.{methodology_key} should be an object")

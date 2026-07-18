@@ -89,6 +89,8 @@ const appState = {
   openFilterKey: null,
   globalStartDate: null,
   globalEndDate: null,
+  businessStartDate: null,
+  businessEndDate: null,
   pageSimulations: {},
   simulationModalPageId: null,
   simulationModalWidgetSeq: null,
@@ -115,8 +117,10 @@ const pageTabsEl = document.getElementById("pageTabs");
 const dashboardViewEl = document.getElementById("dashboardView");
 const globalFilterBarEl = document.getElementById("globalFilterBar");
 const filterPopoverEl = document.getElementById("filterModal");
-const globalStartInputEl = document.getElementById("globalStartDate");
 const globalEndInputEl = document.getElementById("globalEndDate");
+const riskDateControlsEl = document.getElementById("riskDateControls");
+const businessDateControlsEl = document.getElementById("businessDateControls");
+const businessEndInputEl = document.getElementById("businessEndDate");
 const simulationModalEl = ensureOverlayRoot("simulationModal");
 const insightModalEl = ensureOverlayRoot("insightModal");
 const eveProcessModalEl = ensureOverlayRoot("eveProcessModal");
@@ -128,7 +132,7 @@ const businessMethodologyModalEl = ensureOverlayRoot("businessMethodologyModal")
 
 function render() {
   ensureGlobalDateRange();
-  renderGlobalDateRangeControl();
+  renderPageDateRangeControl();
   renderPageTabs();
   renderCurrentPage();
   renderFilterPopover();
@@ -1535,50 +1539,6 @@ function renderWidgetInlineControl(widgetSeq, filterName, filterLabel, selectedV
   `;
 }
 
-function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, selectedValues) {
-  const [startDate, endDate] = normalizeWidgetBusinessStructureDateRange(widgetSeq, selectedValues, null, filterName);
-  const rangeMode = isMaturityStructureWidgetSeq(widgetSeq) ? getMaturityStructureRangeMode(filterName, selectedValues) : "historical";
-  const isFutureRange = rangeMode === "future";
-  const allowsFuture = isMaturityStructureWidgetSeq(widgetSeq) && isFutureRange;
-  const minDate = isFutureRange ? addDays(getDefaultGlobalEndDate(), 1) : "";
-  const maxDate = allowsFuture ? addDays(getDefaultGlobalEndDate(), 366) : getDefaultGlobalEndDate();
-  return `
-    <div class="chart-inline-control chart-inline-control--daterange">
-      <span class="chart-inline-control__label">${filterLabel}</span>
-      <div class="inline-date-range">
-        <label class="inline-date-range__field">
-          <span>开始时间</span>
-          <input
-            class="inline-date-range__input"
-            type="date"
-            value="${startDate}"
-            min="${minDate}"
-            max="${allowsFuture ? maxDate : endDate}"
-            data-inline-date-filter="true"
-            data-widget-seq="${widgetSeq}"
-            data-filter-name="${filterName}"
-            data-range-index="0"
-          >
-        </label>
-        <label class="inline-date-range__field">
-          <span>结束时间</span>
-          <input
-            class="inline-date-range__input"
-            type="date"
-            value="${endDate}"
-            min="${startDate}"
-            max="${maxDate}"
-            data-inline-date-filter="true"
-            data-widget-seq="${widgetSeq}"
-            data-filter-name="${filterName}"
-            data-range-index="1"
-          >
-        </label>
-      </div>
-    </div>
-  `;
-}
-
 function renderAxes(frame, xLabels, yLabel) {
   const yTicks = [0, 25, 50, 75, 100];
   const xTickMarkup = xLabels
@@ -1656,24 +1616,40 @@ function inferXAxisLabels(widget, filterState = {}) {
 function ensureGlobalDateRange() {
   const defaultEndDate = getDefaultGlobalEndDate();
   const defaultStartDate = getDefaultGlobalStartDate();
-  if (!appState.globalStartDate) appState.globalStartDate = defaultStartDate;
+  appState.globalStartDate = defaultStartDate;
   if (!appState.globalEndDate) appState.globalEndDate = defaultEndDate;
   if (appState.globalEndDate > defaultEndDate) appState.globalEndDate = defaultEndDate;
-  if (appState.globalStartDate > appState.globalEndDate) {
-    appState.globalStartDate = defaultStartDate;
-    appState.globalEndDate = defaultEndDate;
-  }
+  if (appState.globalEndDate < defaultStartDate) appState.globalEndDate = defaultStartDate;
 }
 
 function renderGlobalDateRangeControl() {
-  if (!globalStartInputEl || !globalEndInputEl) return;
+  if (!globalEndInputEl) return;
   const defaultEndDate = getDefaultGlobalEndDate();
-  globalStartInputEl.removeAttribute("min");
-  globalStartInputEl.max = appState.globalEndDate || defaultEndDate;
-  globalStartInputEl.value = appState.globalStartDate || getDefaultGlobalStartDate();
-  globalEndInputEl.min = appState.globalStartDate || "";
+  globalEndInputEl.min = appState.globalStartDate || getDefaultGlobalStartDate();
   globalEndInputEl.max = defaultEndDate;
   globalEndInputEl.value = appState.globalEndDate || defaultEndDate;
+}
+
+function usesIndependentMonthEndDateRange(page = getCurrentPage()) {
+  return getPageBehavior(page).dateRangeMode === "independentMonthEnd";
+}
+
+function renderPageDateRangeControl() {
+  const usesBusinessRange = usesIndependentMonthEndDateRange();
+  if (riskDateControlsEl) riskDateControlsEl.hidden = usesBusinessRange;
+  if (businessDateControlsEl) businessDateControlsEl.hidden = !usesBusinessRange;
+  if (usesBusinessRange && typeof renderBusinessAnalysisDateRangeControl === "function") {
+    renderBusinessAnalysisDateRangeControl();
+    return;
+  }
+  renderGlobalDateRangeControl();
+}
+
+function getCurrentPageDateRange() {
+  if (usesIndependentMonthEndDateRange() && isDateValue(appState.businessStartDate) && isDateValue(appState.businessEndDate)) {
+    return [appState.businessStartDate, appState.businessEndDate];
+  }
+  return [appState.globalStartDate, appState.globalEndDate];
 }
 
 function getDefaultGlobalEndDate() {
@@ -1726,8 +1702,7 @@ function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
   if (isMaturityTrendWidget(widget)) {
     return applyMaturityTrendDateRangeToLabels(widget, labels, filterState);
   }
-  const rangeStart = appState.globalStartDate;
-  const rangeEnd = appState.globalEndDate;
+  const [rangeStart, rangeEnd] = getCurrentPageDateRange();
   if (!rangeStart && !rangeEnd) return labels;
   const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   if (!datedEntries.length) return labels;
@@ -1992,8 +1967,9 @@ function inferBaseXAxisLabels(widget) {
 }
 
 function buildMonthlyXAxisLabels() {
-  const rangeStart = parseDateValue(appState.globalStartDate || getDefaultGlobalStartDate());
-  const rangeEnd = parseDateValue(appState.globalEndDate || getDefaultGlobalEndDate());
+  const [selectedStartDate, selectedEndDate] = getCurrentPageDateRange();
+  const rangeStart = parseDateValue(selectedStartDate || getDefaultGlobalStartDate());
+  const rangeEnd = parseDateValue(selectedEndDate || getDefaultGlobalEndDate());
   if (!rangeStart || !rangeEnd) return ["2025-07", "08", "09", "10", "11", "12", "2026-01", "02", "03", "04"];
   const startMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
   const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);

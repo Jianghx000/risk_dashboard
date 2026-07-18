@@ -299,7 +299,7 @@ function isRepricingMaturityDistributionWidget(widget) {
 
 function getRepricingMaturityTenorBuckets() {
   return [
-    "隔夜", "隔夜~1个月", "1~2个月", "2~3个月", "3~4个月", "4~5个月", "5~6个月",
+    "隔夜", "1~2个月", "2~3个月", "3~4个月", "4~5个月", "5~6个月",
     "6~7个月", "7~8个月", "8~9个月", "9~10个月", "10~11个月", "11~12个月",
   ];
 }
@@ -315,12 +315,10 @@ function getRepricingMaturityDateRanges() {
   return getRepricingMaturityTenorBuckets().map((tenorBucket, index) => {
     const startDate = index === 0
       ? baseDate
-      : index === 1
-        ? addDays(baseDate, 1)
-        : addClampedMonthsDateValue(baseDate, index - 1);
+      : addClampedMonthsDateValue(baseDate, index);
     const endDate = index === 0
       ? addDays(baseDate, 1)
-      : addClampedMonthsDateValue(baseDate, index);
+      : addClampedMonthsDateValue(baseDate, index + 1);
     return {
       tenorBucket,
       startDate,
@@ -332,7 +330,7 @@ function getRepricingMaturityDateRanges() {
 
 function getMaturityDistributionBuckets(widget) {
   if (isRepricingMaturityDistributionWidget(widget)) {
-    return getRepricingMaturityDateRanges().map((range) => range.label);
+    return getRepricingMaturityDateRanges().map((range) => range.tenorBucket);
   }
   return ["2026-04-01", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30", "2026-10-31", "2026-11-30", "2026-12-31", "2027-01-31", "2027-02-28", "2027-03-31"];
 }
@@ -560,7 +558,7 @@ function renderRepricingMaturityDistributionChart(widget, chartContext) {
               ${barsMarkup}
             </svg>
           </div>
-          <div class="repricing-maturity-chart__axis-title">重定价日期区间</div>
+          <div class="repricing-maturity-chart__axis-title">重定价期限</div>
           ${renderMaturityDistributionLegend(widget, selectedNames)}
         </div>
         ${renderRepricingMaturityDetailTable(widget, chartContext, drilldown)}

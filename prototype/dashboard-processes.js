@@ -233,6 +233,7 @@ function renderEveProcessModal() {
   const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "eve";
   const worst = model.worstScenarios[selectedIndex];
+  const impactMap = buildEveProcessImpactMap(model, selectedIndex, comparisonIndex);
 
   eveProcessModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="eveProcessModal"></div>
@@ -279,6 +280,7 @@ function renderEveProcessModal() {
               changeType: "delta",
               valueFormat: "percent",
               labels: model.displayLabels,
+              impact: impactMap.eve,
             })}
             <div class="eve-process-operator">=</div>
             <div class="eve-process-factor-stack">
@@ -294,6 +296,7 @@ function renderEveProcessModal() {
                 actionText: state.numeratorExpanded ? "点击收回" : "点击展开",
                 valueFormat: "amount",
                 labels: model.displayLabels,
+                impact: impactMap.numerator,
               })}
               <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
@@ -309,18 +312,19 @@ function renderEveProcessModal() {
                   : "",
                 valueFormat: "amount",
                 labels: model.displayLabels,
+                impact: impactMap.denominator,
               })}
             </div>
             <div class="eve-process-connector" aria-hidden="true"></div>
             <div class="eve-process-expansions">
               <div class="eve-process-expansion-slot">
                 ${state.numeratorExpanded
-                  ? renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst)
+                  ? renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst, impactMap)
                   : ""}
               </div>
               <div class="eve-process-expansion-slot">
                 ${model.usesOverseasAllocatedCapital && state.denominatorExpanded
-                  ? renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode)
+                  ? renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode, impactMap)
                   : ""}
               </div>
             </div>
@@ -347,8 +351,11 @@ function renderEveProcessNode({
   changeType = "rate",
   valueFormat = "amount",
   labels = [],
+  impact = null,
+  impactType = "pct",
 }) {
   const change = formatProcessNodeChange(series, selectedIndex, comparisonIndex, changeType);
+  const impactDisplay = formatProcessNodeImpact(impact, impactType);
   const previewPayload = encodeProcessPreviewPayload({
     title,
     labels,
@@ -363,7 +370,10 @@ function renderEveProcessNode({
         <span class="eve-process-node__title"><strong>${title}</strong></span>
         <span class="eve-process-node__metric">
           <span class="eve-process-node__value">${value}</span>
-          <span class="eve-process-node__change ${change.className}">${change.text}</span>
+          <span class="eve-process-node__comparisons">
+            <span class="eve-process-node__change ${change.className}">${change.text}</span>
+            <span class="eve-process-node__impact ${impactDisplay.className}">${impactDisplay.text}</span>
+          </span>
         </span>
       </span>
       <span
@@ -379,7 +389,7 @@ function renderEveProcessNode({
   `;
 }
 
-function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst) {
+function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activeNode, worst, impactMap = {}) {
   return `
     <div class="eve-process-scenario-strip">
       ${model.scenarios.map((scenario) => {
@@ -396,6 +406,7 @@ function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activ
           isWorst,
           valueFormat: "amount",
           labels: model.displayLabels,
+          impact: impactMap[`scenario:${scenario.key}`],
         }).replace(
           '<button class="eve-process-node',
           `<button class="eve-process-node eve-process-node--compact${isWorst ? ' is-worst' : ''}`
@@ -405,7 +416,7 @@ function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activ
   `;
 }
 
-function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode) {
+function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode, impactMap = {}) {
   return `
     <div class="eve-process-capital-strip">
       ${renderEveProcessNode({
@@ -419,6 +430,7 @@ function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, ac
         activeNode,
         valueFormat: "amount0",
         labels: model.displayLabels,
+        impact: impactMap["overseas-rwa"],
       })}
       <span class="eve-process-mini-operator">÷</span>
       ${renderEveProcessNode({
@@ -432,6 +444,7 @@ function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, ac
         activeNode,
         valueFormat: "amount0",
         labels: model.displayLabels,
+        impact: impactMap["legal-rwa"],
       })}
       <span class="eve-process-mini-operator">×</span>
       ${renderEveProcessNode({
@@ -445,6 +458,7 @@ function renderEveDenominatorExpansion(model, selectedIndex, comparisonIndex, ac
         activeNode,
         valueFormat: "amount",
         labels: model.displayLabels,
+        impact: impactMap["legal-tier-one"],
       })}
     </div>
   `;
@@ -476,6 +490,428 @@ function formatProcessNodeChange(values = [], selectedIndex = 0, comparisonIndex
     text: `较基期 ${formatSignedNumber(rate)}%`,
     className: getChangeClass(rate),
   };
+}
+
+function formatProcessNodeImpact(value, impactType = "pct") {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return { text: "影响 --", className: "is-flat" };
+  }
+  const numeric = Number(value);
+  if (impactType === "amount") {
+    const rounded = Number(numeric.toFixed(1));
+    return {
+      text: `影响 ${formatSignedNumber(rounded)}亿`,
+      className: getChangeClass(rounded),
+    };
+  }
+  if (impactType === "number") {
+    const rounded = Number(numeric.toFixed(2));
+    return {
+      text: `影响 ${formatSignedNumber(rounded, 2)}`,
+      className: getChangeClass(rounded),
+    };
+  }
+  const rounded = Number(numeric.toFixed(2));
+  return {
+    text: `影响 ${formatSignedNumber(rounded, 2)}pct`,
+    className: getChangeClass(rounded),
+  };
+}
+
+function getProcessSeriesValue(values = [], index = -1) {
+  const value = Number(values?.[index]);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getProcessSeriesDelta(values = [], selectedIndex = 0, comparisonIndex = selectedIndex - 1) {
+  return getProcessSeriesValue(values, selectedIndex) - getProcessSeriesValue(values, comparisonIndex);
+}
+
+function countProcessMaskBits(mask) {
+  let count = 0;
+  let value = mask;
+  while (value) {
+    count += value & 1;
+    value >>>= 1;
+  }
+  return count;
+}
+
+function calculateProcessShapleyImpacts(factors = [], evaluate = () => 0) {
+  const count = factors.length;
+  if (!count) return {};
+  const factorial = [1];
+  for (let index = 1; index <= count; index += 1) factorial[index] = factorial[index - 1] * index;
+  const result = {};
+  factors.forEach((factor, factorIndex) => {
+    let contribution = 0;
+    const factorBit = 1 << factorIndex;
+    const subsetLimit = 1 << count;
+    for (let mask = 0; mask < subsetLimit; mask += 1) {
+      if (mask & factorBit) continue;
+      const subsetSize = countProcessMaskBits(mask);
+      const weight = (factorial[subsetSize] * factorial[count - subsetSize - 1]) / factorial[count];
+      const beforeState = {};
+      const afterState = {};
+      factors.forEach((candidate, candidateIndex) => {
+        const useCurrent = Boolean(mask & (1 << candidateIndex));
+        beforeState[candidate.key] = useCurrent ? candidate.current : candidate.baseline;
+        afterState[candidate.key] = candidateIndex === factorIndex
+          ? candidate.current
+          : beforeState[candidate.key];
+      });
+      contribution += weight * (Number(evaluate(afterState)) - Number(evaluate(beforeState)));
+    }
+    result[factor.key] = contribution;
+  });
+  return result;
+}
+
+function scaleProcessImpactMap(impactMap = {}, targetTotal = 0) {
+  const keys = Object.keys(impactMap);
+  if (!keys.length || !Number.isFinite(Number(targetTotal))) return impactMap;
+  const target = Number(targetTotal);
+  const rawTotal = keys.reduce((sum, key) => sum + Number(impactMap[key] || 0), 0);
+  const scaled = {};
+  if (Math.abs(rawTotal) > 1e-10) {
+    const scale = target / rawTotal;
+    keys.forEach((key) => {
+      scaled[key] = Number(impactMap[key] || 0) * scale;
+    });
+  } else {
+    keys.forEach((key) => { scaled[key] = 0; });
+    if (Math.abs(target) > 1e-10) scaled[keys[0]] = target;
+  }
+  const scaledTotal = keys.reduce((sum, key) => sum + Number(scaled[key] || 0), 0);
+  scaled[keys[keys.length - 1]] += target - scaledTotal;
+  return scaled;
+}
+
+function allocateProcessImpactByDeltas(targetImpact, entries = [], selectedIndex = 0, comparisonIndex = selectedIndex - 1) {
+  const raw = Object.fromEntries(entries.map((entry) => [
+    entry.key,
+    getProcessSeriesDelta(entry.values, selectedIndex, comparisonIndex) * Number(entry.sign ?? 1),
+  ]));
+  return scaleProcessImpactMap(raw, targetImpact);
+}
+
+function buildTwoFactorRatioProcessImpacts({
+  numerator,
+  denominator,
+  ratios,
+  selectedIndex,
+  comparisonIndex,
+  complement = false,
+}) {
+  if (comparisonIndex < 0) return {};
+  const factors = [
+    {
+      key: "numerator",
+      baseline: getProcessSeriesValue(numerator, comparisonIndex),
+      current: getProcessSeriesValue(numerator, selectedIndex),
+    },
+    {
+      key: "denominator",
+      baseline: getProcessSeriesValue(denominator, comparisonIndex),
+      current: getProcessSeriesValue(denominator, selectedIndex),
+    },
+  ];
+  const raw = calculateProcessShapleyImpacts(factors, ({ numerator: numeratorValue, denominator: denominatorValue }) => {
+    if (!denominatorValue) return 0;
+    return complement
+      ? 100 * (1 - numeratorValue / denominatorValue)
+      : 100 * numeratorValue / denominatorValue;
+  });
+  return scaleProcessImpactMap(raw, getProcessSeriesDelta(ratios, selectedIndex, comparisonIndex));
+}
+
+function buildEveProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const top = buildTwoFactorRatioProcessImpacts({
+    numerator: model.numerator,
+    denominator: model.capital,
+    ratios: model.ratios,
+    selectedIndex,
+    comparisonIndex,
+  });
+  const impactMap = {
+    eve: getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex),
+    numerator: top.numerator,
+    denominator: top.denominator,
+  };
+  const scenarioFactors = model.scenarios.map((scenario) => ({
+    key: `scenario:${scenario.key}`,
+    baseline: Math.abs(getProcessSeriesValue(scenario.values, comparisonIndex)),
+    current: Math.abs(getProcessSeriesValue(scenario.values, selectedIndex)),
+  }));
+  Object.assign(impactMap, scaleProcessImpactMap(
+    calculateProcessShapleyImpacts(scenarioFactors, (values) => Math.max(...Object.values(values).map(Number))),
+    top.numerator,
+  ));
+  if (model.usesOverseasAllocatedCapital) {
+    const capitalFactors = [
+      { key: "overseas-rwa", baseline: getProcessSeriesValue(model.overseasRwa, comparisonIndex), current: getProcessSeriesValue(model.overseasRwa, selectedIndex) },
+      { key: "legal-rwa", baseline: getProcessSeriesValue(model.legalRwa, comparisonIndex), current: getProcessSeriesValue(model.legalRwa, selectedIndex) },
+      { key: "legal-tier-one", baseline: getProcessSeriesValue(model.legalTierOne, comparisonIndex), current: getProcessSeriesValue(model.legalTierOne, selectedIndex) },
+    ];
+    Object.assign(impactMap, scaleProcessImpactMap(
+      calculateProcessShapleyImpacts(capitalFactors, (values) => values["legal-rwa"]
+        ? (values["overseas-rwa"] / values["legal-rwa"]) * values["legal-tier-one"]
+        : 0),
+      top.denominator,
+    ));
+  }
+  return impactMap;
+}
+
+function buildLiquidityGapAmountProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const components = model.components;
+  const assetImpact = getProcessSeriesDelta(components.dueOnOffBalanceAssets, selectedIndex, comparisonIndex);
+  const liabilityImpact = -getProcessSeriesDelta(components.dueOnOffBalanceLiabilities, selectedIndex, comparisonIndex);
+  const depositImpact = getProcessSeriesDelta(components.demandDepositAdjustment, selectedIndex, comparisonIndex);
+  const placementImpact = getProcessSeriesDelta(components.demandPlacementAdjustment, selectedIndex, comparisonIndex);
+  const impactMap = {
+    gap: getProcessSeriesDelta(components.liquidityGap, selectedIndex, comparisonIndex),
+    "due-on-off-balance-assets": assetImpact,
+    "due-on-off-balance-liabilities": liabilityImpact,
+    "demand-deposit-adjustment": depositImpact,
+    "demand-placement-adjustment": placementImpact,
+  };
+  Object.assign(impactMap, allocateProcessImpactByDeltas(assetImpact, [
+    { key: "asset-total", values: components.assetTotal },
+    { key: "off-balance-income", values: components.offBalanceIncome },
+    { key: "internal-transaction-assets", values: components.internalTransactionAssets },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(liabilityImpact, [
+    { key: "liability-total", values: components.liabilityTotal, sign: -1 },
+    { key: "off-balance-expense", values: components.offBalanceExpense, sign: -1 },
+    { key: "internal-transaction-liabilities", values: components.internalTransactionLiabilities, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(depositImpact, [
+    { key: "demand-deposits", values: components.demandDeposits },
+    { key: "note-demand-deposits", values: components.noteDemandDeposits, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(placementImpact, [
+    { key: "demand-placements", values: components.demandPlacements },
+    { key: "note-demand-placements", values: components.noteDemandPlacements, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  return impactMap;
+}
+
+function buildLiquidityGapRatioProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const components = model.components;
+  const top = buildTwoFactorRatioProcessImpacts({
+    numerator: components.adjustedDueOnOffBalanceLiabilities,
+    denominator: components.dueOnOffBalanceAssets,
+    ratios: model.ratios,
+    selectedIndex,
+    comparisonIndex,
+    complement: true,
+  });
+  const impactMap = {
+    ratio: getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex),
+    "adjusted-due-on-off-balance-liabilities": top.numerator,
+    "due-on-off-balance-assets": top.denominator,
+  };
+  const asset0 = getProcessSeriesValue(components.dueOnOffBalanceAssets, comparisonIndex);
+  const asset1 = getProcessSeriesValue(components.dueOnOffBalanceAssets, selectedIndex);
+  const adjustedFactors = [
+    { key: "due-on-off-balance-liabilities", baseline: getProcessSeriesValue(components.dueOnOffBalanceLiabilities, comparisonIndex), current: getProcessSeriesValue(components.dueOnOffBalanceLiabilities, selectedIndex) },
+    { key: "demand-deposit-adjustment", baseline: getProcessSeriesValue(components.demandDepositAdjustment, comparisonIndex), current: getProcessSeriesValue(components.demandDepositAdjustment, selectedIndex) },
+    { key: "demand-placement-adjustment", baseline: getProcessSeriesValue(components.demandPlacementAdjustment, comparisonIndex), current: getProcessSeriesValue(components.demandPlacementAdjustment, selectedIndex) },
+  ];
+  const adjustedChildImpacts = scaleProcessImpactMap(calculateProcessShapleyImpacts(adjustedFactors, (values) => {
+    const adjustedLiabilities = values["due-on-off-balance-liabilities"] - values["demand-deposit-adjustment"] - values["demand-placement-adjustment"];
+    const baseResult = asset0 ? 100 * (1 - adjustedLiabilities / asset0) : 0;
+    const currentResult = asset1 ? 100 * (1 - adjustedLiabilities / asset1) : 0;
+    return 0.5 * (baseResult + currentResult);
+  }), top.numerator);
+  Object.assign(impactMap, adjustedChildImpacts);
+  const adjusted0 = getProcessSeriesValue(components.adjustedDueOnOffBalanceLiabilities, comparisonIndex);
+  const adjusted1 = getProcessSeriesValue(components.adjustedDueOnOffBalanceLiabilities, selectedIndex);
+  const assetFactors = [
+    { key: "asset-total", baseline: getProcessSeriesValue(components.assetTotal, comparisonIndex), current: getProcessSeriesValue(components.assetTotal, selectedIndex) },
+    { key: "off-balance-income", baseline: getProcessSeriesValue(components.offBalanceIncome, comparisonIndex), current: getProcessSeriesValue(components.offBalanceIncome, selectedIndex) },
+    { key: "internal-transaction-assets", baseline: getProcessSeriesValue(components.internalTransactionAssets, comparisonIndex), current: getProcessSeriesValue(components.internalTransactionAssets, selectedIndex) },
+  ];
+  Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(assetFactors, (values) => {
+    const assets = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
+    if (!assets) return 0;
+    return 0.5 * (100 * (1 - adjusted0 / assets) + 100 * (1 - adjusted1 / assets));
+  }), top.denominator));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(adjustedChildImpacts["due-on-off-balance-liabilities"], [
+    { key: "liability-total", values: components.liabilityTotal },
+    { key: "off-balance-expense", values: components.offBalanceExpense },
+    { key: "internal-transaction-liabilities", values: components.internalTransactionLiabilities },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(adjustedChildImpacts["demand-deposit-adjustment"], [
+    { key: "demand-deposits", values: components.demandDeposits },
+    { key: "note-demand-deposits", values: components.noteDemandDeposits, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(adjustedChildImpacts["demand-placement-adjustment"], [
+    { key: "demand-placements", values: components.demandPlacements },
+    { key: "note-demand-placements", values: components.noteDemandPlacements, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  return impactMap;
+}
+
+function buildLiquidityRatioProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const top = buildTwoFactorRatioProcessImpacts({
+    numerator: model.numerator,
+    denominator: model.denominator,
+    ratios: model.ratios,
+    selectedIndex,
+    comparisonIndex,
+  });
+  const impactMap = {
+    ratio: getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex),
+    numerator: top.numerator,
+    denominator: top.denominator,
+  };
+  const numerator0 = getProcessSeriesValue(model.numerator, comparisonIndex);
+  const numerator1 = getProcessSeriesValue(model.numerator, selectedIndex);
+  const denominator0 = getProcessSeriesValue(model.denominator, comparisonIndex);
+  const denominator1 = getProcessSeriesValue(model.denominator, selectedIndex);
+  if (model.kind === "lcr") {
+    const hqlaFactors = [
+      { key: "level-1-assets", values: model.components.level1Assets },
+      { key: "level-2a-assets", values: model.components.level2AAssets },
+      { key: "level-2b-assets", values: model.components.level2BAssets },
+    ].map((item) => ({ key: item.key, baseline: getProcessSeriesValue(item.values, comparisonIndex), current: getProcessSeriesValue(item.values, selectedIndex) }));
+    Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(hqlaFactors, (values) => {
+      const hqla = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
+      return 0.5 * (100 * hqla / denominator0 + 100 * hqla / denominator1);
+    }), top.numerator));
+    const raw0 = getProcessSeriesValue(model.components.rawNetOutflows, comparisonIndex);
+    const raw1 = getProcessSeriesValue(model.components.rawNetOutflows, selectedIndex);
+    const minimum0 = getProcessSeriesValue(model.components.minimumNetOutflows, comparisonIndex);
+    const minimum1 = getProcessSeriesValue(model.components.minimumNetOutflows, selectedIndex);
+    const denominatorFactors = [
+      { key: "cash-outflow", baseline: getProcessSeriesValue(model.components.cashOutflows, comparisonIndex), current: getProcessSeriesValue(model.components.cashOutflows, selectedIndex) },
+      { key: "cash-inflow", baseline: getProcessSeriesValue(model.components.cashInflows, comparisonIndex), current: getProcessSeriesValue(model.components.cashInflows, selectedIndex) },
+      { key: "constraint-branch-switch", baseline: raw0 >= minimum0 ? "raw" : "minimum", current: raw1 >= minimum1 ? "raw" : "minimum" },
+    ];
+    const denominatorDriverImpacts = scaleProcessImpactMap(calculateProcessShapleyImpacts(denominatorFactors, (values) =>
+      values["constraint-branch-switch"] === "minimum"
+        ? Number(values["cash-outflow"]) * 0.25
+        : Number(values["cash-outflow"]) - Number(values["cash-inflow"])
+    ), top.denominator);
+    Object.assign(impactMap, denominatorDriverImpacts, {
+      "raw-net-outflow": Number(denominatorDriverImpacts["cash-outflow"] || 0) + Number(denominatorDriverImpacts["cash-inflow"] || 0),
+      "minimum-net-outflow": Number(denominatorDriverImpacts["constraint-branch-switch"] || 0),
+    });
+    return impactMap;
+  }
+  if (model.kind === "liquidityRatio") {
+    const assetFactors = model.components.liquidityAssetItems.map((item) => ({
+      key: item.key,
+      baseline: getProcessSeriesValue(item.values, comparisonIndex),
+      current: getProcessSeriesValue(item.values, selectedIndex),
+    }));
+    Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(assetFactors, (values) => {
+      const numeratorValue = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
+      return 0.5 * (100 * numeratorValue / denominator0 + 100 * numeratorValue / denominator1);
+    }), top.numerator));
+    const liabilityFactors = model.components.liquidityLiabilityItems.map((item) => ({
+      key: item.key,
+      baseline: getProcessSeriesValue(item.values, comparisonIndex),
+      current: getProcessSeriesValue(item.values, selectedIndex),
+    }));
+    Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(liabilityFactors, (values) => {
+      const denominatorValue = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
+      return denominatorValue
+        ? 0.5 * (100 * numerator0 / denominatorValue + 100 * numerator1 / denominatorValue)
+        : 0;
+    }), top.denominator));
+  }
+  return impactMap;
+}
+
+function buildLiquidityProcessImpactMap(model, selectedIndex, comparisonIndex, metric = "ratio") {
+  if (model.kind === "liquidityGap") {
+    return metric === "amount"
+      ? buildLiquidityGapAmountProcessImpactMap(model, selectedIndex, comparisonIndex)
+      : buildLiquidityGapRatioProcessImpactMap(model, selectedIndex, comparisonIndex);
+  }
+  return buildLiquidityRatioProcessImpactMap(model, selectedIndex, comparisonIndex);
+}
+
+function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const top = buildTwoFactorRatioProcessImpacts({
+    numerator: model.numerator,
+    denominator: model.totalInterestAssets,
+    ratios: model.ratios,
+    selectedIndex,
+    comparisonIndex,
+  });
+  const impactMap = {
+    ratio: getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex),
+    numerator: top.numerator,
+    denominator: top.denominator,
+  };
+  const denominator0 = getProcessSeriesValue(model.totalInterestAssets, comparisonIndex);
+  const denominator1 = getProcessSeriesValue(model.totalInterestAssets, selectedIndex);
+  const numeratorFactors = [
+    { key: "adjusted-assets", values: model.adjustedInterestAssets, sign: 1 },
+    { key: "adjusted-liabilities", values: model.adjustedInterestLiabilities, sign: -1 },
+    { key: "bank-book-derivative-gap", values: model.bankBookDerivativeGap, sign: 1 },
+    { key: "trading-book-derivative-gap", values: model.tradingBookDerivativeGap, sign: 1 },
+  ];
+  const branchImpacts = allocateProcessImpactByDeltas(top.numerator, numeratorFactors, selectedIndex, comparisonIndex);
+  Object.assign(impactMap, branchImpacts);
+  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["adjusted-assets"], model.assetItems, selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["adjusted-liabilities"], model.liabilityItems.map((item) => ({ ...item, sign: -1 })), selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["bank-book-derivative-gap"], [
+    { key: "bank-book-receivable", values: model.bankBookReceivable },
+    { key: "bank-book-payable", values: model.bankBookPayable, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["trading-book-derivative-gap"], [
+    { key: "trading-book-receivable", values: model.tradingBookReceivable },
+    { key: "trading-book-payable", values: model.tradingBookPayable, sign: -1 },
+  ], selectedIndex, comparisonIndex));
+  const numerator0 = getProcessSeriesValue(model.numerator, comparisonIndex);
+  const numerator1 = getProcessSeriesValue(model.numerator, selectedIndex);
+  const denominatorFactors = model.totalInterestAssetItems.map((item) => ({
+    key: item.key,
+    baseline: getProcessSeriesValue(item.values, comparisonIndex),
+    current: getProcessSeriesValue(item.values, selectedIndex),
+  }));
+  Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(denominatorFactors, (values) => {
+    const denominatorValue = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
+    return denominatorValue
+      ? 0.5 * (100 * numerator0 / denominatorValue + 100 * numerator1 / denominatorValue)
+      : 0;
+  }), top.denominator));
+  return impactMap;
+}
+
+function buildRepricingDurationGapProcessImpactMap(widget, model, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return {};
+  const assetImpact = getProcessSeriesDelta(model.assetDurations, selectedIndex, comparisonIndex);
+  const liabilityImpact = -getProcessSeriesDelta(model.liabilityDurations, selectedIndex, comparisonIndex);
+  const impactMap = {
+    "duration-gap": getProcessSeriesDelta(model.gaps, selectedIndex, comparisonIndex),
+    "asset-duration": assetImpact,
+    "liability-duration": liabilityImpact,
+  };
+  ["asset", "liability"].forEach((side) => {
+    const sideLabel = side === "asset" ? "资产端" : "负债端";
+    const rows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
+      .filter((row) => row.side === sideLabel);
+    const raw = {};
+    rows.forEach((row) => {
+      const currentRow = row;
+      const baselineRow = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, comparisonIndex)
+        .find((item) => item.businessType === row.businessType);
+      raw[`${side}:${row.businessType}`] = Number(currentRow?.contribution || 0) - Number(baselineRow?.contribution || 0);
+    });
+    Object.assign(impactMap, scaleProcessImpactMap(raw, side === "asset" ? assetImpact : liabilityImpact));
+  });
+  return impactMap;
 }
 
 function formatSignedNumber(value, digits = 1) {
@@ -658,23 +1094,28 @@ function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
   const noteDemandDeposits = buildSeries(8, 0.12, 0.9, 7);
   const demandPlacements = buildSeries(22, 0.3, 2, 8);
   const noteDemandPlacements = buildSeries(5, 0.08, 0.7, 9);
-  const maturityGap = assetTotal.map((value, index) => Number((
-    value + offBalanceIncome[index] - liabilityTotal[index] - offBalanceExpense[index]
-  ).toFixed(1)));
-  const cumulativeMaturityGap = maturityGap.map((value, index) => Number((
-    value + internalTransactionAssets[index] - internalTransactionLiabilities[index]
-  ).toFixed(1)));
-  const liquidityGap = cumulativeMaturityGap.map((value, index) => Number((
-    value
-    + demandDeposits[index]
-    - noteDemandDeposits[index]
-    + demandPlacements[index]
-    - noteDemandPlacements[index]
-  ).toFixed(1)));
   const dueOnOffBalanceAssets = assetTotal.map((value, index) => Number((
-    value + offBalanceIncome[index] - internalTransactionAssets[index]
+    value + offBalanceIncome[index] + internalTransactionAssets[index]
   ).toFixed(1)));
-  const ratios = liquidityGap.map((value, index) => Number(((value / dueOnOffBalanceAssets[index]) * 100).toFixed(1)));
+  const dueOnOffBalanceLiabilities = liabilityTotal.map((value, index) => Number((
+    value + offBalanceExpense[index] + internalTransactionLiabilities[index]
+  ).toFixed(1)));
+  const demandDepositAdjustment = demandDeposits.map((value, index) => Number((
+    value - noteDemandDeposits[index]
+  ).toFixed(1)));
+  const demandPlacementAdjustment = demandPlacements.map((value, index) => Number((
+    value - noteDemandPlacements[index]
+  ).toFixed(1)));
+  const adjustedDueOnOffBalanceLiabilities = dueOnOffBalanceLiabilities.map((value, index) => Number((
+    value - demandDepositAdjustment[index] - demandPlacementAdjustment[index]
+  ).toFixed(1)));
+  const liquidityGap = dueOnOffBalanceAssets.map((value, index) => Number((
+    value
+    - adjustedDueOnOffBalanceLiabilities[index]
+  ).toFixed(1)));
+  const ratios = dueOnOffBalanceAssets.map((value, index) => Number((
+    100 - (adjustedDueOnOffBalanceLiabilities[index] / value) * 100
+  ).toFixed(1)));
 
   return {
     kind: "liquidityGap",
@@ -685,7 +1126,7 @@ function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
     selectedCaliber,
     title: `${selectedTenor}流动性缺口率`,
     numeratorTitle: `${selectedTenor}累计流动性缺口`,
-    denominatorTitle: `${selectedTenor}累计到期表内外资产`,
+    denominatorTitle: `${selectedTenor}累计到期表内外资产（含内部交易）`,
     numerator: liquidityGap,
     denominator: dueOnOffBalanceAssets,
     ratios,
@@ -694,16 +1135,18 @@ function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
       offBalanceIncome,
       liabilityTotal,
       offBalanceExpense,
-      maturityGap,
       internalTransactionAssets,
       internalTransactionLiabilities,
-      cumulativeMaturityGap,
       demandDeposits,
       noteDemandDeposits,
       demandPlacements,
       noteDemandPlacements,
+      demandDepositAdjustment,
+      demandPlacementAdjustment,
       liquidityGap,
       dueOnOffBalanceAssets,
+      dueOnOffBalanceLiabilities,
+      adjustedDueOnOffBalanceLiabilities,
     },
   };
 }
@@ -900,14 +1343,18 @@ function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
   `;
 }
 
-function renderLiquidityPointPopover(widget, model, point, index) {
+function renderLiquidityPointPopover(widget, model, point, index, metric = "ratio") {
   const left = Number(((point.x / 700) * 100).toFixed(2));
   const top = Number(((point.y / 300) * 100).toFixed(2));
+  const isGapAmount = model.kind === "liquidityGap" && metric === "amount";
+  const displayedValue = isGapAmount
+    ? formatEveAmount(model.components.liquidityGap[index])
+    : formatEvePercent(model.ratios[index]);
   return `
     <div class="eve-point-popover eve-point-popover--compact" style="left:${left}%; top:${top}%;">
       <div class="eve-point-popover__grid eve-point-popover__grid--compact">
         <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
-        <div><span>取值</span><strong>${formatEvePercent(model.ratios[index])}</strong></div>
+        <div><span>${isGapAmount ? "缺口规模" : "取值"}</span><strong>${displayedValue}</strong></div>
       </div>
       <button
         class="eve-point-popover__action"
@@ -915,6 +1362,7 @@ function renderLiquidityPointPopover(widget, model, point, index) {
         data-open-liquidity-process="true"
         data-widget-seq="${widget.seq}"
         data-liquidity-kind="${model.kind}"
+        data-liquidity-metric="${metric}"
         data-date-index="${index}"
         data-liquidity-signature="${model.signature}"
         data-liquidity-labels="${model.labels.join("||")}"
@@ -989,7 +1437,15 @@ function renderLiquidityProcessModal() {
   const isLcr = model.kind === "lcr";
   const isLiquidityRatio = model.kind === "liquidityRatio";
   const isLiquidityGap = model.kind === "liquidityGap";
+  const isLiquidityGapAmount = isLiquidityGap && state.metric === "amount";
   const hasExpandableFactors = isLcr || isLiquidityRatio || isLiquidityGap;
+  const processResultTitle = isLiquidityGapAmount ? model.numeratorTitle : model.title;
+  const processResultSeries = isLiquidityGapAmount ? model.components.liquidityGap : model.ratios;
+  const processResultValue = isLiquidityGapAmount
+    ? formatEveAmount(processResultSeries[selectedIndex])
+    : formatEvePercent(processResultSeries[selectedIndex]);
+  const impactMap = buildLiquidityProcessImpactMap(model, selectedIndex, comparisonIndex, state.metric || "ratio");
+  const impactType = isLiquidityGapAmount ? "amount" : "pct";
 
   liquidityProcessModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="liquidityProcessModal"></div>
@@ -1024,79 +1480,87 @@ function renderLiquidityProcessModal() {
             : isLiquidityRatio
               ? `<div class="eve-process-formula">流动性比例 = 流动性资产 ÷ 流动性负债</div>`
               : isLiquidityGap
-                ? `<div class="eve-process-formula">${model.selectedTenor}流动性缺口率 = ${model.selectedTenor}累计流动性缺口 ÷ ${model.selectedTenor}累计到期表内外资产（分子分母为同一期限范围）</div>`
+                ? isLiquidityGapAmount
+                  ? `<div class="eve-process-formula">${model.selectedTenor}流动性缺口 = ${model.selectedTenor}累计到期表内外资产（含内部交易）- ${model.selectedTenor}累计到期表内外负债（含内部交易）+ ${model.selectedTenor}活期存款调整 + ${model.selectedTenor}活期存放调整</div>`
+                  : `<div class="eve-process-formula">${model.selectedTenor}流动性缺口率 = 100% - ${model.selectedTenor}累计到期表内外负债（含内部交易，调整活期）÷ ${model.selectedTenor}累计到期表内外资产（含内部交易；各组成项为同一期限范围）</div>`
                 : `<div class="eve-process-formula">NSFR = 可用的稳定资金 ÷ 所需的稳定资金</div>`}
         </div>
       </div>
       <div class="eve-process-flow">
-        <div class="eve-process-flow__canvas${isLiquidityRatio ? " liquidity-ratio-process-flow__canvas" : ""}">
-          <div class="eve-process-flow__lane${isLiquidityRatio ? " liquidity-ratio-process-flow__lane" : ""}">
+        <div class="eve-process-flow__canvas${isLiquidityRatio ? " liquidity-ratio-process-flow__canvas" : ""}${isLiquidityGap ? (isLiquidityGapAmount ? " liquidity-gap-amount-flow__canvas" : " liquidity-gap-complement-flow__canvas") : ""}">
+          <div class="eve-process-flow__lane${isLiquidityRatio ? " liquidity-ratio-process-flow__lane" : ""}${isLiquidityGap ? (isLiquidityGapAmount ? " liquidity-gap-amount-flow__lane" : " liquidity-gap-complement-flow__lane") : ""}">
             ${renderEveProcessNode({
-              key: "ratio",
-              title: model.title,
-              value: formatEvePercent(model.ratios[selectedIndex]),
-              series: model.ratios,
+              key: isLiquidityGapAmount ? "gap" : "ratio",
+              title: processResultTitle,
+              value: processResultValue,
+              series: processResultSeries,
               selectedIndex,
               comparisonIndex,
               activeNode,
               dataAttribute: "data-liquidity-process-node",
-              changeType: "delta",
-              valueFormat: "percent",
+              changeType: isLiquidityGapAmount ? "rate" : "delta",
+              valueFormat: isLiquidityGapAmount ? "amount" : "percent",
               labels: model.displayLabels,
+              impact: impactMap[isLiquidityGapAmount ? "gap" : "ratio"],
+              impactType,
             })}
             <div class="eve-process-operator">=</div>
-            <div class="eve-process-factor-stack">
-              ${renderEveProcessNode({
-                key: "numerator",
-                title: model.numeratorTitle,
-                value: formatEveAmount(model.numerator[selectedIndex]),
-                series: model.numerator,
-                selectedIndex,
-                comparisonIndex,
-                activeNode,
-                actionText: hasExpandableFactors ? (state.numeratorExpanded ? "点击收回" : "点击展开") : "",
-                dataAttribute: "data-liquidity-process-node",
-                valueFormat: "amount",
-                labels: model.displayLabels,
-              })}
-              <div class="eve-process-division eve-process-division--quotient">÷</div>
-              ${renderEveProcessNode({
-                key: "denominator",
-                title: model.denominatorTitle,
-                value: formatEveAmount(model.denominator[selectedIndex]),
-                series: model.denominator,
-                selectedIndex,
-                comparisonIndex,
-                activeNode,
-                actionText: hasExpandableFactors ? (state.denominatorExpanded ? "点击收回" : "点击展开") : "",
-                dataAttribute: "data-liquidity-process-node",
-                valueFormat: "amount",
-                labels: model.displayLabels,
-              })}
-            </div>
-            <div class="eve-process-connector" aria-hidden="true"></div>
-            <div class="eve-process-expansions liquidity-process-expansions${hasExpandableFactors ? " liquidity-process-expansions--ratio" : ""}">
-              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
-                ${isLcr && state.numeratorExpanded
-                  ? renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode)
-                  : isLiquidityRatio && state.numeratorExpanded
-                    ? renderLiquidityRatioComponentExpansion(model.components.liquidityAssetItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode)
-                    : isLiquidityGap && state.numeratorExpanded
-                      ? renderLiquidityGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNode)
-                    : ""}
-              </div>
-              ${hasExpandableFactors ? `
-                <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
-                  ${isLcr && state.denominatorExpanded
-                    ? renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNode)
-                    : isLiquidityRatio && state.denominatorExpanded
-                      ? renderLiquidityRatioComponentExpansion(model.components.liquidityLiabilityItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode)
-                    : isLiquidityGap && state.denominatorExpanded
-                      ? renderLiquidityGapDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode)
-                    : ""}
+            ${isLiquidityGap
+              ? isLiquidityGapAmount
+                ? renderLiquidityGapAmountExpression(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNodes, impactMap)
+                : renderLiquidityGapComplementExpression(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNodes, impactMap)
+              : `
+                <div class="eve-process-factor-stack">
+                  ${renderEveProcessNode({
+                    key: "numerator",
+                    title: model.numeratorTitle,
+                    value: formatEveAmount(model.numerator[selectedIndex]),
+                    series: model.numerator,
+                    selectedIndex,
+                    comparisonIndex,
+                    activeNode,
+                    actionText: hasExpandableFactors ? (state.numeratorExpanded ? "点击收回" : "点击展开") : "",
+                    dataAttribute: "data-liquidity-process-node",
+                    valueFormat: "amount",
+                    labels: model.displayLabels,
+                    impact: impactMap.numerator,
+                  })}
+                  <div class="eve-process-division eve-process-division--quotient">÷</div>
+                  ${renderEveProcessNode({
+                    key: "denominator",
+                    title: model.denominatorTitle,
+                    value: formatEveAmount(model.denominator[selectedIndex]),
+                    series: model.denominator,
+                    selectedIndex,
+                    comparisonIndex,
+                    activeNode,
+                    actionText: hasExpandableFactors ? (state.denominatorExpanded ? "点击收回" : "点击展开") : "",
+                    dataAttribute: "data-liquidity-process-node",
+                    valueFormat: "amount",
+                    labels: model.displayLabels,
+                    impact: impactMap.denominator,
+                  })}
                 </div>
-              ` : ""}
-            </div>
+                <div class="eve-process-connector" aria-hidden="true"></div>
+                <div class="eve-process-expansions liquidity-process-expansions${hasExpandableFactors ? " liquidity-process-expansions--ratio" : ""}">
+                  <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                    ${isLcr && state.numeratorExpanded
+                      ? renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode, impactMap)
+                      : isLiquidityRatio && state.numeratorExpanded
+                        ? renderLiquidityRatioComponentExpansion(model.components.liquidityAssetItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode, impactMap)
+                        : ""}
+                  </div>
+                  ${hasExpandableFactors ? `
+                    <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
+                      ${isLcr && state.denominatorExpanded
+                        ? renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, state.detailExpandedNode, impactMap)
+                        : isLiquidityRatio && state.denominatorExpanded
+                          ? renderLiquidityRatioComponentExpansion(model.components.liquidityLiabilityItems, model.displayLabels, selectedIndex, comparisonIndex, activeNode, impactMap)
+                          : ""}
+                    </div>
+                  ` : ""}
+                </div>
+              `}
           </div>
         </div>
       </div>
@@ -1106,7 +1570,7 @@ function renderLiquidityProcessModal() {
   liquidityProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode) {
+function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, activeNode, impactMap = {}) {
   const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
   return `
     <div class="lcr-process-expansion">
@@ -1118,6 +1582,7 @@ function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, 
           title: "一级资产",
           value: formatEveAmount(model.components.level1Assets[selectedIndex]),
           series: model.components.level1Assets,
+          impact: impactMap["level-1-assets"],
         })}
         <span class="eve-process-mini-operator">+</span>
         ${renderEveProcessNode({
@@ -1126,6 +1591,7 @@ function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, 
           title: "2A资产",
           value: formatEveAmount(model.components.level2AAssets[selectedIndex]),
           series: model.components.level2AAssets,
+          impact: impactMap["level-2a-assets"],
         })}
         <span class="eve-process-mini-operator">+</span>
         ${renderEveProcessNode({
@@ -1134,13 +1600,14 @@ function renderLiquidityLcrHqlaExpansion(model, selectedIndex, comparisonIndex, 
           title: "2B资产",
           value: formatEveAmount(model.components.level2BAssets[selectedIndex]),
           series: model.components.level2BAssets,
+          impact: impactMap["level-2b-assets"],
         })}
       </div>
     </div>
   `;
 }
 
-function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNode = "") {
+function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNode = "", impactMap = {}) {
   const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount", labels: model.displayLabels };
   return `
     <div class="lcr-process-expansion">
@@ -1155,6 +1622,7 @@ function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonI
           value: formatEveAmount(model.components.rawNetOutflows[selectedIndex]),
           series: model.components.rawNetOutflows,
           actionText: detailExpandedNode === "raw-net-outflow" ? "点击收回" : "点击展开",
+          impact: impactMap["raw-net-outflow"],
         })}
         <span class="eve-process-mini-operator eve-process-mini-operator--text">max</span>
         ${renderEveProcessNode({
@@ -1163,6 +1631,7 @@ function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonI
           title: "25%现金流出",
           value: formatEveAmount(model.components.minimumNetOutflows[selectedIndex]),
           series: model.components.minimumNetOutflows,
+          impact: impactMap["minimum-net-outflow"],
         })}
       </div>
       ${detailExpandedNode === "raw-net-outflow" ? `
@@ -1170,13 +1639,13 @@ function renderLiquidityLcrNetOutflowExpansion(model, selectedIndex, comparisonI
         ${renderLiquidityGapFormulaStrip([
           { key: "cash-outflow", title: "未来30天现金流出量", values: model.components.cashOutflows },
           { key: "cash-inflow", title: "未来30天现金流入量", values: model.components.cashInflows, operator: "-" },
-        ], model, selectedIndex, comparisonIndex, activeNode)}
+        ], model, selectedIndex, comparisonIndex, activeNode, "leaf", impactMap)}
       ` : ""}
     </div>
   `;
 }
 
-function renderLiquidityRatioComponentExpansion(items, labels, selectedIndex, comparisonIndex, activeNode) {
+function renderLiquidityRatioComponentExpansion(items, labels, selectedIndex, comparisonIndex, activeNode, impactMap = {}) {
   const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-liquidity-process-node", valueFormat: "amount" };
   return `
     <div class="eve-process-capital-strip liquidity-process-component-strip liquidity-process-component-strip--ratio">
@@ -1190,13 +1659,14 @@ function renderLiquidityRatioComponentExpansion(items, labels, selectedIndex, co
           series: item.values,
           actionText: item.actionText || "",
           labels,
+          impact: impactMap[item.key],
         })}
       `).join("")}
     </div>
   `;
 }
 
-function renderLiquidityGapFormulaStrip(items, model, selectedIndex, comparisonIndex, activeNode, layout = "leaf") {
+function renderLiquidityGapFormulaStrip(items, model, selectedIndex, comparisonIndex, activeNode, layout = "leaf", impactMap = {}, impactType = "pct") {
   const nodeOptions = {
     selectedIndex,
     comparisonIndex,
@@ -1216,70 +1686,247 @@ function renderLiquidityGapFormulaStrip(items, model, selectedIndex, comparisonI
           value: formatEveAmount(item.values[selectedIndex]),
           series: item.values,
           actionText: item.actionText || "",
+          impact: impactMap[item.key],
+          impactType,
         })}
       `).join("")}
     </div>
   `;
 }
 
-function renderLiquidityGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNode = "") {
-  const components = model.components;
-  const showsCumulativeGapChildren = ["cumulative-maturity-gap", "maturity-gap"].includes(detailExpandedNode);
+function renderLiquidityGapComplementBranch(branch, model, selectedIndex, comparisonIndex, activeNode, expandedNodeKeys, impactMap = {}, impactType = "pct") {
+  const isExpanded = expandedNodeKeys.includes(branch.key);
   return `
-    <div class="liquidity-gap-process-detail">
-      <div class="lcr-process-expansion__formula">
-        ${model.selectedTenor}累计流动性缺口 = 累计到期期限缺口 + 3.5.2活期存款 - 附注活期存款 + 3.2活期存放 - 附注活期存放
-      </div>
-      ${renderLiquidityGapFormulaStrip([
-        {
-          key: "cumulative-maturity-gap",
-          title: "累计到期期限缺口",
-          values: components.cumulativeMaturityGap,
-          actionText: showsCumulativeGapChildren ? "点击收回" : "点击展开",
-        },
-        { key: "demand-deposits-adjustment", title: "3.5.2 活期存款", values: components.demandDeposits, operator: "+" },
-        { key: "note-demand-deposits-adjustment", title: "附注：活期存款", values: components.noteDemandDeposits, operator: "-" },
-        { key: "demand-placements-adjustment", title: "3.2 活期存放", values: components.demandPlacements, operator: "+" },
-        { key: "note-demand-placements-adjustment", title: "附注：活期存放", values: components.noteDemandPlacements, operator: "-" },
-      ], model, selectedIndex, comparisonIndex, activeNode, "branch")}
-      ${showsCumulativeGapChildren ? `
-        <div class="lcr-process-expansion__formula">累计到期期限缺口 = 到期期限缺口 + 内部交易资产 - 内部交易负债</div>
-        ${renderLiquidityGapFormulaStrip([
-          {
-            key: "maturity-gap",
-            title: "到期期限缺口",
-            values: components.maturityGap,
-            actionText: detailExpandedNode === "maturity-gap" ? "点击收回" : "点击展开",
-          },
-          { key: "internal-transaction-assets", title: "内部交易资产", values: components.internalTransactionAssets, operator: "+" },
-          { key: "internal-transaction-liabilities", title: "内部交易负债", values: components.internalTransactionLiabilities, operator: "-" },
-        ], model, selectedIndex, comparisonIndex, activeNode, "branch")}
-      ` : ""}
-      ${detailExpandedNode === "maturity-gap" ? `
-        <div class="lcr-process-expansion__formula">到期期限缺口 = 资产总计 + 表外收入 - 负债合计 - 表外支出</div>
-        ${renderLiquidityGapFormulaStrip([
-          { key: "asset-total", title: "资产总计", values: components.assetTotal },
-          { key: "off-balance-income", title: "表外收入", values: components.offBalanceIncome, operator: "+" },
-          { key: "liability-total", title: "负债合计", values: components.liabilityTotal, operator: "-" },
-          { key: "off-balance-expense", title: "表外支出", values: components.offBalanceExpense, operator: "-" },
-        ], model, selectedIndex, comparisonIndex, activeNode)}
+    <div class="liquidity-gap-branch-row${isExpanded ? " is-expanded" : ""}">
+      ${renderEveProcessNode({
+        key: branch.key,
+        title: branch.title,
+        value: formatEveAmount(branch.values[selectedIndex]),
+        series: branch.values,
+        selectedIndex,
+        comparisonIndex,
+        activeNode,
+        actionText: isExpanded ? "点击收回" : "点击展开",
+        dataAttribute: "data-liquidity-process-node",
+        valueFormat: "amount",
+        labels: model.displayLabels,
+        impact: impactMap[branch.key],
+        impactType,
+      })}
+      ${isExpanded ? `
+        <div class="eve-process-connector liquidity-gap-branch-row__connector" aria-hidden="true"></div>
+        <div class="liquidity-gap-branch-row__children">
+          <div class="lcr-process-expansion__formula">${branch.formula}</div>
+          ${renderLiquidityGapFormulaStrip(branch.children, model, selectedIndex, comparisonIndex, activeNode, "leaf", impactMap, impactType)}
+        </div>
       ` : ""}
     </div>
   `;
 }
 
-function renderLiquidityGapDenominatorExpansion(model, selectedIndex, comparisonIndex, activeNode) {
-  const components = model.components;
+function renderLiquidityGapAdjustedLiabilityBranch(branch, componentBranches, model, selectedIndex, comparisonIndex, activeNode, expandedNodeKeys, impactMap = {}) {
+  const isExpanded = expandedNodeKeys.includes(branch.key);
+  const expandedComponentBranches = componentBranches.filter((componentBranch) => expandedNodeKeys.includes(componentBranch.key));
   return `
-    <div class="liquidity-gap-process-detail">
+    <div class="liquidity-gap-branch-row liquidity-gap-adjusted-liability-row${isExpanded ? " is-expanded" : ""}">
+      ${renderEveProcessNode({
+        key: branch.key,
+        title: branch.title,
+        value: formatEveAmount(branch.values[selectedIndex]),
+        series: branch.values,
+        selectedIndex,
+        comparisonIndex,
+        activeNode,
+        actionText: isExpanded ? "点击收回" : "点击展开",
+        dataAttribute: "data-liquidity-process-node",
+        valueFormat: "amount",
+        labels: model.displayLabels,
+        impact: impactMap[branch.key],
+      })}
+      ${isExpanded ? `
+        <div class="eve-process-connector liquidity-gap-branch-row__connector" aria-hidden="true"></div>
+        <div class="liquidity-gap-branch-row__children liquidity-gap-adjusted-liability__children">
+          <div class="lcr-process-expansion__formula">${branch.formula}</div>
+          ${renderLiquidityGapFormulaStrip(
+            componentBranches.map((componentBranch) => ({
+              ...componentBranch,
+              actionText: expandedNodeKeys.includes(componentBranch.key) ? "点击收回" : "点击展开",
+            })),
+            model,
+            selectedIndex,
+            comparisonIndex,
+            activeNode,
+            "leaf",
+            impactMap,
+          )}
+          ${expandedComponentBranches.length ? `
+            <div class="liquidity-gap-adjusted-liability__details">
+              ${expandedComponentBranches.map((componentBranch) => `
+                <div class="liquidity-gap-adjusted-liability__detail">
+                  <div class="lcr-process-expansion__formula">${componentBranch.formula}</div>
+                  ${renderLiquidityGapFormulaStrip(componentBranch.children, model, selectedIndex, comparisonIndex, activeNode, "leaf", impactMap)}
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function buildLiquidityGapProcessBranches(model) {
+  const components = model.components;
+  const liabilityBranch = {
+    key: "due-on-off-balance-liabilities",
+    title: `${model.selectedTenor}累计到期表内外负债（含内部交易）`,
+    values: components.dueOnOffBalanceLiabilities,
+    formula: `${model.selectedTenor}累计到期表内外负债（含内部交易） = ${model.selectedTenor}累计到期表内外负债 + 表外支出 + 内部交易负债`,
+    children: [
+      { key: "liability-total", title: `${model.selectedTenor}累计到期表内外负债`, values: components.liabilityTotal },
+      { key: "off-balance-expense", title: "表外支出", values: components.offBalanceExpense, operator: "+" },
+      { key: "internal-transaction-liabilities", title: "内部交易负债", values: components.internalTransactionLiabilities, operator: "+" },
+    ],
+  };
+  const demandDepositBranch = {
+    key: "demand-deposit-adjustment",
+    title: `${model.selectedTenor}活期存款调整`,
+    values: components.demandDepositAdjustment,
+    operator: "-",
+    formula: `${model.selectedTenor}活期存款调整 = 3.5.2活期存款 - 附注活期存款`,
+    children: [
+      { key: "demand-deposits", title: "3.5.2 活期存款", values: components.demandDeposits },
+      { key: "note-demand-deposits", title: "附注：活期存款", values: components.noteDemandDeposits, operator: "-" },
+    ],
+  };
+  const demandPlacementBranch = {
+    key: "demand-placement-adjustment",
+    title: `${model.selectedTenor}活期存放调整`,
+    values: components.demandPlacementAdjustment,
+    operator: "-",
+    formula: `${model.selectedTenor}活期存放调整 = 3.2活期存放 - 附注活期存放`,
+    children: [
+      { key: "demand-placements", title: "3.2 活期存放", values: components.demandPlacements },
+      { key: "note-demand-placements", title: "附注：活期存放", values: components.noteDemandPlacements, operator: "-" },
+    ],
+  };
+  const assetBranch = {
+    key: "due-on-off-balance-assets",
+    title: `${model.selectedTenor}累计到期表内外资产（含内部交易）`,
+    values: components.dueOnOffBalanceAssets,
+    formula: `${model.selectedTenor}累计到期表内外资产（含内部交易） = ${model.selectedTenor}累计到期表内外资产 + 表外收入 + 内部交易资产`,
+    children: [
+      { key: "asset-total", title: `${model.selectedTenor}累计到期表内外资产`, values: components.assetTotal },
+      { key: "off-balance-income", title: "表外收入", values: components.offBalanceIncome, operator: "+" },
+      { key: "internal-transaction-assets", title: "内部交易资产", values: components.internalTransactionAssets, operator: "+" },
+    ],
+  };
+  const adjustedLiabilityBranch = {
+    key: "adjusted-due-on-off-balance-liabilities",
+    title: `${model.selectedTenor}累计到期表内外负债（含内部交易，调整活期）`,
+    values: components.adjustedDueOnOffBalanceLiabilities,
+    formula: `${model.selectedTenor}累计到期表内外负债（含内部交易，调整活期） = ${model.selectedTenor}累计到期表内外负债（含内部交易）- ${model.selectedTenor}活期存款调整 - ${model.selectedTenor}活期存放调整`,
+  };
+  return {
+    assetBranch,
+    liabilityBranch,
+    demandDepositBranch,
+    demandPlacementBranch,
+    adjustedLiabilityBranch,
+  };
+}
+
+function normalizeLiquidityGapExpandedNodeKeys(detailExpandedNodes) {
+  return Array.isArray(detailExpandedNodes)
+    ? detailExpandedNodes
+    : detailExpandedNodes
+      ? [detailExpandedNodes]
+      : [];
+}
+
+function renderLiquidityGapAmountExpression(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
+  const expandedNodeKeys = normalizeLiquidityGapExpandedNodeKeys(detailExpandedNodes);
+  const {
+    assetBranch,
+    liabilityBranch,
+    demandDepositBranch,
+    demandPlacementBranch,
+  } = buildLiquidityGapProcessBranches(model);
+  const branches = [
+    { branch: assetBranch, operator: "" },
+    { branch: liabilityBranch, operator: "−" },
+    { branch: demandDepositBranch, operator: "+" },
+    { branch: demandPlacementBranch, operator: "+" },
+  ];
+  return `
+    <div class="liquidity-gap-process-detail liquidity-gap-amount-expression">
       <div class="lcr-process-expansion__formula">
-        ${model.selectedTenor}累计到期表内外资产 = 资产总计 + 表外收入 - 内部交易资产
+        ${model.selectedTenor}流动性缺口 = ${model.selectedTenor}累计到期表内外资产（含内部交易）- ${model.selectedTenor}累计到期表内外负债（含内部交易）+ ${model.selectedTenor}活期存款调整 + ${model.selectedTenor}活期存放调整
       </div>
-      ${renderLiquidityGapFormulaStrip([
-        { key: "denominator-asset-total", title: "资产总计", values: components.assetTotal },
-        { key: "denominator-off-balance-income", title: "表外收入", values: components.offBalanceIncome, operator: "+" },
-        { key: "denominator-internal-assets", title: "内部交易资产", values: components.internalTransactionAssets, operator: "-" },
-      ], model, selectedIndex, comparisonIndex, activeNode)}
+      <div class="liquidity-gap-branch-tree">
+        ${branches.map(({ branch, operator }) => `
+          ${operator ? `<div class="liquidity-gap-branch-tree__operator"><span class="eve-process-mini-operator">${operator}</span></div>` : ""}
+          ${renderLiquidityGapComplementBranch(
+            branch,
+            model,
+            selectedIndex,
+            comparisonIndex,
+            activeNode,
+            expandedNodeKeys,
+            impactMap,
+            "amount",
+          )}
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderLiquidityGapComplementExpression(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
+  const expandedNodeKeys = normalizeLiquidityGapExpandedNodeKeys(detailExpandedNodes);
+  const {
+    assetBranch: denominatorBranch,
+    liabilityBranch,
+    demandDepositBranch,
+    demandPlacementBranch,
+    adjustedLiabilityBranch,
+  } = buildLiquidityGapProcessBranches(model);
+  const numeratorBranches = [liabilityBranch, demandDepositBranch, demandPlacementBranch];
+  return `
+    <div class="liquidity-gap-complement-expression">
+      <div class="liquidity-gap-complement-constant" data-liquidity-gap-constant="true">
+        <span>固定值</span>
+        <strong>100%</strong>
+      </div>
+      <div class="eve-process-operator liquidity-gap-complement-minus" aria-label="减">−</div>
+      <div class="liquidity-gap-complement-fraction">
+        <div class="liquidity-gap-complement-fraction__numerator" aria-label="分子">
+          ${renderLiquidityGapAdjustedLiabilityBranch(
+            adjustedLiabilityBranch,
+            numeratorBranches,
+            model,
+            selectedIndex,
+            comparisonIndex,
+            activeNode,
+            expandedNodeKeys,
+            impactMap,
+          )}
+        </div>
+        <div class="liquidity-gap-complement-fraction__divider" aria-label="除以">
+          <span>÷</span>
+        </div>
+        <div class="liquidity-gap-complement-fraction__denominator" aria-label="分母">
+          ${renderLiquidityGapComplementBranch(
+            denominatorBranch,
+            model,
+            selectedIndex,
+            comparisonIndex,
+            activeNode,
+            expandedNodeKeys,
+            impactMap,
+          )}
+        </div>
+      </div>
     </div>
   `;
 }
@@ -1596,6 +2243,7 @@ function renderRepricingGapProcessModal() {
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
   const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "ratio";
+  const impactMap = buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex);
 
   repricingGapProcessModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="repricingGapProcessModal"></div>
@@ -1644,6 +2292,7 @@ function renderRepricingGapProcessModal() {
               changeType: "delta",
               valueFormat: "percent",
               labels: model.displayLabels,
+              impact: impactMap.ratio,
             })}
             <div class="eve-process-operator">=</div>
             <div class="eve-process-factor-stack">
@@ -1659,6 +2308,7 @@ function renderRepricingGapProcessModal() {
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
+                impact: impactMap.numerator,
               })}
               <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
@@ -1673,6 +2323,7 @@ function renderRepricingGapProcessModal() {
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
+                impact: impactMap.denominator,
               })}
             </div>
             <div class="eve-process-connector" aria-hidden="true"></div>
@@ -1684,13 +2335,14 @@ function renderRepricingGapProcessModal() {
                     selectedIndex,
                     comparisonIndex,
                     activeNode,
-                    state.detailExpandedNodes || state.detailExpandedNode
+                    state.detailExpandedNodes || state.detailExpandedNode,
+                    impactMap
                   )
                   : ""}
               </div>
               <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
                 ${state.denominatorExpanded
-                  ? renderRepricingGapLeafGroup(model.denominatorTitle, model.totalInterestAssetItems, "+", model, selectedIndex, comparisonIndex, activeNode)
+                  ? renderRepricingGapLeafGroup(model.denominatorTitle, model.totalInterestAssetItems, "+", model, selectedIndex, comparisonIndex, activeNode, impactMap)
                   : ""}
               </div>
             </div>
@@ -1703,7 +2355,7 @@ function renderRepricingGapProcessModal() {
   repricingGapProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = []) {
+function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
   const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-repricing-gap-process-node", valueFormat: "amount", labels: model.displayLabels };
   const expandedNodeKeys = Array.isArray(detailExpandedNodes)
     ? detailExpandedNodes
@@ -1724,7 +2376,8 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
         model,
         selectedIndex,
         comparisonIndex,
-        activeNode
+        activeNode,
+        impactMap
       ),
     },
     {
@@ -1739,7 +2392,8 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
         model,
         selectedIndex,
         comparisonIndex,
-        activeNode
+        activeNode,
+        impactMap
       ),
     },
     {
@@ -1750,7 +2404,7 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
       children: renderRepricingGapLeafGroup("银行账簿表外衍生品缺口", [
         { key: "bank-book-receivable", title: "银行账簿表外衍生品应收", values: model.bankBookReceivable },
         { key: "bank-book-payable", title: "银行账簿表外衍生品应付", values: model.bankBookPayable },
-      ], "-", model, selectedIndex, comparisonIndex, activeNode),
+      ], "-", model, selectedIndex, comparisonIndex, activeNode, impactMap),
     },
     {
       key: "trading-book-derivative-gap",
@@ -1760,7 +2414,7 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
       children: renderRepricingGapLeafGroup("交易账簿表外衍生品缺口", [
         { key: "trading-book-receivable", title: "交易账簿表外衍生品应收", values: model.tradingBookReceivable },
         { key: "trading-book-payable", title: "交易账簿表外衍生品应付", values: model.tradingBookPayable },
-      ], "-", model, selectedIndex, comparisonIndex, activeNode),
+      ], "-", model, selectedIndex, comparisonIndex, activeNode, impactMap),
     },
   ];
   return `
@@ -1783,6 +2437,7 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
               value: formatEveAmount(branch.values[selectedIndex]),
               series: branch.values,
               actionText: isExpanded(branch.key) ? "点击收回" : "点击展开",
+              impact: impactMap[branch.key],
             })}
             ${isExpanded(branch.key) ? `
               <div class="eve-process-connector repricing-gap-branch-row__connector" aria-hidden="true"></div>
@@ -1795,7 +2450,7 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
   `;
 }
 
-function renderRepricingGapLeafGroup(title, items, operator, model, selectedIndex, comparisonIndex, activeNode) {
+function renderRepricingGapLeafGroup(title, items, operator, model, selectedIndex, comparisonIndex, activeNode, impactMap = {}) {
   const nodeOptions = {
     selectedIndex,
     comparisonIndex,
@@ -1816,6 +2471,7 @@ function renderRepricingGapLeafGroup(title, items, operator, model, selectedInde
             title: item.title,
             value: formatEveAmount(item.values[selectedIndex]),
             series: item.values,
+            impact: impactMap[item.key],
           })}
         `).join("")}
       </div>
@@ -1840,6 +2496,7 @@ function renderRepricingDurationGapProcessModal() {
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
   const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "duration-gap";
+  const impactMap = buildRepricingDurationGapProcessImpactMap(widget, model, selectedIndex, comparisonIndex);
 
   repricingDurationGapProcessModalEl.innerHTML = `
     <div class="overlay-scrim" data-close-overlay="repricingDurationGapProcessModal"></div>
@@ -1887,6 +2544,8 @@ function renderRepricingDurationGapProcessModal() {
               changeType: "numberDelta",
               valueFormat: "number",
               labels: model.displayLabels,
+              impact: impactMap["duration-gap"],
+              impactType: "number",
             })}
             <div class="eve-process-operator">=</div>
             <div class="eve-process-factor-stack">
@@ -1903,6 +2562,8 @@ function renderRepricingDurationGapProcessModal() {
                 changeType: "numberDelta",
                 valueFormat: "number",
                 labels: model.displayLabels,
+                impact: impactMap["asset-duration"],
+                impactType: "number",
               })}
               <div class="eve-process-division">-</div>
               ${renderEveProcessNode({
@@ -1918,18 +2579,20 @@ function renderRepricingDurationGapProcessModal() {
                 changeType: "numberDelta",
                 valueFormat: "number",
                 labels: model.displayLabels,
+                impact: impactMap["liability-duration"],
+                impactType: "number",
               })}
             </div>
             <div class="eve-process-connector" aria-hidden="true"></div>
             <div class="eve-process-expansions">
               <div class="eve-process-expansion-slot">
                 ${state.assetExpanded
-                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "asset")
+                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "asset", impactMap)
                   : ""}
               </div>
               <div class="eve-process-expansion-slot">
                 ${state.liabilityExpanded
-                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "liability")
+                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "liability", impactMap)
                   : ""}
               </div>
             </div>
@@ -1942,7 +2605,7 @@ function renderRepricingDurationGapProcessModal() {
   repricingDurationGapProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, side) {
+function renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, side, impactMap = {}) {
   const sideLabel = side === "asset" ? "资产端" : "负债端";
   const rows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
     .filter((row) => row.side === sideLabel);
@@ -1966,6 +2629,8 @@ function renderRepricingDurationGapContributionExpansion(widget, model, selected
           changeType: "numberDelta",
           valueFormat: "number",
           labels: model.displayLabels,
+          impact: impactMap[`${side}:${row.businessType}`],
+          impactType: "number",
         }).replace(
           '<button class="eve-process-node',
           '<button class="eve-process-node eve-process-node--compact'

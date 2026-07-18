@@ -39,21 +39,20 @@ globalFilterBarEl.addEventListener("click", (event) => {
   }
 });
 
-if (globalStartInputEl) {
-  globalStartInputEl.addEventListener("change", (event) => {
+if (globalEndInputEl) {
+  globalEndInputEl.addEventListener("change", (event) => {
     const defaultEndDate = getDefaultGlobalEndDate();
-    appState.globalStartDate = event.target.value || getDefaultGlobalStartDate();
-    if (appState.globalStartDate > (appState.globalEndDate || defaultEndDate)) appState.globalEndDate = appState.globalStartDate;
+    const defaultStartDate = getDefaultGlobalStartDate();
+    appState.globalEndDate = event.target.value || defaultEndDate;
+    if (appState.globalEndDate > defaultEndDate) appState.globalEndDate = defaultEndDate;
+    if (appState.globalEndDate < defaultStartDate) appState.globalEndDate = defaultStartDate;
     render();
   });
 }
 
-if (globalEndInputEl) {
-  globalEndInputEl.addEventListener("change", (event) => {
-    const defaultEndDate = getDefaultGlobalEndDate();
-    appState.globalEndDate = event.target.value || defaultEndDate;
-    if (appState.globalEndDate > defaultEndDate) appState.globalEndDate = defaultEndDate;
-    if (appState.globalEndDate < (appState.globalStartDate || getDefaultGlobalStartDate())) appState.globalStartDate = appState.globalEndDate;
+if (businessEndInputEl) {
+  businessEndInputEl.addEventListener("change", (event) => {
+    updateBusinessAnalysisDateRange(1, event.target.value);
     render();
   });
 }
@@ -125,6 +124,7 @@ dashboardViewEl.addEventListener("click", (event) => {
     appState.liquidityMetricPointPopover = {
       widgetSeq: Number(liquidityPoint.dataset.widgetSeq || 0),
       kind: liquidityPoint.dataset.liquidityKind || "",
+      metric: liquidityPoint.dataset.liquidityMetric || "ratio",
       dateIndex: Number(liquidityPoint.dataset.dateIndex || 0),
       labels: String(liquidityPoint.dataset.liquidityLabels || "").split("||").filter(Boolean),
       signature: Number(liquidityPoint.dataset.liquiditySignature || 0),
@@ -139,14 +139,16 @@ dashboardViewEl.addEventListener("click", (event) => {
     appState.liquidityProcessModal = {
       widgetSeq: Number(openLiquidityProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 42),
       kind: openLiquidityProcessButton.dataset.liquidityKind || sourceState.kind || "",
+      metric: openLiquidityProcessButton.dataset.liquidityMetric || sourceState.metric || "ratio",
       dateIndex: Number(openLiquidityProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
       labels: String(openLiquidityProcessButton.dataset.liquidityLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
       signature: Number(openLiquidityProcessButton.dataset.liquiditySignature || sourceState.signature || 0),
       comparisonIndex: null,
-      activeNode: "ratio",
+      activeNode: (openLiquidityProcessButton.dataset.liquidityMetric || sourceState.metric) === "amount" ? "gap" : "ratio",
       numeratorExpanded: false,
       denominatorExpanded: false,
       detailExpandedNode: "",
+      detailExpandedNodes: [],
     };
     appState.liquidityMetricPointPopover = null;
     render();
@@ -909,19 +911,37 @@ liquidityProcessModalEl.addEventListener("click", (event) => {
   const collapseNumerator = nodeKey === "numerator" && appState.liquidityProcessModal.numeratorExpanded;
   const collapseDenominator = nodeKey === "denominator" && appState.liquidityProcessModal.denominatorExpanded;
   const detailExpandedNode = appState.liquidityProcessModal.detailExpandedNode || "";
+  const detailExpandedNodes = Array.isArray(appState.liquidityProcessModal.detailExpandedNodes)
+    ? appState.liquidityProcessModal.detailExpandedNodes
+    : [];
+  const adjustedLiabilityNodeKey = "adjusted-due-on-off-balance-liabilities";
+  const adjustedLiabilityComponentKeys = [
+    "due-on-off-balance-liabilities",
+    "demand-deposit-adjustment",
+    "demand-placement-adjustment",
+  ];
+  const collapseAdjustedLiability = nodeKey === adjustedLiabilityNodeKey && detailExpandedNodes.includes(nodeKey);
   let nextDetailExpandedNode = detailExpandedNode;
+  let nextDetailExpandedNodes = [...detailExpandedNodes];
   if (nodeKey === "raw-net-outflow") {
     nextDetailExpandedNode = detailExpandedNode === nodeKey ? "" : nodeKey;
-  } else if (nodeKey === "cumulative-maturity-gap") {
-    nextDetailExpandedNode = ["cumulative-maturity-gap", "maturity-gap"].includes(detailExpandedNode) ? "" : nodeKey;
-  } else if (nodeKey === "maturity-gap") {
-    nextDetailExpandedNode = detailExpandedNode === nodeKey ? "cumulative-maturity-gap" : nodeKey;
+  } else if ([
+    adjustedLiabilityNodeKey,
+    "due-on-off-balance-assets",
+    ...adjustedLiabilityComponentKeys,
+  ].includes(nodeKey)) {
+    nextDetailExpandedNodes = collapseAdjustedLiability
+      ? detailExpandedNodes.filter((key) => key !== adjustedLiabilityNodeKey && !adjustedLiabilityComponentKeys.includes(key))
+      : detailExpandedNodes.includes(nodeKey)
+        ? detailExpandedNodes.filter((key) => key !== nodeKey)
+        : [...detailExpandedNodes, nodeKey];
   } else if (collapseNumerator || collapseDenominator) {
     nextDetailExpandedNode = "";
+    if (collapseNumerator) nextDetailExpandedNodes = [];
   }
   appState.liquidityProcessModal = {
     ...appState.liquidityProcessModal,
-    activeNode: collapseNumerator || collapseDenominator ? "ratio" : nodeKey,
+    activeNode: collapseNumerator || collapseDenominator || collapseAdjustedLiability ? "ratio" : nodeKey,
     numeratorExpanded: nodeKey === "numerator"
       ? !appState.liquidityProcessModal.numeratorExpanded
       : appState.liquidityProcessModal.numeratorExpanded,
@@ -929,6 +949,7 @@ liquidityProcessModalEl.addEventListener("click", (event) => {
       ? !appState.liquidityProcessModal.denominatorExpanded
       : appState.liquidityProcessModal.denominatorExpanded,
     detailExpandedNode: nextDetailExpandedNode,
+    detailExpandedNodes: nextDetailExpandedNodes,
   };
   renderLiquidityProcessModal();
 });

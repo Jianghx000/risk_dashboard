@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>风险分析视图</title>
-    <link rel="stylesheet" href="./styles.css?v=2026071701" />
+    <link rel="stylesheet" href="./styles.css?v=2026071809" />
   </head>
   <body>
     <div class="system-frame">
@@ -89,18 +89,22 @@
                   <div class="content__toolbar system-header-filters">
                     <div class="global-filter-bar" id="globalFilterBar"></div>
                   </div>
-                  <div class="hero__meta">
-                    <div class="hero__controls">
-                      <div class="hero__control-group">
-                        <label class="hero__control-label" for="globalStartDate">开始时间</label>
-                        <input class="hero__control-input" id="globalStartDate" type="date" />
-                      </div>
-                      <div class="hero__control-group">
-                        <label class="hero__control-label" for="globalEndDate">结束时间</label>
-                        <input class="hero__control-input" id="globalEndDate" type="date" />
+                    <div class="hero__meta">
+                      <div class="hero__controls">
+                        <div class="hero__controls-scope" id="riskDateControls">
+                          <div class="hero__control-group">
+                            <label class="hero__control-label" for="globalEndDate">结束时间</label>
+                            <input class="hero__control-input" id="globalEndDate" type="date" />
+                          </div>
+                        </div>
+                        <div class="hero__controls-scope" id="businessDateControls" hidden>
+                          <div class="hero__control-group">
+                            <label class="hero__control-label" for="businessEndDate">结束时间（月末）</label>
+                            <select class="hero__control-input" id="businessEndDate" data-business-month-end-filter="1"></select>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -115,19 +119,19 @@
 
     <div class="filter-modal" id="filterModal" aria-hidden="true"></div>
 
-    <script src="./dashboard-data.js?v=2026071701"></script>
-    <script src="./dashboard-config.js?v=2026071701"></script>
-    <script src="./mock-data-adapter.js?v=2026071701"></script>
-    <script src="./dashboard-domain.js?v=2026071701"></script>
-    <script src="./dashboard-utils.js?v=2026071701"></script>
-    <script src="./app.js?v=2026071701"></script>
-    <script src="./dashboard-simulation.js?v=2026071701"></script>
-    <script src="./dashboard-processes.js?v=2026071701"></script>
-    <script src="./dashboard-business-renderers.js?v=2026071701"></script>
-    <script src="./dashboard-interest-renderers.js?v=2026071701"></script>
-    <script src="./dashboard-liquidity-renderers.js?v=2026071701"></script>
-    <script src="./dashboard-renderers.js?v=2026071701"></script>
-    <script src="./dashboard-events.js?v=2026071701"></script>
+    <script src="./dashboard-data.js?v=2026071809"></script>
+    <script src="./dashboard-config.js?v=2026071809"></script>
+    <script src="./mock-data-adapter.js?v=2026071809"></script>
+    <script src="./dashboard-domain.js?v=2026071809"></script>
+    <script src="./dashboard-utils.js?v=2026071809"></script>
+    <script src="./app.js?v=2026071809"></script>
+    <script src="./dashboard-simulation.js?v=2026071809"></script>
+    <script src="./dashboard-processes.js?v=2026071809"></script>
+    <script src="./dashboard-business-renderers.js?v=2026071809"></script>
+    <script src="./dashboard-interest-renderers.js?v=2026071809"></script>
+    <script src="./dashboard-liquidity-renderers.js?v=2026071809"></script>
+    <script src="./dashboard-renderers.js?v=2026071809"></script>
+    <script src="./dashboard-events.js?v=2026071809"></script>
   </body>
 </html>
 

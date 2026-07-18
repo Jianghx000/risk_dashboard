@@ -3768,6 +3768,18 @@ body::before {
   stroke: #c86f43;
 }
 
+.liquidity-gap-bar {
+  cursor: pointer;
+  transition: opacity 0.16s ease, stroke 0.16s ease, stroke-width 0.16s ease;
+}
+
+.liquidity-gap-bar:hover,
+.liquidity-gap-bar.is-selected {
+  opacity: 0.9;
+  stroke: #c86f43;
+  stroke-width: 2.8;
+}
+
 .eve-point-popover {
   position: absolute;
   z-index: 10;
@@ -4086,7 +4098,15 @@ body::before {
   flex: 0 0 auto;
 }
 
-.eve-process-node__change {
+.eve-process-node__comparisons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.eve-process-node__change,
+.eve-process-node__impact {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
@@ -4099,14 +4119,22 @@ body::before {
   white-space: nowrap;
 }
 
-.eve-process-node__change.is-up {
+.eve-process-node__change.is-up,
+.eve-process-node__impact.is-up {
   background: rgba(255, 244, 232, 0.98);
   color: #bf6a3e;
 }
 
-.eve-process-node__change.is-down {
+.eve-process-node__change.is-down,
+.eve-process-node__impact.is-down {
   background: rgba(231, 244, 255, 0.98);
   color: #2f6fa3;
+}
+
+.eve-process-node__impact {
+  border: 1px solid rgba(129, 174, 220, 0.42);
+  background: rgba(247, 251, 255, 0.98);
+  color: #315f91;
 }
 
 .eve-process-node__action {
@@ -4295,43 +4323,51 @@ body::before {
   word-break: normal;
 }
 
-.repricing-gap-process-detail {
+.repricing-gap-process-detail,
+.liquidity-gap-process-detail {
   min-width: 990px;
 }
 
-.repricing-gap-branch-tree {
+.repricing-gap-branch-tree,
+.liquidity-gap-branch-tree {
   display: grid;
   gap: 10px;
 }
 
-.repricing-gap-branch-row {
+.repricing-gap-branch-row,
+.liquidity-gap-branch-row {
   display: grid;
   grid-template-columns: 290px 64px minmax(560px, 1fr);
   align-items: center;
   min-width: 0;
 }
 
-.repricing-gap-branch-row > .eve-process-node {
+.repricing-gap-branch-row > .eve-process-node,
+.liquidity-gap-branch-row > .eve-process-node {
   grid-column: 1;
   width: 290px;
   min-height: 132px;
 }
 
-.repricing-gap-branch-row__connector {
+.repricing-gap-branch-row__connector,
+.liquidity-gap-branch-row__connector {
   grid-column: 2;
 }
 
-.repricing-gap-branch-row__children {
+.repricing-gap-branch-row__children,
+.liquidity-gap-branch-row__children {
   grid-column: 3;
   min-width: 0;
 }
 
-.repricing-gap-branch-tree__operator {
+.repricing-gap-branch-tree__operator,
+.liquidity-gap-branch-tree__operator {
   display: grid;
   grid-template-columns: 290px 64px minmax(560px, 1fr);
 }
 
-.repricing-gap-branch-tree__operator .eve-process-mini-operator {
+.repricing-gap-branch-tree__operator .eve-process-mini-operator,
+.liquidity-gap-branch-tree__operator .eve-process-mini-operator {
   grid-column: 1;
   justify-self: center;
 }
@@ -4463,6 +4499,154 @@ body::before {
 
 .liquidity-ratio-process-flow__lane {
   grid-template-columns: 210px 52px 250px 56px minmax(500px, 1fr);
+}
+
+.liquidity-gap-complement-flow__canvas {
+  min-width: 1580px;
+  min-height: 760px;
+  padding: 30px;
+}
+
+.liquidity-gap-amount-flow__canvas {
+  min-width: 1580px;
+  min-height: 900px;
+  padding: 30px;
+}
+
+.liquidity-gap-complement-flow__lane {
+  grid-template-columns: 240px 62px minmax(1210px, 1fr);
+  align-items: center;
+  min-height: 700px;
+}
+
+.liquidity-gap-amount-flow__lane {
+  grid-template-columns: 240px 62px minmax(1210px, 1fr);
+  align-items: center;
+  min-height: 840px;
+}
+
+.liquidity-gap-amount-expression {
+  align-self: center;
+}
+
+.liquidity-gap-complement-expression {
+  display: grid;
+  grid-template-columns: 118px 62px minmax(290px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.liquidity-gap-complement-constant {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 104px;
+  padding: 14px 10px;
+  border: 1px solid #acd2f5;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(250, 253, 255, 0.98), rgba(227, 242, 255, 0.96));
+  box-shadow: 0 12px 28px rgba(62, 113, 174, 0.13);
+}
+
+.liquidity-gap-complement-constant span {
+  color: #6c88a8;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.liquidity-gap-complement-constant strong {
+  color: #165ba5;
+  font-size: 31px;
+  font-weight: 950;
+  letter-spacing: -1px;
+}
+
+.liquidity-gap-complement-minus {
+  font-size: 29px;
+}
+
+.liquidity-gap-complement-fraction {
+  display: grid;
+  min-width: 290px;
+}
+
+.liquidity-gap-complement-fraction__numerator,
+.liquidity-gap-complement-fraction__denominator {
+  min-width: 0;
+}
+
+.liquidity-gap-complement-fraction .liquidity-gap-branch-row {
+  width: max-content;
+  min-width: 290px;
+}
+
+.liquidity-gap-complement-fraction .liquidity-gap-branch-row:not(.is-expanded) {
+  grid-template-columns: 290px;
+}
+
+.liquidity-gap-complement-fraction .liquidity-gap-branch-row.is-expanded {
+  grid-template-columns: 290px 64px minmax(660px, 1fr);
+}
+
+.liquidity-gap-complement-fraction .liquidity-gap-process-strip {
+  overflow: visible;
+}
+
+.liquidity-gap-adjusted-liability__children {
+  display: grid;
+  gap: 12px;
+  min-width: 660px;
+}
+
+.liquidity-gap-adjusted-liability__details {
+  display: grid;
+  gap: 10px;
+}
+
+.liquidity-gap-adjusted-liability__detail {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(159, 200, 241, 0.58);
+  border-radius: 14px;
+  background: rgba(248, 252, 255, 0.94);
+}
+
+.liquidity-gap-complement-fraction__divider {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 290px;
+  height: 58px;
+}
+
+.liquidity-gap-complement-fraction__divider::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(83, 146, 213, 0.36), rgba(55, 126, 204, 0.9), rgba(83, 146, 213, 0.36));
+}
+
+.liquidity-gap-complement-fraction__divider span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #8ab9eb;
+  border-radius: 50%;
+  background: #e8f4ff;
+  color: #1459a6;
+  font-size: 32px;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(41, 111, 184, 0.18);
 }
 
 .eve-process-slider__axis .is-muted {
@@ -5345,6 +5529,16 @@ body::before {
   display: flex;
   align-items: center;
   gap: 18px;
+}
+
+.system-page-header .hero__controls-scope {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.system-page-header .hero__controls-scope[hidden] {
+  display: none;
 }
 
 .system-page-header .hero__control-group {

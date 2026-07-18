@@ -453,8 +453,8 @@ function calculateLiquidityCashFlowGapMetrics(matrix = {}) {
   const cumulativeOutflows = bucketOutflows.map((_, bucketIndex) =>
     Number(bucketOutflows.slice(0, bucketIndex + 1).reduce((sum, value) => sum + value, 0).toFixed(1))
   );
-  const gapRatios = cumulativeTotals.map((gap, bucketIndex) => cumulativeOutflows[bucketIndex]
-    ? Number(((gap / cumulativeOutflows[bucketIndex]) * 100).toFixed(2))
+  const gapRatios = cumulativeTotals.map((gap, bucketIndex) => cumulativeInflows[bucketIndex]
+    ? Number(((gap / cumulativeInflows[bucketIndex]) * 100).toFixed(2))
     : 0
   );
   return {

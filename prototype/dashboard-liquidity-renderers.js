@@ -305,6 +305,9 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
   const selectedIndex = selectedPopover?.widgetSeq === widget.seq && selectedPopover.kind === "liquidityGap"
     ? clampNumber(Number(selectedPopover.dateIndex), 0, chartContext.xLabels.length - 1)
     : null;
+  const selectedMetric = selectedPopover?.widgetSeq === widget.seq && selectedPopover.kind === "liquidityGap"
+    ? selectedPopover.metric || "ratio"
+    : "";
   const matchedLimits = getMatchingManagementLimits(widget, chartContext);
   const limitValues = matchedLimits.map((entry) => Number(entry.value)).filter(Number.isFinite);
   const leftMinRaw = Math.min(
@@ -344,7 +347,26 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
       const valueY = scaleValueToY(value);
       const height = Math.abs(zeroY - valueY);
       const y = Math.min(zeroY, valueY);
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="8" fill="${getBarFillColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.78)}" stroke="${getBarStrokeColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.3)}" stroke-width="1"></rect>`;
+      const isSelected = index === selectedIndex && selectedMetric === "amount";
+      return `<rect
+        class="liquidity-gap-bar ${isSelected ? "is-selected" : ""}"
+        x="${x}"
+        y="${y}"
+        width="${barWidth}"
+        height="${height}"
+        rx="8"
+        fill="${getBarFillColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.78)}"
+        stroke="${isSelected ? EVE_COLOR_WORST : getBarStrokeColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.3)}"
+        stroke-width="${isSelected ? 2.8 : 1}"
+        data-liquidity-point="true"
+        data-widget-seq="${widget.seq}"
+        data-liquidity-kind="liquidityGap"
+        data-liquidity-metric="amount"
+        data-date-index="${index}"
+        data-liquidity-signature="${series.diagnosticModel.signature}"
+        data-liquidity-labels="${series.diagnosticModel.labels.join("||")}"
+        aria-label="${series.diagnosticModel.displayLabels[index]} 查看流动性缺口计算过程"
+      ></rect>`;
     }).join(""))
     .join("");
 
@@ -359,7 +381,7 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
       return `
         <polyline fill="none" stroke="${color}" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
         ${points.map((point, index) => {
-          const isSelected = index === selectedIndex;
+          const isSelected = index === selectedIndex && selectedMetric !== "amount";
           return `<circle
             class="eve-ratio-point liquidity-ratio-point ${isSelected ? "is-selected" : ""}"
             cx="${point.x}"
@@ -371,6 +393,7 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
             data-liquidity-point="true"
             data-widget-seq="${widget.seq}"
             data-liquidity-kind="liquidityGap"
+            data-liquidity-metric="ratio"
             data-date-index="${index}"
             data-liquidity-signature="${series.diagnosticModel.signature}"
             data-liquidity-labels="${series.diagnosticModel.labels.join("||")}"
@@ -399,6 +422,7 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
         stroke="${SIMULATION_COLOR}"
         stroke-width="2.4"
         stroke-dasharray="5 3"
+        pointer-events="none"
         data-liquidity-gap-simulation-bar="true"
       ><title>${series.label}测算后缺口规模 ${value.toFixed(1)}</title></rect>
     `;
@@ -428,14 +452,16 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
     labelPlacement: "topRight",
   });
   const selectedSeries = seriesData[0];
-  const selectedRatioPoint = Number.isInteger(selectedIndex) && selectedSeries
+  const selectedPoint = Number.isInteger(selectedIndex) && selectedSeries
     ? {
       x: getFrameXPosition(frame, selectedIndex, chartContext.xLabels.length),
-      y: ratioValueToY(selectedSeries.ratioValues[selectedIndex]),
+      y: selectedMetric === "amount"
+        ? Math.min(zeroY, scaleValueToY(selectedSeries.scaleValues[selectedIndex]))
+        : ratioValueToY(selectedSeries.ratioValues[selectedIndex]),
     }
     : null;
-  const popoverMarkup = selectedRatioPoint
-    ? renderLiquidityPointPopover(widget, selectedSeries.diagnosticModel, selectedRatioPoint, selectedIndex)
+  const popoverMarkup = selectedPoint
+    ? renderLiquidityPointPopover(widget, selectedSeries.diagnosticModel, selectedPoint, selectedIndex, selectedMetric || "ratio")
     : "";
 
   return `

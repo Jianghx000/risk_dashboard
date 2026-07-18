@@ -102,6 +102,7 @@ window.dashboardConfig = {
     },
     "业务变动分析": {
       "analysisPerspective": "interestBalanceStructure",
+      "dateRangeMode": "independentMonthEnd",
       "analysisPerspectiveOptions": [
         "interestBalanceStructure",
         "liquidityBalanceStructure"
@@ -349,12 +350,12 @@ window.dashboardConfig = {
       "tableKind": "businessDetail",
       "detailScope": "new",
       "detailTablePreset": "businessChangeDetail",
-      "methodologyKey": "newDaily"
+      "methodologyKey": "newMonthly"
     },
     "89": {
       "tableKind": "businessStructure",
       "structureScope": "new",
-      "methodologyKey": "newDaily",
+      "methodologyKey": "newMonthly",
       "showDateFilter": true,
       "drilldownTargetSeq": 85,
       "inlineFilters": [
@@ -375,7 +376,7 @@ window.dashboardConfig = {
     "96": {
       "tableKind": "businessStructure",
       "structureScope": "maturity",
-      "methodologyKey": "maturityDaily",
+      "methodologyKey": "maturityMonthly",
       "showDateFilter": true,
       "maturityStructure": true,
       "drilldownTargetSeq": 97,
@@ -387,7 +388,7 @@ window.dashboardConfig = {
       "tableKind": "businessDetail",
       "detailScope": "maturity",
       "detailTablePreset": "businessChangeDetail",
-      "methodologyKey": "maturityDaily"
+      "methodologyKey": "maturityMonthly"
     }
   },
   "widgetFilters": {
@@ -524,7 +525,7 @@ window.dashboardConfig = {
     },
     "timeRangeSelector": {
       "name": "时间区间（起止）",
-      "label": "时间区间（起止）",
+      "label": "统计月末区间",
       "type": "dateRange",
       "defaultValues": [],
       "multi": false
