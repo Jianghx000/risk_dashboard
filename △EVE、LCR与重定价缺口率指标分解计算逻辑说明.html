@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="境外分行△EVE、LCR与重定价缺口率的统一归因方法、数值案例、接口约定和可直接使用的JavaScript代码。">
   <link rel="icon" href="data:,">
-  <title>△EVE与LCR指标分解计算逻辑说明</title>
+  <title>△EVE、LCR与重定价缺口率指标分解计算逻辑说明</title>
   <style>
     :root {
       --navy: #12304a;
@@ -435,6 +436,10 @@
       background: linear-gradient(135deg, #234f48, #17756c);
     }
 
+    .story--repricing .story__intro {
+      background: linear-gradient(135deg, #3f3b7a, #6556a6);
+    }
+
     .part-label {
       display: inline-block;
       margin-bottom: 8px;
@@ -453,7 +458,7 @@
 
     .method-overview__grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
       margin: 18px 0;
     }
@@ -740,15 +745,16 @@
   <header class="cover">
     <div class="cover__inner">
       <p class="eyebrow">风险分析视图 · 指标计算过程</p>
-      <h1>△EVE与LCR指标分解计算逻辑说明</h1>
+      <h1>△EVE、LCR与重定价缺口率指标分解计算逻辑说明</h1>
       <p class="cover__summary">
-        本文用两个代表性指标建立统一归因框架：境外分行△EVE演示“MAX在分子、乘除在分母”，LCR演示“MAX在分母、加减与约束切换”。两组案例都从真实数字出发，先讲清业务逻辑，再给IT可直接使用的代码。
+        本文用三个代表性指标建立统一归因框架：境外分行△EVE演示“MAX在分子、乘除在分母”，LCR演示“MAX在分母、加减与约束切换”，重定价缺口率演示“同一资产业务同时进入分子和分母”。三个案例都从真实数字出发，先讲清业务逻辑，再给IT可直接使用的代码。
       </p>
       <div class="cover__meta">
-        <span class="tag">版本：2.0</span>
+        <span class="tag">版本：3.0</span>
         <span class="tag">日期：2026-07-18</span>
         <span class="tag">案例A：境外分行△EVE</span>
         <span class="tag">案例B：LCR</span>
+        <span class="tag">案例C：重定价缺口率</span>
         <span class="tag">代码：原生 JavaScript，无第三方依赖</span>
       </div>
     </div>
@@ -765,7 +771,11 @@
       <a href="#lcr-top-level">　HQLA与分母归因</a>
       <a href="#lcr-paths">　分母替换路径</a>
       <a href="#lcr-answer">　LCR最终答案</a>
-      <a href="#calculators">两项指标试算</a>
+      <a href="#repricing-gap-walkthrough">案例C · 重定价缺口率</a>
+      <a href="#repricing-gap-factor">　资产业务联合因素</a>
+      <a href="#repricing-gap-paths">　六条替换路径</a>
+      <a href="#repricing-gap-answer">　缺口率最终答案</a>
+      <a href="#calculators">三项指标试算</a>
       <a href="#interface">交给IT的接口约定</a>
       <a href="#source">可直接使用的代码</a>
       <a href="#tests">测试与生产要求</a>
@@ -773,7 +783,7 @@
 
     <main>
       <section id="common-method" class="method-overview">
-        <h2>先建立统一框架：两个指标讲的是同一件事</h2>
+        <h2>先建立统一框架：三个指标讲的是同一件事</h2>
         <p class="lead">我们要解释的都不是“某个节点自身变了多少”，而是“这个变化最终让风险指标变了多少个百分点”。共同做法是从基期走到当期，计算每个因素在不同替换顺序下的边际影响，再取平均并严格勾稽。</p>
         <div class="method-overview__grid">
           <div class="method-overview__card">
@@ -785,6 +795,11 @@
             <strong>案例B：LCR</strong>
             <div class="method-overview__formula">HQLA ÷ MAX（净流出，25%流出）</div>
             <p>重点解决MAX出现在分母、现金流出同时参与两个候选分母，以及净现金流出与25%现金流出之间的约束切换。</p>
+          </div>
+          <div class="method-overview__card">
+            <strong>案例C：重定价缺口率</strong>
+            <div class="method-overview__formula">业务缺口合计 ÷ 总生息资产</div>
+            <p>重点解决同一资产业务既改变分子的重定价规模，又改变分母的总生息资产规模；归因时必须将两项数值绑定为一个业务因素。</p>
           </div>
         </div>
         <div class="operation-map">
@@ -1119,15 +1134,122 @@
         </div>
       </section>
 
+      <section id="repricing-gap-walkthrough" class="story story--repricing">
+        <div class="story__intro">
+          <span class="part-label">案例C · 同一业务同时进入分子和分母</span>
+          <h2>重定价缺口率：直接按业务归因，不把分母伪造成独立因素</h2>
+          <p>这次要解释的是：一类资产业务的变动既会改变重定价缺口，又会改变总生息资产。归因时把该业务的“重定价规模、总生息资产规模”作为一个不可拆开的联合状态，一次替换、一次计算其对最终缺口率的合计影响。</p>
+        </div>
+
+        <div class="story__body">
+          <div class="answer-strip">
+            <div class="answer-strip__item"><span>基期缺口率</span><strong>8.7500%</strong></div>
+            <div class="answer-strip__item"><span>当期缺口率</span><strong>10.2410%</strong></div>
+            <div class="answer-strip__item"><span>需要解释的变化</span><strong class="positive">+1.4910 pp</strong></div>
+          </div>
+
+          <article class="story-step">
+            <span class="story-step__number">1</span>
+            <h3>先把项目中的真实公式和业务范围写完整</h3>
+            <p class="story-step__question">缺口率分子由资产端、负债端和两类表外衍生品缺口组成；分母为资产端各类业务的总生息资产规模之和。</p>
+            <div class="big-equation">重定价缺口率 R = 100 ×〔Σ资产重定价规模 Xᵢ − Σ负债重定价规模 Lⱼ + 银行账簿应收 Bᵣ − 银行账簿应付 Bₚ + 交易账簿应收 Tᵣ − 交易账簿应付 Tₚ〕÷ Σ资产总生息规模 Aᵢ</div>
+            <div class="grid-2">
+              <div class="card">
+                <strong>法人汇总口径</strong>
+                <p>资产端包括自营贷款、投资类资产、同业资产、自营非标投资、存放央行；负债端包括定期存款、同业负债、发行债券、向央行借款、租赁负债。剔除内部交易，负债端不含活期存款，共14个末级因素。</p>
+              </div>
+              <div class="card">
+                <strong>单个境外分行口径</strong>
+                <p>在法人汇总口径基础上增加内部交易资产、内部交易负债；仍不纳入活期存款，共16个末级因素。机构口径只改变因素集合，不改变归因算法。</p>
+              </div>
+            </div>
+            <div class="plain-language"><strong>符号必须在数据层固定：</strong>资产、表外应收按正号进入分子；负债、表外应付按负号进入分子。页面展示“当前规模”和“较基期变化”时可保留业务原始正金额，但计算公式必须使用上述符号。</div>
+          </article>
+
+          <article id="repricing-gap-factor" class="story-step">
+            <span class="story-step__number">2</span>
+            <h3>为什么一类资产业务只能作为一个联合因素</h3>
+            <p class="story-step__question">以自营贷款为例，其状态不是一个数，而是一对数值：{重定价规模X，自营贷款对应的总生息资产A}。从基期替换到当期时，两项必须同时替换。</p>
+            <div class="big-equation">资产业务 i：Fᵢ⁰ = {Xᵢ⁰，Aᵢ⁰}　→　Fᵢ¹ = {Xᵢ¹，Aᵢ¹}</div>
+            <p>若其他业务形成的当前路径状态为分子N、分母D，本业务变化为△X、△A，则它在该路径位置的真实边际影响为：</p>
+            <div class="big-equation">△Rᵢ = 100 ×〔(N+△X)÷(D+△A) − N÷D〕 = 100 × (△X·D − N·△A) ÷〔D(D+△A)〕</div>
+            <div class="grid-2">
+              <div class="path-card"><div class="path-card__title">分子作用</div><p>△X增大，会直接推高分子；其他条件相同时倾向于推高缺口率。</p></div>
+              <div class="path-card"><div class="path-card__title">分母作用</div><p>△A增大，会扩大总生息资产；当分子为正时倾向于摊薄缺口率。</p></div>
+            </div>
+            <div class="callout callout--warning"><strong>不再分别报告“分子影响”和“分母影响”：</strong>二者会在完整比例函数中发生交互，拆开后又需要人为分配交互项。页面只报告该业务对最终缺口率的一个合计影响；卡片同时保留“当前规模、较基期变化、影响”，让使用者知道业务本身发生了什么。</div>
+          </article>
+
+          <article id="repricing-gap-paths" class="story-step">
+            <span class="story-step__number">3</span>
+            <h3>用三个活跃因素算完六条路径</h3>
+            <p class="story-step__question">为便于手工理解，把其他未变化业务合并到固定底座，只保留一类资产业务、负债业务和银行账簿衍生品三个活跃因素。生产算法仍按全部14或16个末级业务直接计算。</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>因素</th><th>基期</th><th>当期</th><th>替换含义</th></tr></thead>
+                <tbody>
+                  <tr><td>资产业务</td><td>X=100，A=150</td><td>X=120，A=180</td><td>重定价规模与总生息资产同时替换</td></tr>
+                  <tr><td>其他固定资产</td><td>X=300，A=650</td><td>X=300，A=650</td><td>仅构成公式底座，不产生贡献</td></tr>
+                  <tr><td>负债业务</td><td>L=350</td><td>L=360</td><td>按负号进入分子</td></tr>
+                  <tr><td>银行账簿衍生品净缺口</td><td>+20</td><td>+25</td><td>本例仅应收变化；生产中应收、应付分别作为因素</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="grid-2">
+              <div class="path-card"><div class="path-card__title">基期</div><p>N₀=100+300−350+20=70；D₀=150+650=800；R₀=<strong>8.7500%</strong>。</p></div>
+              <div class="path-card"><div class="path-card__title">当期</div><p>N₁=120+300−360+25=85；D₁=180+650=830；R₁=<strong>10.2410%</strong>。</p></div>
+            </div>
+            <p>三个活跃因素共有3!=6条替换路径。每条路径都从完整基期状态开始，每替换一个因素就重算一次完整缺口率；某一步重算前后的差，就是该因素在这条路径中的边际贡献。</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>替换顺序</th><th>资产业务</th><th>负债业务</th><th>衍生品</th><th>路径合计</th></tr></thead>
+                <tbody>
+                  <tr><td>资产 → 负债 → 衍生品</td><td>+2.0934</td><td>−1.2048</td><td>+0.6024</td><td>+1.4910</td></tr>
+                  <tr><td>资产 → 衍生品 → 负债</td><td>+2.0934</td><td>−1.2048</td><td>+0.6024</td><td>+1.4910</td></tr>
+                  <tr><td>负债 → 资产 → 衍生品</td><td>+2.1386</td><td>−1.2500</td><td>+0.6024</td><td>+1.4910</td></tr>
+                  <tr><td>负债 → 衍生品 → 资产</td><td>+2.1160</td><td>−1.2500</td><td>+0.6250</td><td>+1.4910</td></tr>
+                  <tr><td>衍生品 → 资产 → 负债</td><td>+2.0708</td><td>−1.2048</td><td>+0.6250</td><td>+1.4910</td></tr>
+                  <tr><td>衍生品 → 负债 → 资产</td><td>+2.1160</td><td>−1.2500</td><td>+0.6250</td><td>+1.4910</td></tr>
+                  <tr><td><strong>六路径平均</strong></td><td class="positive"><strong>+2.1047</strong></td><td class="negative"><strong>−1.2274</strong></td><td class="positive"><strong>+0.6137</strong></td><td><strong>+1.4910</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="plain-language"><strong>为什么路径位置会改变贡献：</strong>资产业务先替换时，它面对的是基期负债和衍生品；后替换时，分子底座已经不同。比例函数非线性，因此边际贡献不同。Shapley值就是把所有可能位置公平平均。</div>
+          </article>
+
+          <article id="repricing-gap-answer" class="story-step">
+            <span class="story-step__number">4</span>
+            <h3>生产页面按四个业务分支汇总，末级业务贡献直接相加</h3>
+            <div class="contribution-tree">
+              <div class="contribution-tree__group">
+                <strong>资产端业务 +2.1047 pp</strong>
+                <div><span>示例资产业务（X与A联合）</span><b class="positive">+2.1047</b></div>
+              </div>
+              <span class="contribution-tree__operator">+</span>
+              <div class="contribution-tree__group">
+                <strong>其他三类业务 −0.6137 pp</strong>
+                <div><span>负债端业务</span><b class="negative">−1.2274</b></div>
+                <div><span>银行账簿表外衍生品</span><b class="positive">+0.6137</b></div>
+                <div><span>交易账簿表外衍生品</span><b>0.0000</b></div>
+              </div>
+              <span class="contribution-tree__operator">=</span>
+              <div class="contribution-tree__result"><strong>缺口率总变化</strong><b>+1.4910 pp</b></div>
+            </div>
+            <div class="callout callout--success"><strong>可以直接用于汇报的一句话：</strong>重定价缺口率由8.7500%上升至10.2410%，上升1.4910个百分点。其中，资产业务在重定价规模增加20、总生息资产增加30的共同作用下贡献+2.1047个百分点；负债业务增加10贡献−1.2274个百分点，银行账簿衍生品净应收增加5贡献+0.6137个百分点，全部业务贡献与指标变化严格一致。</div>
+            <div class="plain-language"><strong>计算量：</strong>法人汇总14个因素采用子集加权法需要14×2¹³=114,688次边际计算；单个境外分行16个因素需要16×2¹⁵=524,288次。它们与14!、16!条全排列路径得到相同Shapley值，但计算量可控，也无需把分子和分母继续拆成独立因素。</div>
+          </article>
+        </div>
+      </section>
+
       <details class="technical-details">
-        <summary>展开两项指标的技术口径与数学推导<small>两组业务讲解到上面已经结束；本部分供IT、模型和数据人员核对公式、符号及边界条件。</small></summary>
+        <summary>展开三项指标的技术口径与数学推导<small>三组业务讲解到上面已经结束；本部分供IT、模型和数据人员核对公式、符号及边界条件。</small></summary>
       <section id="conclusion">
-        <h2>1. 结论与适用范围</h2>
+        <h2>1. 统一结论与适用范围</h2>
         <p class="lead">
-          境外分行△EVE比例的分母包含乘法和除法，分子又包含六情景取绝对值最大值，因此不能使用固定顺序替换、简单比例分摊或一阶导数近似作为正式归因结果。
+          三个指标的难点虽然不同——△EVE包含ABS、MAX、乘除，LCR包含分母MAX和约束切换，重定价缺口率包含同一业务跨分子分母——但都可以统一为：定义业务因素的基期、当期完整状态，用真实指标函数计算边际变化，再对所有替换位置公平平均。
         </p>
         <div class="callout callout--success">
-          <strong>推荐方案：</strong>一级按“最大经济价值变动”和“境外分行分配资本”分组；分母组内部再按“境外分行RWA、法人RWA、法人一级资本净额”分解。对两个组的先后顺序以及分母组三项因素的先后顺序全部取平均，共计算12条完整反事实路径。该方法对非线性公式仍然适用，且所有贡献之和严格等于最终指标变化。
+          <strong>统一原则：</strong>因素必须按最终要解释的业务含义定义。△EVE和LCR适合先按分子、分母分组后做Owen归因；重定价缺口率直接把末级业务作为因素，其中每类资产业务以{重定价规模，总生息资产}联合状态参与Shapley归因。三种结果都必须满足“末级贡献合计 = 当期指标 − 基期指标”。
         </div>
         <p>本文输出两类结果，二者必须在页面和接口中明确区分：</p>
         <div class="grid-2">
@@ -1368,10 +1490,45 @@
           <li>所有末级贡献之和 = 当期LCR − 基期LCR。</li>
         </ul>
       </section>
+
+      <section id="repricing-gap-technical">
+        <h2>重定价缺口率技术口径摘要</h2>
+        <div class="formula">
+          R(F)=100×
+          <span class="fraction"><span>ΣXᵢ−ΣLⱼ+Bᵣ−Bₚ+Tᵣ−Tₚ</span><span>ΣAᵢ</span></span>
+          <small>每个资产业务因素Fᵢ同时携带Xᵢ和Aᵢ；负债及四个表外衍生品因素携带一个金额。</small>
+        </div>
+        <h3>联合状态与子集函数</h3>
+        <p>设全部末级业务因素集合为F。对任意子集S⊆F，S中的因素取当期状态，其他因素取基期状态。将该混合状态代入完整公式得到v(S)=R(S)。对资产业务而言，“取当期状态”必须同时取当期X和当期A，不能一项取基期、另一项取当期。</p>
+        <div class="formula">
+          φ<sub>k</sub>=Σ<sub>S⊆F\{k}</sub>
+          <span class="fraction"><span>|S|!（n−|S|−1）!</span><span>n!</span></span>
+          ×〔v(S∪{k})−v(S)〕
+          <small>φk是业务k对最终重定价缺口率的百分点贡献。</small>
+        </div>
+        <h3>因素集合与计算量</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>机构口径</th><th>资产因素</th><th>负债因素</th><th>衍生品因素</th><th>合计n</th><th>子集边际计算</th></tr></thead>
+            <tbody>
+              <tr><td>法人汇总</td><td>5（剔除内部交易）</td><td>5（剔除内部交易、不含活期）</td><td>4</td><td>14</td><td>14×2¹³=114,688</td></tr>
+              <tr><td>单个境外分行</td><td>6（包含内部交易资产）</td><td>6（包含内部交易负债、不含活期）</td><td>4</td><td>16</td><td>16×2¹⁵=524,288</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>汇总与校验</h3>
+        <p>先得到每个末级业务的直接Shapley贡献，再按页面的四个分支做无损汇总。资产端分支等于全部资产业务贡献之和；负债端同理；两个衍生品分支分别等于各自应收、应付贡献之和。四个分支不是重新计算的二次归因结果。</p>
+        <ul>
+          <li>资产业务卡片展示当前重定价规模、较基期变化、当前总生息资产规模及合计影响；</li>
+          <li>负债和衍生品卡片展示当前规模、较基期变化及合计影响；</li>
+          <li>不输出“分子贡献”“分母贡献”两个虚构末级因素；</li>
+          <li>四个业务分支贡献之和 = 全部末级贡献之和 = 当期缺口率 − 基期缺口率。</li>
+        </ul>
+      </section>
       </details>
 
       <section id="calculators">
-        <h2>两项指标自己换数字试算</h2>
+        <h2>三项指标自己换数字试算</h2>
         <p>修改下列基期、当期数据后点击“计算分解”。计算器调用的就是文档后面交付给IT的同一份代码。</p>
         <div class="calculator">
           <div class="calculator__head"><h3>境外分行△EVE归因试算</h3></div>
@@ -1442,6 +1599,41 @@
             <div id="lcr-calculator-output" aria-live="polite"></div>
           </div>
         </div>
+
+        <div class="calculator">
+          <div class="calculator__head"><h3>重定价缺口率业务归因试算</h3></div>
+          <div class="calculator__body">
+            <p>资产业务的重定价规模和总生息资产规模会作为同一个联合因素参与计算。下表用两个资产因素、一个负债因素和四个表外衍生品因素演示；生产接口可传入完整业务分类。</p>
+            <h4>资产端联合因素</h4>
+            <div class="table-wrap">
+              <table class="input-table">
+                <thead><tr><th rowspan="2">业务</th><th colspan="2">基期</th><th colspan="2">当期</th></tr><tr><th>重定价规模</th><th>总生息资产</th><th>重定价规模</th><th>总生息资产</th></tr></thead>
+                <tbody>
+                  <tr><td>示例资产业务</td><td><input data-rg-asset="mainAsset" data-rg-side="base" data-rg-field="repricingScale" type="number" step="any" value="100"></td><td><input data-rg-asset="mainAsset" data-rg-side="base" data-rg-field="totalInterestAssets" type="number" step="any" value="150"></td><td><input data-rg-asset="mainAsset" data-rg-side="current" data-rg-field="repricingScale" type="number" step="any" value="120"></td><td><input data-rg-asset="mainAsset" data-rg-side="current" data-rg-field="totalInterestAssets" type="number" step="any" value="180"></td></tr>
+                  <tr><td>其他固定资产</td><td><input data-rg-asset="otherAssets" data-rg-side="base" data-rg-field="repricingScale" type="number" step="any" value="300"></td><td><input data-rg-asset="otherAssets" data-rg-side="base" data-rg-field="totalInterestAssets" type="number" step="any" value="650"></td><td><input data-rg-asset="otherAssets" data-rg-side="current" data-rg-field="repricingScale" type="number" step="any" value="300"></td><td><input data-rg-asset="otherAssets" data-rg-side="current" data-rg-field="totalInterestAssets" type="number" step="any" value="650"></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h4>负债及表外衍生品</h4>
+            <div class="table-wrap">
+              <table class="input-table">
+                <thead><tr><th>业务</th><th>基期</th><th>当期</th><th>进入分子的符号</th></tr></thead>
+                <tbody>
+                  <tr><td>示例负债业务</td><td><input data-rg-liability="mainLiability" data-rg-side="base" type="number" step="any" value="350"></td><td><input data-rg-liability="mainLiability" data-rg-side="current" type="number" step="any" value="360"></td><td>−</td></tr>
+                  <tr><td>银行账簿表外衍生品应收</td><td><input data-rg-derivative="bankReceivable" data-rg-side="base" type="number" step="any" value="20"></td><td><input data-rg-derivative="bankReceivable" data-rg-side="current" type="number" step="any" value="25"></td><td>+</td></tr>
+                  <tr><td>银行账簿表外衍生品应付</td><td><input data-rg-derivative="bankPayable" data-rg-side="base" type="number" step="any" value="0"></td><td><input data-rg-derivative="bankPayable" data-rg-side="current" type="number" step="any" value="0"></td><td>−</td></tr>
+                  <tr><td>交易账簿表外衍生品应收</td><td><input data-rg-derivative="tradingReceivable" data-rg-side="base" type="number" step="any" value="0"></td><td><input data-rg-derivative="tradingReceivable" data-rg-side="current" type="number" step="any" value="0"></td><td>+</td></tr>
+                  <tr><td>交易账簿表外衍生品应付</td><td><input data-rg-derivative="tradingPayable" data-rg-side="base" type="number" step="any" value="0"></td><td><input data-rg-derivative="tradingPayable" data-rg-side="current" type="number" step="any" value="0"></td><td>−</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="actions no-print">
+              <button id="calculate-repricing-gap-button" type="button">计算缺口率归因</button>
+              <button id="reset-repricing-gap-button" class="secondary" type="button">恢复缺口率示例</button>
+            </div>
+            <div id="repricing-gap-calculator-output" aria-live="polite"></div>
+          </div>
+        </div>
       </section>
 
       <section id="interface">
@@ -1494,6 +1686,44 @@
   }
 }</code></pre>
 
+        <h3>重定价缺口率输入</h3>
+        <p>资产对象中的每个业务必须同时提供重定价规模和总生息资产规模；这两个字段会绑定为一个Shapley因素。负债金额按正数传入，由算法按负号进入分子。四个表外衍生品字段必须保留，即使金额为0。</p>
+        <div class="code-toolbar"><span>JavaScript / JSON</span></div>
+        <pre><code>{
+  scope: "legalAggregate",
+  assetLabels: {
+    mainAsset: "示例资产业务",
+    otherAssets: "其他固定资产"
+  },
+  liabilityLabels: { mainLiability: "示例负债业务" },
+  base: {
+    assets: {
+      mainAsset: { repricingScale: 100, totalInterestAssets: 150 },
+      otherAssets: { repricingScale: 300, totalInterestAssets: 650 }
+    },
+    liabilities: { mainLiability: 350 },
+    derivatives: {
+      bankReceivable: 20,
+      bankPayable: 0,
+      tradingReceivable: 0,
+      tradingPayable: 0
+    }
+  },
+  current: {
+    assets: {
+      mainAsset: { repricingScale: 120, totalInterestAssets: 180 },
+      otherAssets: { repricingScale: 300, totalInterestAssets: 650 }
+    },
+    liabilities: { mainLiability: 360 },
+    derivatives: {
+      bankReceivable: 25,
+      bankPayable: 0,
+      tradingReceivable: 0,
+      tradingPayable: 0
+    }
+  }
+}</code></pre>
+
         <h3>调用方式</h3>
         <div class="code-toolbar"><span>浏览器或Node.js</span></div>
         <pre><code>// 浏览器
@@ -1501,11 +1731,14 @@ const eveResult = RiskIndicatorDecomposition
   .decomposeOverseasBranchEve(eveInput);
 const lcrResult = RiskIndicatorDecomposition
   .decomposeLcr(lcrInput);
+const repricingGapResult = RiskIndicatorDecomposition
+  .decomposeRepricingGapRate(repricingGapInput);
 
 // Node.js：将源码另存为 risk-indicator-decomposition.js
 const {
   decomposeOverseasBranchEve,
-  decomposeLcr
+  decomposeLcr,
+  decomposeRepricingGapRate
 } = require("./risk-indicator-decomposition.js");</code></pre>
 
         <h3>关键输出字段</h3>
@@ -1521,6 +1754,9 @@ const {
               <tr><td class="mono">hqlaComponents</td><td>LCR三类HQLA认可金额及其百分点贡献</td></tr>
               <tr><td class="mono">denominatorBridge</td><td>LCR现金流出、现金流入和约束切换的桥接金额</td></tr>
               <tr><td class="mono">auditPaths</td><td>LCR共12条反事实路径及逐步边际贡献</td></tr>
+              <tr><td class="mono">contributions.assets.items</td><td>重定价缺口率各资产业务的联合状态、规模变化及百分点贡献</td></tr>
+              <tr><td class="mono">contributions.liabilities.items</td><td>各负债业务对重定价缺口率的百分点贡献</td></tr>
+              <tr><td class="mono">contributions.bankBookDerivatives / tradingBookDerivatives</td><td>两类表外衍生品应收、应付及分支汇总贡献</td></tr>
               <tr><td class="mono">reconciliation</td><td>指标变化、贡献合计、残差和校验状态</td></tr>
             </tbody>
           </table>
@@ -1529,7 +1765,7 @@ const {
 
       <section id="source">
         <h2>可直接使用的统一JavaScript代码</h2>
-        <p>两套页面计算器和下方源码使用同一个归因模块，不依赖第三方库。IT展开后可一键复制并另存为 <span class="inline-code">risk-indicator-decomposition.js</span>。</p>
+        <p>三套页面计算器和下方源码使用同一个归因模块，不依赖第三方库。IT展开后可一键复制并另存为 <span class="inline-code">risk-indicator-decomposition.js</span>。</p>
         <details class="source-details">
           <summary>展开完整源码</summary>
           <div class="code-toolbar">
@@ -1542,7 +1778,7 @@ const {
 
       <section id="tests">
         <h2>测试与勾稽校验</h2>
-        <p>源码同时覆盖△EVE和LCR标准案例、零变化、因素抵销、约束不切换等场景，确保两套归因都严格勾稽。</p>
+        <p>源码同时覆盖△EVE、LCR和重定价缺口率的标准案例、零变化、因素抵销、约束不切换和联合资产因素等场景，确保三套归因都严格勾稽。</p>
         <div class="actions no-print"><button id="run-tests-button" type="button">运行内置测试</button></div>
         <div id="test-output"></div>
         <h3>生产校验规则</h3>
@@ -1551,6 +1787,8 @@ const {
           <li><span class="inline-code">O、L、T贡献之和 = 分母组贡献</span>；</li>
           <li><span class="inline-code">三类HQLA贡献之和 = HQLA组贡献</span>；</li>
           <li><span class="inline-code">现金流出、现金流入、约束切换贡献之和 = LCR分母组贡献</span>；</li>
+          <li><span class="inline-code">重定价缺口率四类业务分支贡献之和 = 全部末级业务贡献之和</span>；</li>
+          <li><span class="inline-code">资产业务的重定价规模和总生息资产必须作为同一个联合因素替换</span>；</li>
           <li><span class="inline-code">全部因素贡献之和 = 当期R − 基期R</span>；</li>
           <li>默认容差为10<sup>−10</sup>，展示四舍五入不能参与底层勾稽；</li>
           <li>如页面只显示两位小数，可单独展示“尾差”，但底层未舍入结果的尾差必须在容差内。</li>
@@ -1567,17 +1805,19 @@ const {
           <li><strong>正值校验：</strong>境外分行RWA、法人RWA、法人一级资本净额必须大于0；否则终止计算并返回数据质量错误。</li>
           <li><strong>贡献单位：</strong>最终指标贡献统一使用百分点，不使用“百分比变化”替代。</li>
           <li><strong>LCR中间状态：</strong>桥接路径的中间分母属于归因反事实，起点和终点必须与真实MAX结果一致；所有反事实分母必须保持大于0。</li>
-          <li><strong>指标方向：</strong>△EVE比例上升通常代表风险增加；LCR上升通常代表流动性缓冲改善，前端不得共用同一风险颜色解释。</li>
+          <li><strong>缺口率联合因素：</strong>资产业务的重定价规模和对应总生息资产规模必须同源、同业务分类并同步替换；不得先做分子归因后再将分母影响按比例摊回。</li>
+          <li><strong>机构范围：</strong>法人汇总剔除内部交易，单个境外分行包含内部交易；负债端均不含活期存款。机构范围变化时必须重建因素集合。</li>
+          <li><strong>指标方向：</strong>△EVE比例上升通常代表风险增加；LCR上升通常代表流动性缓冲改善；重定价缺口率贡献正负只表示推高或压低指标，前端应结合限额方向解释风险。</li>
           <li><strong>版本治理：</strong>业务口径、情景代码或资本分摊公式变化时，应同步升级算法版本并保留历史版本。</li>
-          <li><strong>性能：</strong>每次归因仅需12条最终公式路径和6条资本金额路径，计算量很小，可在服务端批量计算，也可在前端即时计算。</li>
+          <li><strong>性能：</strong>△EVE、LCR分别只需12条分组路径；重定价缺口率采用子集加权法，法人汇总与单个境外分行分别需要114,688和524,288次边际计算，建议在服务端批量预计算或在前端按需计算并缓存。</li>
         </ol>
       </section>
     </main>
   </div>
 
-  <footer>风险分析视图 · △EVE与LCR指标分解计算逻辑说明 · 2026-07-18</footer>
+  <footer>风险分析视图 · △EVE、LCR与重定价缺口率指标分解计算逻辑说明 · 2026-07-18</footer>
 
-  <!-- 以下脚本同时作为两套页面计算器和技术交付的可复制源代码。 -->
+  <!-- 以下脚本同时作为三套页面计算器和技术交付的可复制源代码。 -->
   <script id="calculation-implementation">
 (function (root, factory) {
   "use strict";
@@ -1594,7 +1834,7 @@ const {
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "2.0.0";
+  const VERSION = "3.0.0";
   const DEFAULT_TOLERANCE = 1e-10;
   const DEFAULT_SCENARIO_ORDER = [
     "parallelUp",
@@ -1659,6 +1899,48 @@ const {
     level1: "一级资产",
     level2A: "二级A资产",
     level2B: "二级B资产",
+  };
+
+  const REPRICING_GAP_EXAMPLE_INPUT = {
+    scope: "legalAggregate",
+    assetLabels: {
+      mainAsset: "示例资产业务",
+      otherAssets: "其他固定资产",
+    },
+    liabilityLabels: { mainLiability: "示例负债业务" },
+    base: {
+      assets: {
+        mainAsset: { repricingScale: 100, totalInterestAssets: 150 },
+        otherAssets: { repricingScale: 300, totalInterestAssets: 650 },
+      },
+      liabilities: { mainLiability: 350 },
+      derivatives: {
+        bankReceivable: 20,
+        bankPayable: 0,
+        tradingReceivable: 0,
+        tradingPayable: 0,
+      },
+    },
+    current: {
+      assets: {
+        mainAsset: { repricingScale: 120, totalInterestAssets: 180 },
+        otherAssets: { repricingScale: 300, totalInterestAssets: 650 },
+      },
+      liabilities: { mainLiability: 360 },
+      derivatives: {
+        bankReceivable: 25,
+        bankPayable: 0,
+        tradingReceivable: 0,
+        tradingPayable: 0,
+      },
+    },
+  };
+
+  const REPRICING_DERIVATIVE_DEFINITIONS = {
+    bankReceivable: { label: "银行账簿表外衍生品应收", sign: 1, group: "bankBookDerivatives" },
+    bankPayable: { label: "银行账簿表外衍生品应付", sign: -1, group: "bankBookDerivatives" },
+    tradingReceivable: { label: "交易账簿表外衍生品应收", sign: 1, group: "tradingBookDerivatives" },
+    tradingPayable: { label: "交易账簿表外衍生品应付", sign: -1, group: "tradingBookDerivatives" },
   };
 
   function clone(value) {
@@ -2323,6 +2605,285 @@ const {
     };
   }
 
+  function getMatchingObjectKeys(baseObject, currentObject, fieldName, allowEmpty) {
+    if (!baseObject || !currentObject) {
+      throw new TypeError("base." + fieldName + "和current." + fieldName + "不能为空");
+    }
+    const baseKeys = Object.keys(baseObject);
+    const currentKeys = Object.keys(currentObject);
+    if (!allowEmpty && !baseKeys.length) {
+      throw new Error(fieldName + "至少需要提供一个业务因素");
+    }
+    if (
+      baseKeys.some((key) => !(key in currentObject)) ||
+      currentKeys.some((key) => !(key in baseObject))
+    ) {
+      throw new Error("基期和当期的" + fieldName + "业务代码必须完全一致");
+    }
+    return baseKeys;
+  }
+
+  function validateRepricingGapInput(input) {
+    if (!input || !input.base || !input.current) {
+      throw new TypeError("必须同时提供base和current数据");
+    }
+    const assetKeys = getMatchingObjectKeys(
+      input.base.assets,
+      input.current.assets,
+      "assets",
+      false
+    );
+    const liabilityKeys = getMatchingObjectKeys(
+      input.base.liabilities,
+      input.current.liabilities,
+      "liabilities",
+      true
+    );
+
+    ["base", "current"].forEach((side) => {
+      assetKeys.forEach((key) => {
+        const asset = input[side].assets[key];
+        if (!asset) throw new TypeError(side + ".assets." + key + "不能为空");
+        assertNonNegative(
+          asset.repricingScale,
+          side + ".assets." + key + ".repricingScale"
+        );
+        assertNonNegative(
+          asset.totalInterestAssets,
+          side + ".assets." + key + ".totalInterestAssets"
+        );
+      });
+      liabilityKeys.forEach((key) => {
+        assertNonNegative(
+          input[side].liabilities[key],
+          side + ".liabilities." + key
+        );
+      });
+      if (!input[side].derivatives) {
+        throw new TypeError(side + ".derivatives不能为空");
+      }
+      Object.keys(REPRICING_DERIVATIVE_DEFINITIONS).forEach((key) => {
+        assertNonNegative(
+          input[side].derivatives[key],
+          side + ".derivatives." + key
+        );
+      });
+    });
+
+    return { assetKeys, liabilityKeys };
+  }
+
+  function countMaskBits(mask) {
+    let count = 0;
+    let value = mask;
+    while (value) {
+      count += value & 1;
+      value >>>= 1;
+    }
+    return count;
+  }
+
+  // 精确Shapley子集加权法：与全排列平均等价，但无需枚举n!条路径。
+  function calculateShapleyBySubsets(factors, evaluate) {
+    const count = factors.length;
+    if (!count) return {};
+    if (count > 20) {
+      throw new RangeError("当前子集实现最多支持20个因素");
+    }
+    const subsetLimit = 2 ** count;
+    const factorial = [1];
+    for (let index = 1; index <= count; index += 1) {
+      factorial[index] = factorial[index - 1] * index;
+    }
+
+    const subsetValues = new Array(subsetLimit);
+    for (let mask = 0; mask < subsetLimit; mask += 1) {
+      const state = {};
+      factors.forEach((factor, index) => {
+        state[factor.key] = mask & (1 << index)
+          ? factor.current
+          : factor.baseline;
+      });
+      subsetValues[mask] = evaluate(state);
+    }
+
+    const result = {};
+    factors.forEach((factor, factorIndex) => {
+      const factorBit = 1 << factorIndex;
+      let contribution = 0;
+      for (let mask = 0; mask < subsetLimit; mask += 1) {
+        if (mask & factorBit) continue;
+        const subsetSize = countMaskBits(mask);
+        const weight =
+          factorial[subsetSize] * factorial[count - subsetSize - 1] /
+          factorial[count];
+        contribution +=
+          weight * (subsetValues[mask | factorBit] - subsetValues[mask]);
+      }
+      result[factor.key] = contribution;
+    });
+    return result;
+  }
+
+  function buildRepricingGapFactors(input, assetKeys, liabilityKeys) {
+    const factors = [];
+    assetKeys.forEach((key) => {
+      factors.push({
+        key: "asset:" + key,
+        businessKey: key,
+        group: "assets",
+        label: (input.assetLabels && input.assetLabels[key]) || key,
+        baseline: clone(input.base.assets[key]),
+        current: clone(input.current.assets[key]),
+      });
+    });
+    liabilityKeys.forEach((key) => {
+      factors.push({
+        key: "liability:" + key,
+        businessKey: key,
+        group: "liabilities",
+        label: (input.liabilityLabels && input.liabilityLabels[key]) || key,
+        baseline: input.base.liabilities[key],
+        current: input.current.liabilities[key],
+      });
+    });
+    Object.keys(REPRICING_DERIVATIVE_DEFINITIONS).forEach((key) => {
+      const definition = REPRICING_DERIVATIVE_DEFINITIONS[key];
+      factors.push({
+        key: "derivative:" + key,
+        businessKey: key,
+        group: definition.group,
+        label: definition.label,
+        sign: definition.sign,
+        baseline: input.base.derivatives[key],
+        current: input.current.derivatives[key],
+      });
+    });
+    return factors;
+  }
+
+  function calculateRepricingGapMetrics(state, factors) {
+    let numerator = 0;
+    let totalInterestAssets = 0;
+    factors.forEach((factor) => {
+      const value = state[factor.key];
+      if (factor.group === "assets") {
+        numerator += value.repricingScale;
+        totalInterestAssets += value.totalInterestAssets;
+      } else if (factor.group === "liabilities") {
+        numerator -= value;
+      } else {
+        numerator += value * factor.sign;
+      }
+    });
+    if (totalInterestAssets <= 0) {
+      throw new RangeError("重定价缺口率归因路径中的总生息资产必须大于0");
+    }
+    return {
+      numerator,
+      totalInterestAssets,
+      R: 100 * numerator / totalInterestAssets,
+    };
+  }
+
+  function decomposeRepricingGapRate(input, options) {
+    const settings = Object.assign(
+      { tolerance: DEFAULT_TOLERANCE },
+      options || {}
+    );
+    assertPositive(settings.tolerance, "options.tolerance");
+    const keys = validateRepricingGapInput(input);
+    const factors = buildRepricingGapFactors(
+      input,
+      keys.assetKeys,
+      keys.liabilityKeys
+    );
+    const baseState = {};
+    const currentState = {};
+    factors.forEach((factor) => {
+      baseState[factor.key] = factor.baseline;
+      currentState[factor.key] = factor.current;
+    });
+    const baseValues = calculateRepricingGapMetrics(baseState, factors);
+    const currentValues = calculateRepricingGapMetrics(currentState, factors);
+    const impacts = calculateShapleyBySubsets(
+      factors,
+      (state) => calculateRepricingGapMetrics(state, factors).R
+    );
+
+    const groups = {
+      assets: { totalPercentagePoints: 0, items: {} },
+      liabilities: { totalPercentagePoints: 0, items: {} },
+      bankBookDerivatives: { totalPercentagePoints: 0, items: {} },
+      tradingBookDerivatives: { totalPercentagePoints: 0, items: {} },
+    };
+    factors.forEach((factor) => {
+      const percentagePoints = impacts[factor.key];
+      const group = groups[factor.group];
+      group.totalPercentagePoints += percentagePoints;
+      if (factor.group === "assets") {
+        group.items[factor.businessKey] = {
+          label: factor.label,
+          baseRepricingScale: factor.baseline.repricingScale,
+          currentRepricingScale: factor.current.repricingScale,
+          repricingScaleChange:
+            factor.current.repricingScale - factor.baseline.repricingScale,
+          baseTotalInterestAssets: factor.baseline.totalInterestAssets,
+          currentTotalInterestAssets: factor.current.totalInterestAssets,
+          totalInterestAssetsChange:
+            factor.current.totalInterestAssets -
+            factor.baseline.totalInterestAssets,
+          percentagePoints,
+        };
+      } else {
+        group.items[factor.businessKey] = {
+          label: factor.label,
+          baseAmount: factor.baseline,
+          currentAmount: factor.current,
+          amountChange: factor.current - factor.baseline,
+          numeratorSign: factor.group === "liabilities" ? -1 : factor.sign,
+          percentagePoints,
+        };
+      }
+    });
+
+    const ratioChange = currentValues.R - baseValues.R;
+    const contributionSum = Object.values(groups).reduce(
+      (total, group) => total + group.totalPercentagePoints,
+      0
+    );
+    const residual = ratioChange - contributionSum;
+    return {
+      meta: {
+        version: VERSION,
+        method: "Business-level Shapley with coupled asset states",
+        scope: input.scope || "unspecified",
+        factorCount: factors.length,
+        subsetCount: 2 ** factors.length,
+        marginalCalculationCount: factors.length * 2 ** (factors.length - 1),
+        tolerance: settings.tolerance,
+        contributionUnit: "percentage_points",
+      },
+      values: {
+        base: baseValues,
+        current: currentValues,
+        changes: {
+          numerator: currentValues.numerator - baseValues.numerator,
+          totalInterestAssets:
+            currentValues.totalInterestAssets - baseValues.totalInterestAssets,
+          R: ratioChange,
+        },
+      },
+      contributions: groups,
+      reconciliation: {
+        ratioChangePercentagePoints: ratioChange,
+        contributionSumPercentagePoints: contributionSum,
+        residualPercentagePoints: residual,
+        passed: Math.abs(residual) <= settings.tolerance,
+      },
+    };
+  }
+
   function assertClose(actual, expected, tolerance, message) {
     if (Math.abs(actual - expected) > tolerance) {
       throw new Error(
@@ -2474,6 +3035,70 @@ const {
       }
     });
 
+    run("重定价缺口率：联合资产因素标准案例精确勾稽", function () {
+      const result = decomposeRepricingGapRate(
+        clone(REPRICING_GAP_EXAMPLE_INPUT)
+      );
+      assertClose(result.values.base.numerator, 70, tolerance, "基期缺口");
+      assertClose(
+        result.values.base.totalInterestAssets,
+        800,
+        tolerance,
+        "基期总生息资产"
+      );
+      assertClose(result.values.base.R, 8.75, tolerance, "基期缺口率");
+      assertClose(
+        result.values.current.R,
+        10.240963855421686,
+        tolerance,
+        "当期缺口率"
+      );
+      assertClose(
+        result.contributions.assets.items.mainAsset.percentagePoints,
+        2.104668674698796,
+        tolerance,
+        "联合资产业务贡献"
+      );
+      if (result.meta.factorCount !== 7 || result.meta.marginalCalculationCount !== 448) {
+        throw new Error("重定价缺口率示例计算量不正确");
+      }
+      if (!result.reconciliation.passed) {
+        throw new Error("重定价缺口率标准案例勾稽状态未通过");
+      }
+    });
+
+    run("重定价缺口率：全部因素不变时贡献为零", function () {
+      const input = clone(REPRICING_GAP_EXAMPLE_INPUT);
+      input.current = clone(input.base);
+      const result = decomposeRepricingGapRate(input);
+      assertClose(result.values.changes.R, 0, tolerance, "缺口率变化");
+      assertClose(
+        result.reconciliation.contributionSumPercentagePoints,
+        0,
+        tolerance,
+        "缺口率贡献合计"
+      );
+    });
+
+    run("重定价缺口率：资产业务的分子分母变化只输出一个合计影响", function () {
+      const input = clone(REPRICING_GAP_EXAMPLE_INPUT);
+      input.current.liabilities = clone(input.base.liabilities);
+      input.current.derivatives = clone(input.base.derivatives);
+      const result = decomposeRepricingGapRate(input);
+      assertClose(
+        result.contributions.assets.totalPercentagePoints,
+        result.values.changes.R,
+        tolerance,
+        "资产端合计影响"
+      );
+      if (!("repricingScaleChange" in result.contributions.assets.items.mainAsset)) {
+        throw new Error("资产业务结果缺少重定价规模变化");
+      }
+      if (!("totalInterestAssetsChange" in result.contributions.assets.items.mainAsset)) {
+        throw new Error("资产业务结果缺少总生息资产变化");
+      }
+    });
+
     return {
       passed: tests.every((test) => test.passed),
       tests,
@@ -2486,8 +3111,10 @@ const {
     SCENARIO_LABELS: Object.assign({}, SCENARIO_LABELS),
     EXAMPLE_INPUT: clone(EXAMPLE_INPUT),
     LCR_EXAMPLE_INPUT: clone(LCR_EXAMPLE_INPUT),
+    REPRICING_GAP_EXAMPLE_INPUT: clone(REPRICING_GAP_EXAMPLE_INPUT),
     decomposeOverseasBranchEve,
     decomposeLcr,
+    decomposeRepricingGapRate,
     runSelfTests,
   };
 });
@@ -2670,10 +3297,124 @@ const {
         calculateLcr();
       }
 
+      function readRepricingGapInput() {
+        const input = {
+          scope: "legalAggregate",
+          assetLabels: {
+            mainAsset: "示例资产业务",
+            otherAssets: "其他固定资产",
+          },
+          liabilityLabels: { mainLiability: "示例负债业务" },
+          base: { assets: {}, liabilities: {}, derivatives: {} },
+          current: { assets: {}, liabilities: {}, derivatives: {} },
+        };
+        document.querySelectorAll("[data-rg-asset]").forEach((element) => {
+          const side = element.dataset.rgSide;
+          const key = element.dataset.rgAsset;
+          if (!input[side].assets[key]) input[side].assets[key] = {};
+          input[side].assets[key][element.dataset.rgField] = Number(element.value);
+        });
+        document.querySelectorAll("[data-rg-liability]").forEach((element) => {
+          input[element.dataset.rgSide].liabilities[element.dataset.rgLiability] =
+            Number(element.value);
+        });
+        document.querySelectorAll("[data-rg-derivative]").forEach((element) => {
+          input[element.dataset.rgSide].derivatives[element.dataset.rgDerivative] =
+            Number(element.value);
+        });
+        return input;
+      }
+
+      function renderRepricingGapResult(result) {
+        const output = document.getElementById("repricing-gap-calculator-output");
+        const groupDefinitions = [
+          ["资产端业务", result.contributions.assets],
+          ["负债端业务", result.contributions.liabilities],
+          ["银行账簿表外衍生品", result.contributions.bankBookDerivatives],
+          ["交易账簿表外衍生品", result.contributions.tradingBookDerivatives],
+        ];
+        const rows = [];
+        groupDefinitions.forEach(([groupLabel, group]) => {
+          Object.values(group.items).forEach((item) => {
+            const changeDescription = "repricingScaleChange" in item
+              ? `重定价规模 ${signed(item.repricingScaleChange, 2)}；总生息资产 ${signed(item.totalInterestAssetsChange, 2)}`
+              : `规模 ${signed(item.amountChange, 2)}`;
+            rows.push([
+              groupLabel,
+              item.label,
+              changeDescription,
+              item.percentagePoints,
+            ]);
+          });
+          rows.push([
+            groupLabel,
+            "分支合计",
+            "—",
+            group.totalPercentagePoints,
+          ]);
+        });
+        const reconciliation = result.reconciliation;
+        output.innerHTML = `
+          <div class="result-summary">
+            <div class="metric"><span>基期缺口率</span><strong>${format(result.values.base.R, 4)}%</strong></div>
+            <div class="metric"><span>当期缺口率</span><strong>${format(result.values.current.R, 4)}%</strong></div>
+            <div class="metric"><span>指标变化</span><strong>${signed(result.values.changes.R, 4)} pp</strong></div>
+            <div class="metric"><span>边际计算</span><strong>${format(result.meta.marginalCalculationCount, 0)}次</strong></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>业务分支</th><th>业务因素</th><th>较基期变化</th><th>对缺口率贡献</th></tr></thead>
+              <tbody>
+                ${rows.map((row) => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td class="${signClass(row[3])}">${signed(row[3], 6)} pp</td></tr>`).join("")}
+                <tr><td colspan="3"><strong>全部业务贡献合计</strong></td><td><strong>${signed(reconciliation.contributionSumPercentagePoints, 6)} pp</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="status ${reconciliation.passed ? "status--ok" : "status--error"}">
+            ${reconciliation.passed ? "勾稽通过" : "勾稽失败"}：残差 ${format(reconciliation.residualPercentagePoints, 12)} pp
+          </div>`;
+      }
+
+      function calculateRepricingGap() {
+        const output = document.getElementById("repricing-gap-calculator-output");
+        try {
+          renderRepricingGapResult(
+            api.decomposeRepricingGapRate(readRepricingGapInput())
+          );
+        } catch (error) {
+          output.innerHTML = `<div class="status status--error">计算失败：${error.message}</div>`;
+        }
+      }
+
+      function resetRepricingGap() {
+        const example = api.REPRICING_GAP_EXAMPLE_INPUT;
+        document.querySelectorAll("[data-rg-asset]").forEach((element) => {
+          element.value =
+            example[element.dataset.rgSide].assets[element.dataset.rgAsset][
+              element.dataset.rgField
+            ];
+        });
+        document.querySelectorAll("[data-rg-liability]").forEach((element) => {
+          element.value =
+            example[element.dataset.rgSide].liabilities[
+              element.dataset.rgLiability
+            ];
+        });
+        document.querySelectorAll("[data-rg-derivative]").forEach((element) => {
+          element.value =
+            example[element.dataset.rgSide].derivatives[
+              element.dataset.rgDerivative
+            ];
+        });
+        calculateRepricingGap();
+      }
+
       document.getElementById("calculate-button").addEventListener("click", calculate);
       document.getElementById("reset-button").addEventListener("click", reset);
       document.getElementById("calculate-lcr-button").addEventListener("click", calculateLcr);
       document.getElementById("reset-lcr-button").addEventListener("click", resetLcr);
+      document.getElementById("calculate-repricing-gap-button").addEventListener("click", calculateRepricingGap);
+      document.getElementById("reset-repricing-gap-button").addEventListener("click", resetRepricingGap);
       document.getElementById("run-tests-button").addEventListener("click", function () {
         const result = api.runSelfTests();
         document.getElementById("test-output").innerHTML = `
@@ -2697,6 +3438,7 @@ const {
 
       calculate();
       calculateLcr();
+      calculateRepricingGap();
     })();
   </script>
 </body>

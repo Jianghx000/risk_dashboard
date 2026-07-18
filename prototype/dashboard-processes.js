@@ -353,6 +353,7 @@ function renderEveProcessNode({
   labels = [],
   impact = null,
   impactType = "pct",
+  showImpact = true,
 }) {
   const change = formatProcessNodeChange(series, selectedIndex, comparisonIndex, changeType);
   const impactDisplay = formatProcessNodeImpact(impact, impactType);
@@ -372,7 +373,7 @@ function renderEveProcessNode({
           <span class="eve-process-node__value">${value}</span>
           <span class="eve-process-node__comparisons">
             <span class="eve-process-node__change ${change.className}">${change.text}</span>
-            <span class="eve-process-node__impact ${impactDisplay.className}">${impactDisplay.text}</span>
+            ${showImpact ? `<span class="eve-process-node__impact ${impactDisplay.className}">${impactDisplay.text}</span>` : ""}
           </span>
         </span>
       </span>
@@ -841,51 +842,71 @@ function buildLiquidityProcessImpactMap(model, selectedIndex, comparisonIndex, m
 
 function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex) {
   if (comparisonIndex < 0) return {};
-  const top = buildTwoFactorRatioProcessImpacts({
-    numerator: model.numerator,
-    denominator: model.totalInterestAssets,
-    ratios: model.ratios,
-    selectedIndex,
-    comparisonIndex,
+  const totalInterestAssetsByBusiness = Object.fromEntries(model.totalInterestAssetItems.map((item) => [
+    item.key.replace(/^total-/, ""),
+    item,
+  ]));
+  const assetFactors = model.assetItems.map((item) => {
+    const totalInterestAssetItem = totalInterestAssetsByBusiness[item.key];
+    return {
+      key: item.key,
+      baseline: {
+        repricingScale: getProcessSeriesValue(item.values, comparisonIndex),
+        totalInterestAssets: getProcessSeriesValue(totalInterestAssetItem?.values, comparisonIndex),
+      },
+      current: {
+        repricingScale: getProcessSeriesValue(item.values, selectedIndex),
+        totalInterestAssets: getProcessSeriesValue(totalInterestAssetItem?.values, selectedIndex),
+      },
+    };
   });
-  const impactMap = {
-    ratio: getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex),
-    numerator: top.numerator,
-    denominator: top.denominator,
-  };
-  const denominator0 = getProcessSeriesValue(model.totalInterestAssets, comparisonIndex);
-  const denominator1 = getProcessSeriesValue(model.totalInterestAssets, selectedIndex);
-  const numeratorFactors = [
-    { key: "adjusted-assets", values: model.adjustedInterestAssets, sign: 1 },
-    { key: "adjusted-liabilities", values: model.adjustedInterestLiabilities, sign: -1 },
-    { key: "bank-book-derivative-gap", values: model.bankBookDerivativeGap, sign: 1 },
-    { key: "trading-book-derivative-gap", values: model.tradingBookDerivativeGap, sign: 1 },
-  ];
-  const branchImpacts = allocateProcessImpactByDeltas(top.numerator, numeratorFactors, selectedIndex, comparisonIndex);
-  Object.assign(impactMap, branchImpacts);
-  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["adjusted-assets"], model.assetItems, selectedIndex, comparisonIndex));
-  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["adjusted-liabilities"], model.liabilityItems.map((item) => ({ ...item, sign: -1 })), selectedIndex, comparisonIndex));
-  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["bank-book-derivative-gap"], [
-    { key: "bank-book-receivable", values: model.bankBookReceivable },
-    { key: "bank-book-payable", values: model.bankBookPayable, sign: -1 },
-  ], selectedIndex, comparisonIndex));
-  Object.assign(impactMap, allocateProcessImpactByDeltas(branchImpacts["trading-book-derivative-gap"], [
-    { key: "trading-book-receivable", values: model.tradingBookReceivable },
-    { key: "trading-book-payable", values: model.tradingBookPayable, sign: -1 },
-  ], selectedIndex, comparisonIndex));
-  const numerator0 = getProcessSeriesValue(model.numerator, comparisonIndex);
-  const numerator1 = getProcessSeriesValue(model.numerator, selectedIndex);
-  const denominatorFactors = model.totalInterestAssetItems.map((item) => ({
+  const liabilityFactors = model.liabilityItems.map((item) => ({
     key: item.key,
     baseline: getProcessSeriesValue(item.values, comparisonIndex),
     current: getProcessSeriesValue(item.values, selectedIndex),
   }));
-  Object.assign(impactMap, scaleProcessImpactMap(calculateProcessShapleyImpacts(denominatorFactors, (values) => {
-    const denominatorValue = Object.values(values).reduce((sum, value) => sum + Number(value || 0), 0);
-    return denominatorValue
-      ? 0.5 * (100 * numerator0 / denominatorValue + 100 * numerator1 / denominatorValue)
-      : 0;
-  }), top.denominator));
+  const derivativeFactors = [
+    { key: "bank-book-receivable", values: model.bankBookReceivable, sign: 1 },
+    { key: "bank-book-payable", values: model.bankBookPayable, sign: -1 },
+    { key: "trading-book-receivable", values: model.tradingBookReceivable, sign: 1 },
+    { key: "trading-book-payable", values: model.tradingBookPayable, sign: -1 },
+  ];
+  const factors = [
+    ...assetFactors,
+    ...liabilityFactors,
+    ...derivativeFactors.map((item) => ({
+      key: item.key,
+      baseline: getProcessSeriesValue(item.values, comparisonIndex),
+      current: getProcessSeriesValue(item.values, selectedIndex),
+    })),
+  ];
+  const rawLeafImpacts = calculateProcessShapleyImpacts(factors, (values) => {
+    let numerator = 0;
+    let denominator = 0;
+    assetFactors.forEach((factor) => {
+      const value = values[factor.key] || {};
+      numerator += Number(value.repricingScale || 0);
+      denominator += Number(value.totalInterestAssets || 0);
+    });
+    liabilityFactors.forEach((factor) => {
+      numerator -= Number(values[factor.key] || 0);
+    });
+    derivativeFactors.forEach((factor) => {
+      numerator += Number(values[factor.key] || 0) * factor.sign;
+    });
+    return denominator ? (100 * numerator) / denominator : 0;
+  });
+  const ratioImpact = getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex);
+  const leafImpacts = scaleProcessImpactMap(rawLeafImpacts, ratioImpact);
+  const sumImpacts = (keys) => keys.reduce((sum, key) => sum + Number(leafImpacts[key] || 0), 0);
+  const impactMap = {
+    ratio: ratioImpact,
+    ...leafImpacts,
+    "adjusted-assets": sumImpacts(model.assetItems.map((item) => item.key)),
+    "adjusted-liabilities": sumImpacts(model.liabilityItems.map((item) => item.key)),
+    "bank-book-derivative-gap": sumImpacts(["bank-book-receivable", "bank-book-payable"]),
+    "trading-book-derivative-gap": sumImpacts(["trading-book-receivable", "trading-book-payable"]),
+  };
   return impactMap;
 }
 
@@ -900,14 +921,29 @@ function buildRepricingDurationGapProcessImpactMap(widget, model, selectedIndex,
   };
   ["asset", "liability"].forEach((side) => {
     const sideLabel = side === "asset" ? "资产端" : "负债端";
-    const rows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
+    const currentRows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
       .filter((row) => row.side === sideLabel);
-    const raw = {};
-    rows.forEach((row) => {
-      const currentRow = row;
-      const baselineRow = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, comparisonIndex)
-        .find((item) => item.businessType === row.businessType);
-      raw[`${side}:${row.businessType}`] = Number(currentRow?.contribution || 0) - Number(baselineRow?.contribution || 0);
+    const baselineRows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, comparisonIndex)
+      .filter((row) => row.side === sideLabel);
+    const baselineByBusiness = Object.fromEntries(baselineRows.map((row) => [row.businessType, row]));
+    const factors = currentRows.map((row) => ({
+      key: `${side}:${row.businessType}`,
+      baseline: {
+        scale: Number(baselineByBusiness[row.businessType]?.scale || 0),
+        duration: Number(baselineByBusiness[row.businessType]?.duration || 0),
+      },
+      current: {
+        scale: Number(row.scale || 0),
+        duration: Number(row.duration || 0),
+      },
+    }));
+    const raw = calculateProcessShapleyImpacts(factors, (values) => {
+      const businesses = Object.values(values);
+      const totalScale = businesses.reduce((sum, business) => sum + Number(business?.scale || 0), 0);
+      if (!totalScale) return 0;
+      return businesses.reduce((sum, business) =>
+        sum + Number(business?.scale || 0) * Number(business?.duration || 0)
+      , 0) / totalScale;
     });
     Object.assign(impactMap, scaleProcessImpactMap(raw, side === "asset" ? assetImpact : liabilityImpact));
   });
@@ -961,6 +997,63 @@ function renderEveSparkline(values, selectedIndex, color) {
   `;
 }
 
+function getPaddedProcessSeriesRange(values = [], minimumPadding = 0.1) {
+  const finiteValues = values.map(Number).filter(Number.isFinite);
+  const minValue = finiteValues.length ? Math.min(...finiteValues) : 0;
+  const maxValue = finiteValues.length ? Math.max(...finiteValues) : 0;
+  const padding = Math.max(minimumPadding, (maxValue - minValue) * 0.1);
+  return { min: minValue - padding, max: maxValue + padding };
+}
+
+function renderRepricingDurationDualAxisSparkline(
+  scaleSeries,
+  durationSeries,
+  selectedIndex,
+  comparisonIndex
+) {
+  const width = 250;
+  const height = 70;
+  const frame = { left: 32, right: 218, top: 16, bottom: 58, width: 186, height: 42, count: scaleSeries.length };
+  const scaleRange = getPaddedProcessSeriesRange(scaleSeries, 1);
+  const durationRange = getPaddedProcessSeriesRange(durationSeries, 0.02);
+  const scalePoints = scaleValuesToFrame(scaleSeries, frame, scaleRange.min, scaleRange.max);
+  const durationPoints = scaleValuesToFrame(durationSeries, frame, durationRange.min, durationRange.max);
+  const selected = clampNumber(selectedIndex, 0, Math.max(0, scalePoints.length - 1));
+  const comparison = comparisonIndex >= 0 && comparisonIndex < scalePoints.length
+    ? comparisonIndex
+    : -1;
+  const selectedScale = scalePoints[selected] || { x: frame.left, y: frame.bottom };
+  const selectedDuration = durationPoints[selected] || { x: frame.left, y: frame.bottom };
+  const scalePath = scalePoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const durationPath = durationPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const comparisonMarkup = comparison >= 0 && comparison !== selected
+    ? `
+      <line x1="${scalePoints[comparison].x}" y1="${frame.top}" x2="${scalePoints[comparison].x}" y2="${frame.bottom}" stroke="#8FA7C0" stroke-width="1.2" stroke-dasharray="3 3"></line>
+      <circle cx="${scalePoints[comparison].x}" cy="${scalePoints[comparison].y}" r="2.8" fill="#fff" stroke="#2878C7" stroke-width="1.5"></circle>
+      <circle cx="${durationPoints[comparison].x}" cy="${durationPoints[comparison].y}" r="2.8" fill="#fff" stroke="#C06A3A" stroke-width="1.5"></circle>
+    `
+    : "";
+  return `
+    <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
+      <text x="2" y="10" fill="#2878C7" font-size="8.5" font-weight="900">规模(亿)</text>
+      <text x="248" y="10" text-anchor="end" fill="#C06A3A" font-size="8.5" font-weight="900">久期(年)</text>
+      <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="#9FC4E8" stroke-width="1"></line>
+      <line x1="${frame.right}" y1="${frame.top}" x2="${frame.right}" y2="${frame.bottom}" stroke="#E1B18F" stroke-width="1"></line>
+      <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="#D7E6F4" stroke-width="1"></line>
+      <text x="28" y="${frame.top + 3}" text-anchor="end" fill="#2878C7" font-size="7.5">${Math.max(...scaleSeries.map(Number)).toFixed(1)}</text>
+      <text x="28" y="${frame.bottom}" text-anchor="end" fill="#2878C7" font-size="7.5">${Math.min(...scaleSeries.map(Number)).toFixed(1)}</text>
+      <text x="222" y="${frame.top + 3}" fill="#C06A3A" font-size="7.5">${Math.max(...durationSeries.map(Number)).toFixed(2)}</text>
+      <text x="222" y="${frame.bottom}" fill="#C06A3A" font-size="7.5">${Math.min(...durationSeries.map(Number)).toFixed(2)}</text>
+      ${comparisonMarkup}
+      <line x1="${selectedScale.x}" y1="${frame.top}" x2="${selectedScale.x}" y2="${frame.bottom}" stroke="#D85F63" stroke-width="1.6" stroke-dasharray="4 3"></line>
+      <polyline fill="none" stroke="#2878C7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${scalePath}"></polyline>
+      <polyline fill="none" stroke="#C06A3A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${durationPath}"></polyline>
+      <circle cx="${selectedScale.x}" cy="${selectedScale.y}" r="3.5" fill="#fff" stroke="#2878C7" stroke-width="2"></circle>
+      <circle cx="${selectedDuration.x}" cy="${selectedDuration.y}" r="3.5" fill="#fff" stroke="#C06A3A" stroke-width="2"></circle>
+    </svg>
+  `;
+}
+
 function renderProcessSparklinePreview() {
   const state = appState.processSparklinePreview;
   if (!state) {
@@ -969,28 +1062,112 @@ function renderProcessSparklinePreview() {
     processSparklinePreviewEl.setAttribute("aria-hidden", "true");
     return;
   }
-  const values = (state.values || []).map(Number).filter(Number.isFinite);
+  const values = (state.values || []).map((value) => Number.isFinite(Number(value)) ? Number(value) : 0);
+  const secondaryValues = Array.isArray(state.secondaryValues)
+    ? state.secondaryValues.map((value) => Number.isFinite(Number(value)) ? Number(value) : 0)
+    : [];
+  const hasSecondarySeries = secondaryValues.length === values.length && values.length > 0;
   const labels = Array.isArray(state.labels) && state.labels.length === values.length
     ? state.labels
     : values.map((_, index) => String(index + 1));
   const selectedIndex = clampNumber(Number(state.selectedIndex || 0), 0, Math.max(0, values.length - 1));
+  const comparisonIndex = Number.isInteger(state.comparisonIndex)
+    && state.comparisonIndex >= 0
+    && state.comparisonIndex < values.length
+      ? state.comparisonIndex
+      : -1;
+  const headerSummary = hasSecondarySeries
+    ? `${labels[selectedIndex] || ""}：${state.primaryLabel || "主轴"} ${formatProcessPreviewValue(values[selectedIndex], state.primaryValueFormat || state.valueFormat)}；${state.secondaryLabel || "次轴"} ${formatProcessPreviewValue(secondaryValues[selectedIndex], state.secondaryValueFormat || "number")}`
+    : `${labels[selectedIndex] || ""}：${formatProcessPreviewValue(values[selectedIndex], state.valueFormat)}`;
   processSparklinePreviewEl.innerHTML = `
     <div class="overlay-scrim" data-close-process-sparkline="true"></div>
     <section class="process-sparkline-preview" role="dialog" aria-modal="true" aria-labelledby="processSparklinePreviewTitle">
       <div class="process-sparkline-preview__header">
         <div>
           <h3 id="processSparklinePreviewTitle">${state.title || "趋势"}</h3>
-          <p>${labels[selectedIndex] || ""}：${formatProcessPreviewValue(values[selectedIndex], state.valueFormat)}</p>
+          <p>${headerSummary}</p>
         </div>
         <button class="overlay-panel__close process-sparkline-preview__close" type="button" data-close-process-sparkline="true">关闭</button>
       </div>
       <div class="process-sparkline-preview__body">
-        ${renderProcessPreviewChart(labels, values, selectedIndex, state.color || EVE_COLOR_PRIMARY, state.valueFormat)}
+        ${hasSecondarySeries
+          ? renderDualAxisProcessPreviewChart({
+              labels,
+              primaryValues: values,
+              secondaryValues,
+              selectedIndex,
+              comparisonIndex,
+              primaryLabel: state.primaryLabel || "主轴",
+              secondaryLabel: state.secondaryLabel || "次轴",
+              primaryColor: state.primaryColor || "#2878C7",
+              secondaryColor: state.secondaryColor || "#C06A3A",
+              primaryValueFormat: state.primaryValueFormat || state.valueFormat || "amount",
+              secondaryValueFormat: state.secondaryValueFormat || "number",
+            })
+          : renderProcessPreviewChart(labels, values, selectedIndex, state.color || EVE_COLOR_PRIMARY, state.valueFormat)}
       </div>
     </section>
   `;
   processSparklinePreviewEl.classList.add("is-open");
   processSparklinePreviewEl.setAttribute("aria-hidden", "false");
+}
+
+function renderDualAxisProcessPreviewChart({
+  labels,
+  primaryValues,
+  secondaryValues,
+  selectedIndex,
+  comparisonIndex,
+  primaryLabel,
+  secondaryLabel,
+  primaryColor,
+  secondaryColor,
+  primaryValueFormat,
+  secondaryValueFormat,
+}) {
+  const frame = { left: 92, right: 758, top: 48, bottom: 286, width: 666, height: 238, count: labels.length };
+  const primaryRange = getPaddedProcessSeriesRange(primaryValues, 1);
+  const secondaryRange = getPaddedProcessSeriesRange(secondaryValues, 0.02);
+  const primaryPoints = scaleValuesToFrame(primaryValues, frame, primaryRange.min, primaryRange.max);
+  const secondaryPoints = scaleValuesToFrame(secondaryValues, frame, secondaryRange.min, secondaryRange.max);
+  const selectedPrimary = primaryPoints[selectedIndex] || primaryPoints[0];
+  const selectedSecondary = secondaryPoints[selectedIndex] || secondaryPoints[0];
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = frame.top + frame.height * ratio;
+    const primaryTick = primaryRange.max - (primaryRange.max - primaryRange.min) * ratio;
+    const secondaryTick = secondaryRange.max - (secondaryRange.max - secondaryRange.min) * ratio;
+    return `
+      <line x1="${frame.left}" y1="${y}" x2="${frame.right}" y2="${y}" stroke="#DDEBFA" stroke-width="1"></line>
+      <text x="${frame.left - 12}" y="${y + 4}" text-anchor="end" fill="${primaryColor}" font-size="12" font-weight="800">${formatProcessPreviewValue(primaryTick, primaryValueFormat)}</text>
+      <text x="${frame.right + 12}" y="${y + 4}" fill="${secondaryColor}" font-size="12" font-weight="800">${formatProcessPreviewValue(secondaryTick, secondaryValueFormat)}</text>
+    `;
+  }).join("");
+  const sampledLabels = labels.map((label, index) => {
+    const shouldShow = labels.length <= 14 || index === 0 || index === labels.length - 1 || index % Math.ceil(labels.length / 8) === 0;
+    if (!shouldShow) return "";
+    const x = getFrameXPosition(frame, index, labels.length);
+    return `<text x="${x}" y="${frame.bottom + 28}" text-anchor="middle" class="axis-label">${label}</text>`;
+  }).join("");
+  const comparisonMarkup = comparisonIndex >= 0 && comparisonIndex !== selectedIndex
+    ? `<line x1="${primaryPoints[comparisonIndex].x}" y1="${frame.top}" x2="${primaryPoints[comparisonIndex].x}" y2="${frame.bottom}" stroke="#8FA7C0" stroke-width="1.6" stroke-dasharray="5 4"></line>`
+    : "";
+  return `
+    <svg viewBox="0 0 850 350" preserveAspectRatio="xMidYMid meet" aria-label="${primaryLabel}和${secondaryLabel}双轴趋势图">
+      ${gridLines}
+      <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="${primaryColor}" stroke-width="1.5"></line>
+      <line x1="${frame.right}" y1="${frame.top}" x2="${frame.right}" y2="${frame.bottom}" stroke="${secondaryColor}" stroke-width="1.5"></line>
+      <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="#B7D3F0" stroke-width="1.4"></line>
+      <text x="${frame.left}" y="24" fill="${primaryColor}" font-size="14" font-weight="900">主轴 · ${primaryLabel}</text>
+      <text x="${frame.right}" y="24" text-anchor="end" fill="${secondaryColor}" font-size="14" font-weight="900">次轴 · ${secondaryLabel}</text>
+      ${comparisonMarkup}
+      <polyline fill="none" stroke="${primaryColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${primaryPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      <polyline fill="none" stroke="${secondaryColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${secondaryPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      <line x1="${selectedPrimary.x}" y1="${frame.top}" x2="${selectedPrimary.x}" y2="${frame.bottom}" stroke="#D85F63" stroke-width="2.2" stroke-dasharray="6 4"></line>
+      <circle cx="${selectedPrimary.x}" cy="${selectedPrimary.y}" r="6" fill="#fff" stroke="${primaryColor}" stroke-width="3"></circle>
+      <circle cx="${selectedSecondary.x}" cy="${selectedSecondary.y}" r="6" fill="#fff" stroke="${secondaryColor}" stroke-width="3"></circle>
+      ${sampledLabels}
+    </svg>
+  `;
 }
 
 function renderProcessPreviewChart(labels, values, selectedIndex, color, valueFormat = "amount") {
@@ -1030,6 +1207,7 @@ function renderProcessPreviewChart(labels, values, selectedIndex, color, valueFo
 function formatProcessPreviewValue(value, valueFormat = "amount") {
   if (valueFormat === "percent") return formatEvePercent(value);
   if (valueFormat === "amount0") return formatEveRwa(value);
+  if (valueFormat === "duration") return `${Number(value || 0).toFixed(2)}年`;
   if (valueFormat === "number") return Number(value || 0).toFixed(1);
   return formatEveAmount(value);
 }
@@ -2276,9 +2454,9 @@ function renderRepricingGapProcessModal() {
           <div class="eve-process-formula">重定价缺口率 = 重定价缺口 ÷ ${model.denominatorTitle}</div>
         </div>
       </div>
-      <div class="eve-process-flow">
-        <div class="eve-process-flow__canvas">
-          <div class="eve-process-flow__lane">
+      <div class="eve-process-flow repricing-gap-attribution-flow">
+        <div class="eve-process-flow__canvas repricing-gap-attribution-flow__canvas">
+          <div class="eve-process-flow__lane repricing-gap-attribution-flow__lane">
             ${renderEveProcessNode({
               key: "ratio",
               title: "重定价缺口率",
@@ -2304,11 +2482,10 @@ function renderRepricingGapProcessModal() {
                 selectedIndex,
                 comparisonIndex,
                 activeNode,
-                actionText: state.numeratorExpanded ? "点击收回" : "点击展开",
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
-                impact: impactMap.numerator,
+                showImpact: false,
               })}
               <div class="eve-process-division eve-process-division--quotient">÷</div>
               ${renderEveProcessNode({
@@ -2319,33 +2496,23 @@ function renderRepricingGapProcessModal() {
                 selectedIndex,
                 comparisonIndex,
                 activeNode,
-                actionText: state.denominatorExpanded ? "点击收回" : "点击展开",
                 dataAttribute: "data-repricing-gap-process-node",
                 valueFormat: "amount",
                 labels: model.displayLabels,
-                impact: impactMap.denominator,
+                showImpact: false,
               })}
             </div>
-            <div class="eve-process-connector" aria-hidden="true"></div>
-            <div class="eve-process-expansions repricing-gap-process-expansions">
-              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
-                ${state.numeratorExpanded
-                  ? renderRepricingGapNumeratorExpansion(
-                    model,
-                    selectedIndex,
-                    comparisonIndex,
-                    activeNode,
-                    state.detailExpandedNodes || state.detailExpandedNode,
-                    impactMap
-                  )
-                  : ""}
-              </div>
-              <div class="eve-process-expansion-slot eve-process-expansion-slot--wide">
-                ${state.denominatorExpanded
-                  ? renderRepricingGapLeafGroup(model.denominatorTitle, model.totalInterestAssetItems, "+", model, selectedIndex, comparisonIndex, activeNode, impactMap)
-                  : ""}
-              </div>
+            <div class="eve-process-connector repricing-gap-attribution-connector" aria-hidden="true">
+              <span>影响归因</span>
             </div>
+            ${renderRepricingGapAttribution(
+              model,
+              selectedIndex,
+              comparisonIndex,
+              activeNode,
+              state.detailExpandedNodes || state.detailExpandedNode,
+              impactMap
+            )}
           </div>
         </div>
       </div>
@@ -2355,89 +2522,177 @@ function renderRepricingGapProcessModal() {
   repricingGapProcessModalEl.setAttribute("aria-hidden", "false");
 }
 
-function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
-  const nodeOptions = { selectedIndex, comparisonIndex, activeNode, dataAttribute: "data-repricing-gap-process-node", valueFormat: "amount", labels: model.displayLabels };
+function formatRepricingGapAmountDelta(values, selectedIndex, comparisonIndex) {
+  if (comparisonIndex < 0) return { text: "较基期 --", className: "is-flat" };
+  const delta = Number((getProcessSeriesValue(values, selectedIndex) - getProcessSeriesValue(values, comparisonIndex)).toFixed(1));
+  return {
+    text: `较基期 ${formatSignedNumber(delta)}亿`,
+    className: getChangeClass(delta),
+  };
+}
+
+function renderRepricingGapAttributionCard({
+  key,
+  title,
+  note = "",
+  metrics = [],
+  impact,
+  selectedIndex,
+  comparisonIndex,
+  activeNode,
+  labels = [],
+  actionText = "",
+  cardKind = "leaf",
+}) {
+  const primarySeries = metrics[0]?.values || [];
+  const impactDisplay = formatProcessNodeImpact(impact);
+  const previewPayload = encodeProcessPreviewPayload({
+    title: `${title}${metrics[0]?.label ? ` · ${metrics[0].label}` : ""}`,
+    labels,
+    values: primarySeries,
+    selectedIndex,
+    color: EVE_COLOR_PRIMARY,
+    valueFormat: "amount",
+  });
+  return `
+    <button
+      class="eve-process-node repricing-gap-attribution-card repricing-gap-attribution-card--${cardKind} ${activeNode === key ? "is-active" : ""}"
+      type="button"
+      data-repricing-gap-process-node="${key}"
+      data-repricing-gap-business-card="${key}"
+    >
+      <span class="repricing-gap-attribution-card__header">
+        <strong>${title}</strong>
+        ${note ? `<small>${note}</small>` : ""}
+      </span>
+      <span class="repricing-gap-attribution-card__metrics">
+        ${metrics.map((metric) => {
+          const delta = formatRepricingGapAmountDelta(metric.values, selectedIndex, comparisonIndex);
+          return `
+            <span class="repricing-gap-attribution-card__metric">
+              <span>${metric.label}</span>
+              <strong>${formatEveAmount(getProcessSeriesValue(metric.values, selectedIndex))}</strong>
+              <em class="${delta.className}">${delta.text}</em>
+            </span>
+          `;
+        }).join("")}
+      </span>
+      <span class="eve-process-node__impact repricing-gap-attribution-card__impact ${impactDisplay.className}">${impactDisplay.text}</span>
+      <span
+        class="eve-process-sparkline"
+        role="button"
+        tabindex="0"
+        title="点击放大趋势"
+        data-process-sparkline="true"
+        data-process-preview="${previewPayload}"
+      >${renderEveSparkline(primarySeries, selectedIndex, EVE_COLOR_PRIMARY)}</span>
+      ${actionText ? `<span class="eve-process-node__action">${actionText}</span>` : ""}
+    </button>
+  `;
+}
+
+function renderRepricingGapBusinessStrip(title, cards = []) {
+  return `
+    <section class="repricing-gap-business-expansion" aria-label="${title}">
+      <h4>${title}</h4>
+      <div class="repricing-gap-business-strip">${cards.join("")}</div>
+    </section>
+  `;
+}
+
+function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
   const expandedNodeKeys = Array.isArray(detailExpandedNodes)
     ? detailExpandedNodes
     : detailExpandedNodes
       ? [detailExpandedNodes]
       : [];
   const isExpanded = (key) => expandedNodeKeys.includes(key);
+  const totalInterestAssetsByBusiness = Object.fromEntries(model.totalInterestAssetItems.map((item) => [
+    item.key.replace(/^total-/, ""),
+    item,
+  ]));
+  const cardOptions = { selectedIndex, comparisonIndex, activeNode, labels: model.displayLabels };
   const branches = [
     {
       key: "adjusted-assets",
-      title: `资产端重定价规模（${model.scopeLabel}）`,
-      values: model.adjustedInterestAssets,
-      operator: "",
-      children: renderRepricingGapLeafGroup(
-        `资产端重定价规模（${model.scopeLabel}）`,
-        model.assetItems,
-        "+",
-        model,
-        selectedIndex,
-        comparisonIndex,
-        activeNode,
-        impactMap
-      ),
+      title: "资产端业务",
+      note: `口径：${model.scopeLabel}`,
+      metrics: [
+        { label: "当前重定价规模", values: model.adjustedInterestAssets },
+        { label: "当前总生息资产", values: model.totalInterestAssets },
+      ],
+      children: renderRepricingGapBusinessStrip("资产端业务类别", model.assetItems.map((item) => renderRepricingGapAttributionCard({
+        ...cardOptions,
+        key: item.key,
+        title: item.title,
+        metrics: [
+          { label: "当前重定价规模", values: item.values },
+          { label: "当前总生息资产", values: totalInterestAssetsByBusiness[item.key]?.values || [] },
+        ],
+        impact: impactMap[item.key],
+      }))),
     },
     {
       key: "adjusted-liabilities",
-      title: `负债端重定价规模（${model.scopeLabel}、不含活期）`,
-      values: model.adjustedInterestLiabilities,
-      operator: "-",
-      children: renderRepricingGapLeafGroup(
-        `负债端重定价规模（${model.scopeLabel}、不含活期）`,
-        model.liabilityItems,
-        "+",
-        model,
-        selectedIndex,
-        comparisonIndex,
-        activeNode,
-        impactMap
-      ),
+      title: "负债端业务",
+      note: `口径：${model.scopeLabel}、不含活期`,
+      metrics: [{ label: "当前重定价规模", values: model.adjustedInterestLiabilities }],
+      children: renderRepricingGapBusinessStrip("负债端业务类别", model.liabilityItems.map((item) => renderRepricingGapAttributionCard({
+        ...cardOptions,
+        key: item.key,
+        title: item.title,
+        metrics: [{ label: "当前重定价规模", values: item.values }],
+        impact: impactMap[item.key],
+      }))),
     },
     {
       key: "bank-book-derivative-gap",
       title: "银行账簿表外衍生品缺口",
-      values: model.bankBookDerivativeGap,
-      operator: "+",
-      children: renderRepricingGapLeafGroup("银行账簿表外衍生品缺口", [
+      metrics: [{ label: "当前净缺口", values: model.bankBookDerivativeGap }],
+      children: renderRepricingGapBusinessStrip("银行账簿表外衍生品类别", [
         { key: "bank-book-receivable", title: "银行账簿表外衍生品应收", values: model.bankBookReceivable },
         { key: "bank-book-payable", title: "银行账簿表外衍生品应付", values: model.bankBookPayable },
-      ], "-", model, selectedIndex, comparisonIndex, activeNode, impactMap),
+      ].map((item) => renderRepricingGapAttributionCard({
+        ...cardOptions,
+        key: item.key,
+        title: item.title,
+        metrics: [{ label: "当前规模", values: item.values }],
+        impact: impactMap[item.key],
+      }))),
     },
     {
       key: "trading-book-derivative-gap",
       title: "交易账簿表外衍生品缺口",
-      values: model.tradingBookDerivativeGap,
-      operator: "+",
-      children: renderRepricingGapLeafGroup("交易账簿表外衍生品缺口", [
+      metrics: [{ label: "当前净缺口", values: model.tradingBookDerivativeGap }],
+      children: renderRepricingGapBusinessStrip("交易账簿表外衍生品类别", [
         { key: "trading-book-receivable", title: "交易账簿表外衍生品应收", values: model.tradingBookReceivable },
         { key: "trading-book-payable", title: "交易账簿表外衍生品应付", values: model.tradingBookPayable },
-      ], "-", model, selectedIndex, comparisonIndex, activeNode, impactMap),
+      ].map((item) => renderRepricingGapAttributionCard({
+        ...cardOptions,
+        key: item.key,
+        title: item.title,
+        metrics: [{ label: "当前规模", values: item.values }],
+        impact: impactMap[item.key],
+      }))),
     },
   ];
   return `
-    <div class="repricing-gap-process-detail">
-      <div class="lcr-process-expansion__formula">
-        重定价缺口 = 资产端重定价规模 - 负债端重定价规模 + 银行账簿表外衍生品缺口 + 交易账簿表外衍生品缺口
+    <div class="repricing-gap-attribution">
+      <div class="repricing-gap-attribution__formula">
+        四类业务影响之和 = 重定价缺口率较基期变化；资产端影响已联合考虑重定价规模和总生息资产变化
       </div>
       <div class="repricing-gap-branch-tree">
-        ${branches.map((branch, index) => `
-          ${index ? `
-            <div class="repricing-gap-branch-tree__operator">
-              <span class="eve-process-mini-operator">${branch.operator}</span>
-            </div>
-          ` : ""}
+        ${branches.map((branch) => `
           <div class="repricing-gap-branch-row${isExpanded(branch.key) ? " is-expanded" : ""}">
-            ${renderEveProcessNode({
-              ...nodeOptions,
+            ${renderRepricingGapAttributionCard({
+              ...cardOptions,
               key: branch.key,
               title: branch.title,
-              value: formatEveAmount(branch.values[selectedIndex]),
-              series: branch.values,
+              note: branch.note,
+              metrics: branch.metrics,
               actionText: isExpanded(branch.key) ? "点击收回" : "点击展开",
               impact: impactMap[branch.key],
+              cardKind: "branch",
             })}
             ${isExpanded(branch.key) ? `
               <div class="eve-process-connector repricing-gap-branch-row__connector" aria-hidden="true"></div>
@@ -2447,35 +2702,6 @@ function renderRepricingGapNumeratorExpansion(model, selectedIndex, comparisonIn
         `).join("")}
       </div>
     </div>
-  `;
-}
-
-function renderRepricingGapLeafGroup(title, items, operator, model, selectedIndex, comparisonIndex, activeNode, impactMap = {}) {
-  const nodeOptions = {
-    selectedIndex,
-    comparisonIndex,
-    activeNode,
-    dataAttribute: "data-repricing-gap-process-node",
-    valueFormat: "amount",
-    labels: model.displayLabels,
-  };
-  return `
-    <section class="repricing-gap-leaf-group">
-      <h4>${title}</h4>
-      <div class="repricing-gap-leaf-group__nodes">
-        ${items.map((item, index) => `
-          ${index ? `<span class="eve-process-mini-operator">${operator}</span>` : ""}
-          ${renderEveProcessNode({
-            ...nodeOptions,
-            key: item.key,
-            title: item.title,
-            value: formatEveAmount(item.values[selectedIndex]),
-            series: item.values,
-            impact: impactMap[item.key],
-          })}
-        `).join("")}
-      </div>
-    </section>
   `;
 }
 
@@ -2607,34 +2833,73 @@ function renderRepricingDurationGapProcessModal() {
 
 function renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, side, impactMap = {}) {
   const sideLabel = side === "asset" ? "资产端" : "负债端";
-  const rows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
-    .filter((row) => row.side === sideLabel);
+  const rowsByDate = model.labels.map((_, dateIndex) =>
+    buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, dateIndex)
+      .filter((row) => row.side === sideLabel)
+  );
+  const rows = rowsByDate[selectedIndex] || [];
+  const baselineRows = comparisonIndex >= 0 ? (rowsByDate[comparisonIndex] || []) : [];
+  const baselineByBusiness = Object.fromEntries(baselineRows.map((row) => [row.businessType, row]));
   return `
     <div class="eve-process-scenario-strip repricing-duration-gap-component-strip">
       ${rows.map((row) => {
-        const series = model.labels.map((_, index) => {
-          const rowAtDate = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, index)
-            .find((item) => item.businessType === row.businessType);
-          return rowAtDate?.contribution || 0;
-        });
-        return renderEveProcessNode({
-          key: `${side}:${row.businessType}`,
-          title: row.businessType,
-          value: formatDurationProcessValue(row.contribution),
-          series,
+        const baselineRow = baselineByBusiness[row.businessType];
+        const scaleDelta = comparisonIndex >= 0
+          ? Number(row.scale || 0) - Number(baselineRow?.scale || 0)
+          : null;
+        const durationDelta = comparisonIndex >= 0
+          ? Number(row.duration || 0) - Number(baselineRow?.duration || 0)
+          : null;
+        const scaleClass = scaleDelta === null ? "is-flat" : getChangeClass(scaleDelta);
+        const durationClass = durationDelta === null ? "is-flat" : getChangeClass(durationDelta);
+        const impactDisplay = formatProcessNodeImpact(impactMap[`${side}:${row.businessType}`], "number");
+        const impactText = impactDisplay.text === "影响 --" ? impactDisplay.text : `${impactDisplay.text}年`;
+        const scaleSeries = rowsByDate.map((dateRows) =>
+          Number(dateRows.find((item) => item.businessType === row.businessType)?.scale || 0)
+        );
+        const durationSeries = rowsByDate.map((dateRows) =>
+          Number(dateRows.find((item) => item.businessType === row.businessType)?.duration || 0)
+        );
+        const previewPayload = encodeProcessPreviewPayload({
+          title: `${row.businessType}规模及久期趋势`,
+          labels: model.displayLabels,
+          values: scaleSeries,
+          secondaryValues: durationSeries,
           selectedIndex,
           comparisonIndex,
-          activeNode,
-          dataAttribute: "data-repricing-duration-gap-process-node",
-          changeType: "numberDelta",
-          valueFormat: "number",
-          labels: model.displayLabels,
-          impact: impactMap[`${side}:${row.businessType}`],
-          impactType: "number",
-        }).replace(
-          '<button class="eve-process-node',
-          '<button class="eve-process-node eve-process-node--compact'
-        );
+          primaryLabel: "规模",
+          secondaryLabel: "久期",
+          primaryColor: "#2878C7",
+          secondaryColor: "#C06A3A",
+          primaryValueFormat: "amount",
+          secondaryValueFormat: "duration",
+        });
+        return `
+          <article
+            class="eve-process-node eve-process-node--compact repricing-duration-business-card"
+            data-repricing-duration-business-card="${side}:${row.businessType}"
+            aria-label="${row.businessType}久期影响"
+          >
+            <span class="eve-process-node__title"><strong>${row.businessType}</strong></span>
+            <span class="repricing-duration-business-card__values">
+              <span class="repricing-duration-business-card__value ${scaleClass}">
+                规模较基期 ${scaleDelta === null ? "--" : `${formatSignedNumber(scaleDelta, 1)}亿`}
+              </span>
+              <span class="repricing-duration-business-card__value ${durationClass}">
+                久期较基期 ${durationDelta === null ? "--" : `${formatSignedNumber(durationDelta, 2)}年`}
+              </span>
+              <span class="eve-process-node__impact repricing-duration-business-card__value ${impactDisplay.className}">${impactText}</span>
+            </span>
+            <span
+              class="eve-process-sparkline repricing-duration-dual-sparkline"
+              role="button"
+              tabindex="0"
+              title="点击放大规模及久期双轴趋势"
+              data-process-sparkline="true"
+              data-process-preview="${previewPayload}"
+            >${renderRepricingDurationDualAxisSparkline(scaleSeries, durationSeries, selectedIndex, comparisonIndex)}</span>
+          </article>
+        `;
       }).join("")}
     </div>
   `;

@@ -411,7 +411,37 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
   await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u81ea\u8425\u8d37\u6b3e");
+  const durationBusinessCards = page.locator("#repricingDurationGapProcessModal [data-repricing-duration-business-card]");
+  await expect(durationBusinessCards).toHaveCount(7);
+  for (const businessType of ["自营贷款", "投资类资产", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "表外衍生品应收"]) {
+    await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:${businessType}"]`)).toHaveCount(1);
+  }
+  const loanDurationBusinessCard = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:\u81ea\u8425\u8d37\u6b3e"]');
+  await expect(loanDurationBusinessCard.locator(".repricing-duration-business-card__value")).toHaveCount(3);
+  await expect(loanDurationBusinessCard.locator(".eve-process-sparkline")).toHaveCount(1);
+  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toHaveCount(1);
+  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("规模(亿)");
+  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("久期(年)");
+  await expect(loanDurationBusinessCard).toContainText("\u89c4\u6a21\u8f83\u57fa\u671f");
+  await expect(loanDurationBusinessCard).toContainText("\u4e45\u671f\u8f83\u57fa\u671f");
+  await expect(loanDurationBusinessCard).toContainText("\u5f71\u54cd");
+  await expect(loanDurationBusinessCard).not.toContainText("\u89c4\u6a21\u5f71\u54cd");
+  await expect(loanDurationBusinessCard).not.toContainText("\u4e45\u671f\u5f71\u54cd");
+  await loanDurationBusinessCard.locator(".eve-process-sparkline").click();
+  await expect(page.locator("#processSparklinePreview")).toContainText("自营贷款规模及久期趋势");
+  await expect(page.locator("#processSparklinePreview")).toContainText("主轴 · 规模");
+  await expect(page.locator("#processSparklinePreview")).toContainText("次轴 · 久期");
+  await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
+  await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
+  const liabilityDurationBusinessCards = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card^="liability:"]');
+  await expect(liabilityDurationBusinessCards).toHaveCount(8);
+  for (const businessType of ["活期存款", "定期存款", "同业负债", "发行债券", "向央行借款", "租赁负债", "内部交易负债", "表外衍生品应付"]) {
+    await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:${businessType}"]`)).toHaveCount(1);
+  }
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:内部交易资产"]')).toContainText("规模较基期 0.0亿");
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:内部交易负债"]')).toContainText("规模较基期 0.0亿");
   await expectAllProcessNodesHaveImpact(page.locator("#repricingDurationGapProcessModal"));
+  await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
   await expect(page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
   await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
   await expect(page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u5c55\u5f00");
@@ -453,15 +483,21 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator("#repricingGapProcessModal [data-repricing-gap-process-comparison]")).toHaveValue("");
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u8f83\u57fa\u671f");
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387 = \u91cd\u5b9a\u4ef7\u7f3a\u53e3 \u00f7 \u603b\u751f\u606f\u8d44\u4ea7\u89c4\u6a21\uff08\u5254\u9664\u5185\u90e8\u4ea4\u6613\uff09");
-  await page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingGapProcessModal")).toContainText("\u8d44\u4ea7\u7aef\u91cd\u5b9a\u4ef7\u89c4\u6a21\uff08\u4e0d\u542b\u5185\u90e8\u4ea4\u6613\uff09");
-  await expect(page.locator("#repricingGapProcessModal .repricing-gap-leaf-group")).toHaveCount(0);
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("\u56db\u7c7b\u4e1a\u52a1\u5f71\u54cd\u4e4b\u548c = \u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8f83\u57fa\u671f\u53d8\u5316");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"] .eve-process-node__impact')).toHaveCount(0);
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="denominator"] .eve-process-node__impact')).toHaveCount(0);
+  await expect(page.locator('#repricingGapProcessModal .repricing-gap-attribution-card--branch')).toHaveCount(4);
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u8d44\u4ea7\u7aef\u4e1a\u52a1");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u603b\u751f\u606f\u8d44\u4ea7");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u5f71\u54cd");
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="adjusted-assets"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingGapProcessModal .repricing-gap-leaf-group")).toHaveCount(1);
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(1);
   const numeratorNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"]').boundingBox();
   const assetNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]').boundingBox();
-  const assetLeafBox = await page.locator("#repricingGapProcessModal .repricing-gap-leaf-group").boundingBox();
+  const assetLeafBox = await page.locator("#repricingGapProcessModal .repricing-gap-business-expansion").boundingBox();
   expect(numeratorNodeBox).not.toBeNull();
   expect(assetNodeBox).not.toBeNull();
   expect(assetLeafBox).not.toBeNull();
@@ -470,31 +506,34 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   for (const key of ["self-operated-loans", "investment-assets", "interbank-assets", "non-standard-investments", "central-bank-deposits"]) {
     await expect(page.locator(`#repricingGapProcessModal [data-repricing-gap-process-node="${key}"]`)).toHaveCount(1);
   }
+  const loanRepricingCard = page.locator('#repricingGapProcessModal [data-repricing-gap-business-card="self-operated-loans"]');
+  await expect(loanRepricingCard).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(loanRepricingCard).toContainText("\u603b\u751f\u606f\u8d44\u4ea7");
+  await expect(loanRepricingCard).toContainText("\u8f83\u57fa\u671f");
+  await expect(loanRepricingCard).toContainText("\u5f71\u54cd");
+  await expect(loanRepricingCard.locator(".eve-process-sparkline")).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="bank-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="adjusted-liabilities"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingGapProcessModal .repricing-gap-leaf-group")).toHaveCount(2);
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(2);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="self-operated-loans"]')).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="bank-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="trading-book-derivative-gap"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingGapProcessModal .repricing-gap-leaf-group")).toHaveCount(3);
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(3);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="self-operated-loans"]')).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(1);
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u4ea4\u6613\u8d26\u7c3f\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536");
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u4ea4\u6613\u8d26\u7c3f\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8");
-  await expectAllProcessNodesHaveImpact(page.locator("#repricingGapProcessModal"));
+  const repricingAttributionCards = page.locator("#repricingGapProcessModal .repricing-gap-attribution-card");
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-attribution-card .eve-process-node__impact")).toHaveCount(await repricingAttributionCards.count());
+  await expect(page.locator("#repricingGapProcessModal")).not.toContainText("\u5f71\u54cd --");
   await page.locator('[data-repricing-gap-process-node="adjusted-assets"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingGapProcessModal .repricing-gap-leaf-group")).toHaveCount(2);
+  await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(2);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="self-operated-loans"]')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toHaveCount(1);
   await expect(page.locator('[data-repricing-gap-process-node="trading-book-derivative-gap"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
-  await expect(page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
-  await page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action').click();
-  await expect(page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u5c55\u5f00");
-  await expect(page.locator("#repricingGapProcessModal")).not.toContainText("\u8d44\u4ea7\u7aef\u91cd\u5b9a\u4ef7\u89c4\u6a21\uff08\u4e0d\u542b\u5185\u90e8\u4ea4\u6613\uff09");
-  await page.locator('[data-repricing-gap-process-node="numerator"] .eve-process-node__action').click();
   await page.locator('[data-repricing-gap-process-node="numerator"] [data-process-sparkline]').click();
   await expect(page.locator("#processSparklinePreview")).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3");
   await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
@@ -838,14 +877,29 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
       filterState: { 机构: ["法人汇总"] },
     });
     const repricingImpacts = buildRepricingGapProcessImpactMap(repricingModel, selectedIndex, comparisonIndex);
-    add("重定价缺口率顶层", repricingImpacts.ratio, repricingImpacts.numerator + repricingImpacts.denominator);
-    add("重定价缺口率分子", repricingImpacts.numerator, sum(repricingImpacts, ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"]));
+    add("重定价缺口率顶层", repricingImpacts.ratio, sum(repricingImpacts, ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"]));
     add("重定价缺口率资产端", repricingImpacts["adjusted-assets"], sum(repricingImpacts, repricingModel.assetItems.map((item) => item.key)));
     add("重定价缺口率负债端", repricingImpacts["adjusted-liabilities"], sum(repricingImpacts, repricingModel.liabilityItems.map((item) => item.key)));
-    add("重定价缺口率分母", repricingImpacts.denominator, sum(repricingImpacts, repricingModel.totalInterestAssetItems.map((item) => item.key)));
+    add("重定价缺口率银行账簿衍生品", repricingImpacts["bank-book-derivative-gap"], sum(repricingImpacts, ["bank-book-receivable", "bank-book-payable"]));
+    add("重定价缺口率交易账簿衍生品", repricingImpacts["trading-book-derivative-gap"], sum(repricingImpacts, ["trading-book-receivable", "trading-book-payable"]));
+    if (repricingImpacts.numerator !== undefined || repricingImpacts.denominator !== undefined) {
+      throw new Error("重定价缺口率不应再把分子和分母作为独立归因因素");
+    }
 
     const durationWidget = { seq: 15, title: "资产负债重定价久期缺口" };
     const durationModel = buildRepricingDurationGapModel(durationWidget, { labels, signature: 59 });
+    [comparisonIndex, selectedIndex].forEach((dateIndex) => {
+      const durationRows = buildRepricingDurationGapDetailRows(durationWidget, { signature: durationModel.signature }, durationModel, dateIndex);
+      [
+        ["资产端", durationModel.assetDurations[dateIndex]],
+        ["负债端", durationModel.liabilityDurations[dateIndex]],
+      ].forEach(([sideLabel, parentDuration]) => {
+        const sideRows = durationRows.filter((row) => row.side === sideLabel);
+        const totalScale = sideRows.reduce((sum, row) => sum + Number(row.scale || 0), 0);
+        const weightedDuration = sideRows.reduce((sum, row) => sum + Number(row.scale || 0) * Number(row.duration || 0), 0) / totalScale;
+        add(`重定价久期${sideLabel}${dateIndex === selectedIndex ? "本期" : "基期"}加权一致`, parentDuration, weightedDuration);
+      });
+    });
     const durationImpacts = buildRepricingDurationGapProcessImpactMap(durationWidget, durationModel, selectedIndex, comparisonIndex);
     add("重定价久期缺口顶层", durationImpacts["duration-gap"], durationImpacts["asset-duration"] + durationImpacts["liability-duration"]);
     add("重定价久期缺口资产端", durationImpacts["asset-duration"], sum(durationImpacts, Object.keys(durationImpacts).filter((key) => key.startsWith("asset:"))));

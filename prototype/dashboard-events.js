@@ -215,8 +215,6 @@ dashboardViewEl.addEventListener("click", (event) => {
       signature: Number(openRepricingGapProcessButton.dataset.repricingGapSignature || sourceState.signature || 0),
       comparisonIndex: null,
       activeNode: "ratio",
-      numeratorExpanded: false,
-      denominatorExpanded: false,
       detailExpandedNodes: [],
     };
     appState.repricingGapPointPopover = null;
@@ -999,8 +997,6 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
   const nodeButton = event.target.closest("[data-repricing-gap-process-node]");
   if (!nodeButton || !appState.repricingGapProcessModal) return;
   const nodeKey = nodeButton.dataset.repricingGapProcessNode;
-  const collapseNumerator = nodeKey === "numerator" && appState.repricingGapProcessModal.numeratorExpanded;
-  const collapseDenominator = nodeKey === "denominator" && appState.repricingGapProcessModal.denominatorExpanded;
   const detailNodeKeys = ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"];
   const legacyDetailNode = appState.repricingGapProcessModal.detailExpandedNode || "";
   const currentDetailNodes = Array.isArray(appState.repricingGapProcessModal.detailExpandedNodes)
@@ -1013,20 +1009,12 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
     nextDetailNodes = currentDetailNodes.includes(nodeKey)
       ? currentDetailNodes.filter((key) => key !== nodeKey)
       : [...currentDetailNodes, nodeKey];
-  } else if (collapseNumerator) {
-    nextDetailNodes = [];
   }
   const nextModalState = { ...appState.repricingGapProcessModal };
   delete nextModalState.detailExpandedNode;
   appState.repricingGapProcessModal = {
     ...nextModalState,
-    activeNode: collapseNumerator || collapseDenominator ? "ratio" : nodeKey,
-    numeratorExpanded: nodeKey === "numerator"
-      ? !appState.repricingGapProcessModal.numeratorExpanded
-      : appState.repricingGapProcessModal.numeratorExpanded,
-    denominatorExpanded: nodeKey === "denominator"
-      ? !appState.repricingGapProcessModal.denominatorExpanded
-      : appState.repricingGapProcessModal.denominatorExpanded,
+    activeNode: nodeKey,
     detailExpandedNodes: nextDetailNodes,
   };
   renderRepricingGapProcessModal();

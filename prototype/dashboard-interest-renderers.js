@@ -2,6 +2,13 @@
 function buildRepricingDurationGapModel(widget, chartContextOrState = {}) {
   const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
   const labels = rawLabels.length ? rawLabels : buildMonthlyXAxisLabels();
+  const pageId = chartContextOrState.pageId || getCurrentPage()?.id || "interest-risk";
+  const organizations = typeof getDiagnosticOrganizations === "function"
+    ? getDiagnosticOrganizations(pageId, chartContextOrState)
+    : ["法人汇总"];
+  const includesInternalTransactions = typeof isSingleForeignBranchScope === "function"
+    ? isSingleForeignBranchScope(organizations)
+    : false;
   const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || 15, chartContextOrState.filterState || {}));
   const assetDurations = labels.map((_, index) =>
     Number((2.35 + (signature % 11) * 0.015 + Math.sin((index + signature) / 3.4) * 0.24 + index * 0.018).toFixed(2))
@@ -14,6 +21,8 @@ function buildRepricingDurationGapModel(widget, chartContextOrState = {}) {
     labels,
     displayLabels: typeof buildEveDisplayLabels === "function" ? buildEveDisplayLabels(labels) : labels,
     signature,
+    organizations,
+    includesInternalTransactions,
     assetDurations,
     liabilityDurations,
     gaps,
@@ -136,22 +145,41 @@ function renderRepricingDurationGapPointPopover(widget, model, point, index) {
 function buildRepricingDurationGapDetailRows(widget, chartContext, model, selectedIndex) {
   const options = BUSINESS_DURATION_OPTIONS.length ? BUSINESS_DURATION_OPTIONS : Object.keys(BUSINESS_SIDE_MAP);
   const selectedBusinessTypes = [
-    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "asset").slice(0, 4),
-    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "liability").slice(0, 4),
+    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "asset"),
+    ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "liability"),
   ];
   const seed = Number(chartContext.signature || model.signature || createSignature(widget.seq + selectedIndex, {
     ...(chartContext.filterState || {}),
     日期: [model.labels[selectedIndex]],
   }));
-  return selectedBusinessTypes.map((businessType, index) => {
+  const rows = selectedBusinessTypes.map((businessType, index) => {
     const isAsset = BUSINESS_SIDE_MAP[businessType] === "asset";
     const side = isAsset ? "资产端" : "负债端";
-    const scale = 42 + (buildMetricValues(widget.seq + index * 9, 1, seed + selectedIndex * 13)[0] % 86);
+    const excludesInternalTransaction = businessType.includes("内部交易") && !model.includesInternalTransactions;
+    const scale = excludesInternalTransaction
+      ? 0
+      : 42 + (buildMetricValues(widget.seq + index * 9, 1, seed + selectedIndex * 13)[0] % 86);
     const baseDuration = isAsset ? model.assetDurations[selectedIndex] : model.liabilityDurations[selectedIndex];
-    const duration = Number(Math.max(0.12, baseDuration * (0.72 + ((seed + index * 5) % 18) / 100)).toFixed(2));
-    const contribution = Number(((scale / 260) * duration * (isAsset ? 1 : -1)).toFixed(2));
-    return { side, businessType, scale, duration, contribution };
+    const duration = excludesInternalTransaction
+      ? 0
+      : Number(Math.max(0.12, baseDuration * (0.72 + ((seed + index * 5) % 18) / 100)).toFixed(2));
+    return { side, businessType, scale, duration };
   });
+  [
+    ["资产端", model.assetDurations[selectedIndex]],
+    ["负债端", model.liabilityDurations[selectedIndex]],
+  ].forEach(([side, targetDuration]) => {
+    const sideRows = rows.filter((row) => row.side === side);
+    const totalScale = sideRows.reduce((sum, row) => sum + Number(row.scale || 0), 0);
+    const rawWeightedDuration = totalScale
+      ? sideRows.reduce((sum, row) => sum + Number(row.scale || 0) * Number(row.duration || 0), 0) / totalScale
+      : 0;
+    const normalization = rawWeightedDuration ? Number(targetDuration || 0) / rawWeightedDuration : 1;
+    sideRows.forEach((row) => {
+      row.duration = Number(row.duration || 0) * normalization;
+    });
+  });
+  return rows;
 }
 
 function renderRepricingDurationGapDataTable(widget, chartContext) {
