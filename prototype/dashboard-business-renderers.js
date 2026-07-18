@@ -156,14 +156,6 @@ function getBusinessMonthEndDate(monthKey) {
   return formatDateValue(new Date(year, month + 1, 0));
 }
 
-function getBusinessMonthStartDate(monthKey) {
-  const serial = getBusinessMonthSerial(monthKey);
-  if (!Number.isFinite(serial)) return getMonthStartDateValue(getDefaultGlobalEndDate());
-  const year = Math.floor(serial / 12);
-  const month = (serial % 12 + 12) % 12;
-  return formatDateValue(new Date(year, month, 1));
-}
-
 function getBusinessMonthKeysForDateRange(dateRange = []) {
   const fallbackEnd = getLatestCompletedBusinessMonthEnd();
   const startMonth = getBusinessMonthKeyFromDateValue(dateRange?.[0] || fallbackEnd);

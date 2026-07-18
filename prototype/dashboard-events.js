@@ -255,14 +255,6 @@ dashboardViewEl.addEventListener("click", (event) => {
     return;
   }
 
-  const subtabButton = event.target.closest("[data-area-subtab]");
-  if (subtabButton) {
-    const { areaSubtab, tabName } = subtabButton.dataset;
-    appState.areaSubpages[areaSubtab] = tabName;
-    render();
-    return;
-  }
-
   const modeButton = event.target.closest("[data-widget-mode]");
   if (modeButton) {
     const { widgetMode, mode } = modeButton.dataset;
@@ -998,22 +990,17 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
   if (!nodeButton || !appState.repricingGapProcessModal) return;
   const nodeKey = nodeButton.dataset.repricingGapProcessNode;
   const detailNodeKeys = ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"];
-  const legacyDetailNode = appState.repricingGapProcessModal.detailExpandedNode || "";
   const currentDetailNodes = Array.isArray(appState.repricingGapProcessModal.detailExpandedNodes)
     ? appState.repricingGapProcessModal.detailExpandedNodes
-    : legacyDetailNode
-      ? [legacyDetailNode]
-      : [];
+    : [];
   let nextDetailNodes = [...currentDetailNodes];
   if (detailNodeKeys.includes(nodeKey)) {
     nextDetailNodes = currentDetailNodes.includes(nodeKey)
       ? currentDetailNodes.filter((key) => key !== nodeKey)
       : [...currentDetailNodes, nodeKey];
   }
-  const nextModalState = { ...appState.repricingGapProcessModal };
-  delete nextModalState.detailExpandedNode;
   appState.repricingGapProcessModal = {
-    ...nextModalState,
+    ...appState.repricingGapProcessModal,
     activeNode: nodeKey,
     detailExpandedNodes: nextDetailNodes,
   };
@@ -1118,6 +1105,23 @@ filterPopoverEl.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const interactiveSvgTarget = event.target.closest?.([
+    "[data-eve-point]",
+    "[data-liquidity-point]",
+    "[data-repricing-gap-point]",
+    "[data-repricing-duration-gap-point]",
+    "[data-repricing-maturity-cell]",
+    "[data-future-funding-flow-cell]",
+  ].join(","));
+  if (interactiveSvgTarget && ["Enter", " ", "Spacebar"].includes(event.key)) {
+    event.preventDefault();
+    interactiveSvgTarget.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+    }));
+    return;
+  }
   if (event.key === "Escape") {
     if (appState.businessMethodologyModal) {
       appState.businessMethodologyModal = null;

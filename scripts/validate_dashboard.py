@@ -20,39 +20,27 @@ INTEREST_RENDERERS_FILE = ROOT / "prototype" / "dashboard-interest-renderers.js"
 LIQUIDITY_RENDERERS_FILE = ROOT / "prototype" / "dashboard-liquidity-renderers.js"
 RENDERERS_FILE = ROOT / "prototype" / "dashboard-renderers.js"
 EVENTS_FILE = ROOT / "prototype" / "dashboard-events.js"
+STYLES_FILE = ROOT / "prototype" / "styles.css"
 INDEX_FILE = ROOT / "prototype" / "index.html"
 
 FORBIDDEN_RENDERER_SNIPPETS = [
-    'pageName.includes("鍒╃巼")',
-    'pageName.includes("娴佸姩鎬?)',
-    'pageName.includes("姹囩巼")',
-    'String(block?.name || "").includes("鏈熸潈鎬ч闄?)',
+    'pageName.includes("利率")',
+    'pageName.includes("流动性")',
+    'pageName.includes("汇率")',
+    'String(block?.name || "").includes("期权性风险")',
     'currentPageId || "") === "page-4"',
-    'widget.title.includes("鍗犳瘮")',
-    'widget.title.includes("鍒嗗竷")',
-    'String(widget?.title || "").includes("璧勪骇璐熷€虹粨鏋勪竴瑙堣〃")',
-    'String(widget?.title || "").includes("閲嶅畾浠疯妯′笌缂哄彛")',
-    'String(widget?.title || "").includes("璧勯噾娴佸叆娴佸嚭瑙勬ā")',
-    'String(widget?.title || "").includes("鏈潵閫愭棩璧勯噾娴?)',
-    'String(widget?.title || "").includes("璧勪骇/璐熷€洪噸瀹氫环涔呮湡")',
-    'String(widget?.title || "").includes("鍒嗗竵绉嶄箙鏈熺己鍙ｄ竴瑙堣〃")',
-    'String(widget?.title || "").includes("鍚勫竵绉嶆渶澶х粡娴庝环鍊煎彉鍔?)',
-    'String(widget?.title || "").includes("6绉嶆儏鏅笅缁忔祹浠峰€煎彉鍔ㄨ〃")',
-    'String(widget?.title || "").includes("鍑€鍒╂伅鏀跺叆娉㈠姩鍙婃尝鍔ㄧ巼")',
-    'String(widget?.title || "").includes("娴佸姩鎬х己鍙ｈ妯★紙1/7/90鏃ワ級")',
-    'String(widget?.title || "").includes("30鏃ユ祦鍔ㄦ€х己鍙ｈ妯?)',
     'Number(widget?.seq) === 5',
     'Number(widget?.seq) === 6',
     'String(widgetSeq) === "49"',
     'String(widgetSeq) === "50"',
     'String(widgetSeq) === "89"',
     'String(widgetSeq) === "96"',
-    'title.includes("\u4e45\u671f")',
-    'title.includes("\u7f3a\u53e3")',
-    'title.includes("\u6ce2\u52a8")',
-    'title.includes("\u53d8\u52a8")',
-    'title.includes("\u89c4\u6a21\u53ca\u589e\u901f")',
-    'title.includes("\u8986\u76d6\u7387")',
+    'title.includes("久期")',
+    'title.includes("缺口")',
+    'title.includes("波动")',
+    'title.includes("变动")',
+    'title.includes("规模及增速")',
+    'title.includes("覆盖率")',
     'title.includes("LCR")',
     'title.includes("\u878d\u8d44")',
 ]
@@ -84,6 +72,17 @@ ALLOWED_SIMULATION_WIDGET_SEQS = {9, 49}
 SOURCE_ONLY_WIDGET_SEQS = {3, 4}
 REMOVED_WIDGET_SEQS = {5, 8, 10, 11, 16, 17, 57, 58}
 REMOVED_STRUCTURE_LAYER_NAMES = {"核心风险指标", "缺口风险", "现金流错配"}
+ALLOWED_COMPONENT_TYPES = {
+    "折线图",
+    "双轴柱线组合图",
+    "穿透折线图",
+    "期限分布图",
+    "限额折线图",
+    "限额双柱时序图",
+    "堆叠柱线组合图",
+    "表格",
+}
+ALLOWED_GRAINS = {"月度", "时点快照", "日度", "明细", "时间区间"}
 
 
 def load_window_json(path: Path, variable_name: str) -> dict[str, Any]:
@@ -125,8 +124,6 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
     page_names: set[str] = set()
     area_ids: set[str] = set()
     area_names: set[str] = set()
-    block_names_by_page: dict[str, set[str]] = {}
-    area_names_by_scope: dict[tuple[str, str], set[str]] = {}
     widget_context: dict[int, dict[str, Any]] = {}
     total_blocks = 0
     total_areas = 0
@@ -153,7 +150,6 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
         page_area_count = 0
         page_widget_count = 0
         page_block_ids: set[str] = set()
-        block_names_by_page[str(page.get("name"))] = set()
 
         for block in blocks:
             ensure_fields(block, ["id", "name", "areas"], f"block {block!r}", errors)
@@ -162,7 +158,6 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
             page_block_ids.add(block.get("id"))
             if str(block.get("name")) in REMOVED_STRUCTURE_LAYER_NAMES:
                 errors.append(f"removed structure layer still appears in dashboard data: {block.get('name')}")
-            block_names_by_page[str(page.get("name"))].add(str(block.get("name")))
             areas = block.get("areas")
             if not isinstance(areas, list):
                 errors.append(f"block {block.get('id')} areas should be a list")
@@ -193,8 +188,6 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                         f"duplicate area name '{area.get('name')}' in block {block.get('id')} should declare groupKey"
                     )
                 area_names.add(str(area.get("name")))
-                area_scope = (str(page.get("name")), str(block.get("name")))
-                area_names_by_scope.setdefault(area_scope, set()).add(str(area.get("name")))
                 widgets = area.get("widgets")
                 if not isinstance(widgets, list) or not widgets:
                     errors.append(f"area {area.get('id')} widgets should be a non-empty list")
@@ -208,9 +201,9 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                 filter_preset = area.get("filterPreset")
                 if filter_preset is not None and filter_preset not in config.get("filter_preset_names", set()):
                     errors.append(f"area {area.get('id')} references unknown filterPreset: {filter_preset}")
-                scope_meta = area.get("scopeMeta")
-                if scope_meta is not None and not isinstance(scope_meta, dict):
-                    errors.append(f"area {area.get('id')} scopeMeta should be an object")
+                for obsolete_field in ("viewScope", "scopeMeta"):
+                    if obsolete_field in area:
+                        errors.append(f"area {area.get('id')} should not declare obsolete field {obsolete_field}")
 
                 for shared_filter in shared_filters:
                     normalized = normalize_filter_name(shared_filter)
@@ -225,6 +218,10 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
                     if not isinstance(seq, int):
                         errors.append(f"widget in area {area.get('id')} has non-integer seq: {seq!r}")
                         continue
+                    if widget.get("componentType") not in ALLOWED_COMPONENT_TYPES:
+                        errors.append(f"widget {seq} has unsupported componentType: {widget.get('componentType')!r}")
+                    if widget.get("grain") not in ALLOWED_GRAINS:
+                        errors.append(f"widget {seq} has unsupported grain: {widget.get('grain')!r}")
                     if seq in widget_index:
                         errors.append(f"duplicate widget seq: {seq}")
                     if seq in REMOVED_WIDGET_SEQS:
@@ -257,9 +254,7 @@ def validate_dashboard_data(data: dict[str, Any], config: dict[str, Any]) -> tup
         "widget_index": widget_index,
         "widget_context": widget_context,
         "page_names": page_names,
-        "block_names_by_page": block_names_by_page,
         "area_names": area_names,
-        "area_names_by_scope": area_names_by_scope,
     }
     return errors, warnings, stats
 
@@ -273,10 +268,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     defaults = config.get("filters", {}).get("defaults", {})
     area_overrides = config.get("filters", {}).get("areaOverrides", {})
     page_behavior = config.get("pageBehavior", {})
-    block_display = config.get("blockDisplay", {})
-    area_display = config.get("areaDisplay", {})
     layout_rules = config.get("layoutRules", {})
-    tabs = config.get("tabs", {})
     widget_behavior = config.get("widgetBehavior", {})
     widget_filters = config.get("widgetFilters", {})
     widget_filter_presets = config.get("widgetFilterPresets", {})
@@ -284,14 +276,11 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     visual_rules = config.get("visualRules", {})
     simulation_rules = config.get("simulationRules", {})
     table_templates = config.get("tableTemplates", {})
-    detail_tables = config.get("detailTables", {})
     management_limits = config.get("managementLimits", [])
     widget_index = stats["widget_index"]
     widget_context = stats["widget_context"]
     page_names = stats["page_names"]
-    block_names_by_page = stats["block_names_by_page"]
     area_names = stats["area_names"]
-    area_names_by_scope = stats["area_names_by_scope"]
     allowed_direction_modes = {"coverage", "gap", "default"}
 
     if not isinstance(filter_options, dict):
@@ -394,15 +383,9 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     "pageBehavior.业务变动分析.analysisPerspectiveOptions should include interestBalanceStructure and liquidityBalanceStructure"
                 )
 
-    if not isinstance(block_display, dict):
-        errors.append("blockDisplay should be an object")
-    elif block_display:
-        errors.append("blockDisplay is deprecated; move block rules to layoutRules.blocks")
-
-    if not isinstance(area_display, dict):
-        errors.append("areaDisplay should be an object")
-    elif area_display:
-        errors.append("areaDisplay is deprecated; move area rules to layoutRules.areas")
+    for obsolete_key in ("blockDisplay", "areaDisplay", "tabs"):
+        if obsolete_key in config:
+            errors.append(f"{obsolete_key} is obsolete in the flat dashboard architecture")
 
     if not isinstance(widget_behavior, dict):
         errors.append("widgetBehavior should be an object")
@@ -433,16 +416,13 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     errors.append(f"widgetBehavior.{seq_text}.drilldownTargetSeq should be an integer")
                 elif target_seq not in widget_index:
                     errors.append(f"widgetBehavior.{seq_text}.drilldownTargetSeq references unknown widget seq: {target_seq}")
-            for key in ("detailScope", "detailTablePreset"):
+            for key in ("detailScope",):
                 if key in behavior and not isinstance(behavior.get(key), str):
                     errors.append(f"widgetBehavior.{seq_text}.{key} should be a string")
             if "methodologyKey" in behavior and behavior.get("methodologyKey") not in {
                 "newMonthly", "maturityMonthly"
             }:
                 errors.append(f"widgetBehavior.{seq_text}.methodologyKey is invalid")
-            detail_preset = behavior.get("detailTablePreset")
-            if isinstance(detail_preset, str) and detail_preset and detail_preset not in detail_tables:
-                errors.append(f"widgetBehavior.{seq_text}.detailTablePreset references unknown detailTables entry: {detail_preset}")
             if "inlineFilters" in behavior:
                 values = behavior.get("inlineFilters")
                 if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
@@ -525,21 +505,6 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     f"widgetBehavior.{seq}.simulationBehavior.directionMode is required for liquidity widget: "
                     f"{context['title']}"
                 )
-
-    if not isinstance(tabs, dict):
-        errors.append("tabs should be an object")
-    else:
-        for tab_group, items in tabs.items():
-            if not isinstance(items, list) or not items:
-                errors.append(f"tabs.{tab_group} should be a non-empty list")
-                continue
-            for item in items:
-                if not isinstance(item, dict):
-                    errors.append(f"tabs.{tab_group} contains a non-object item")
-                    continue
-                ensure_fields(item, ["label", "matchViewScope"], f"tabs.{tab_group} item", errors)
-                if "matchScopeMeta" in item and not isinstance(item.get("matchScopeMeta"), dict):
-                    errors.append(f"tabs.{tab_group}.{item.get('label')} matchScopeMeta should be an object")
 
     if not isinstance(widget_filter_presets, dict):
         errors.append("widgetFilterPresets should be an object")
@@ -669,26 +634,6 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         if "wholesaleLiabilityTypes" in simulation_rules:
             errors.append("simulationRules.wholesaleLiabilityTypes is deprecated; move it to dashboard-domain.js")
 
-    if not isinstance(detail_tables, dict):
-        errors.append("detailTables should be an object")
-    else:
-        for preset_name, preset in detail_tables.items():
-            if not isinstance(preset, dict):
-                errors.append(f"detailTables.{preset_name} should be an object")
-                continue
-            columns = preset.get("columns")
-            if not isinstance(columns, list) or not columns:
-                errors.append(f"detailTables.{preset_name}.columns should be a non-empty list")
-                continue
-            for index, column in enumerate(columns):
-                if not isinstance(column, dict):
-                    errors.append(f"detailTables.{preset_name}.columns[{index}] should be an object")
-                    continue
-                ensure_fields(column, ["key", "label"], f"detailTables.{preset_name}.columns[{index}]", errors)
-                for field_name in ("key", "label"):
-                    value = column.get(field_name)
-                    if not isinstance(value, str) or not value:
-                        errors.append(f"detailTables.{preset_name}.columns[{index}].{field_name} should be a non-empty string")
     if not isinstance(table_templates, dict):
         errors.append("tableTemplates should be an object")
     else:
@@ -703,33 +648,10 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(layout_rules, dict):
         errors.append("layoutRules should be an object")
     else:
-        block_rules = layout_rules.get("blocks", {})
-        area_rules = layout_rules.get("areas", {})
         widget_rules = layout_rules.get("widgets", {})
-        if block_rules and not isinstance(block_rules, dict):
-            errors.append("layoutRules.blocks should be an object")
-        else:
-            for path, rule in block_rules.items():
-                if not isinstance(rule, dict):
-                    errors.append(f"layoutRules.blocks.{path} should be an object")
-                    continue
-                if "pairAreas" in rule and not isinstance(rule.get("pairAreas"), bool):
-                    errors.append(f"layoutRules.blocks.{path}.pairAreas should be a boolean")
-        if area_rules and not isinstance(area_rules, dict):
-            errors.append("layoutRules.areas should be an object")
-        else:
-            for path, rule in area_rules.items():
-                if not isinstance(rule, dict):
-                    errors.append(f"layoutRules.areas.{path} should be an object")
-                    continue
-                if "mergeViewGroups" in rule and not isinstance(rule.get("mergeViewGroups"), bool):
-                    errors.append(f"layoutRules.areas.{path}.mergeViewGroups should be a boolean")
-                if "sharedFilterPreset" in rule and rule.get("sharedFilterPreset") not in filter_presets:
-                    errors.append(f"layoutRules.areas.{path}.sharedFilterPreset references unknown filters.presets entry")
-                if "pinnedViewScopeIncludes" in rule:
-                    values = rule.get("pinnedViewScopeIncludes")
-                    if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
-                        errors.append(f"layoutRules.areas.{path}.pinnedViewScopeIncludes should be a string list")
+        for obsolete_key in ("blocks", "areas"):
+            if obsolete_key in layout_rules:
+                errors.append(f"layoutRules.{obsolete_key} is obsolete in the flat dashboard architecture")
         if widget_rules and not isinstance(widget_rules, dict):
             errors.append("layoutRules.widgets should be an object")
         else:
@@ -903,11 +825,26 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
     liquidity_renderers_text = LIQUIDITY_RENDERERS_FILE.read_text(encoding="utf-8")
     renderers_text = RENDERERS_FILE.read_text(encoding="utf-8")
     events_text = EVENTS_FILE.read_text(encoding="utf-8")
+    styles_text = STYLES_FILE.read_text(encoding="utf-8")
     index_text = INDEX_FILE.read_text(encoding="utf-8")
     errors: list[str] = []
     for snippet in FORBIDDEN_RENDERER_SNIPPETS:
         if snippet in text:
             errors.append(f"app.js contains forbidden renderer hardcode: {snippet}")
+    obsolete_layout_snippets = {
+        "app.js": ("AREA_TAB_CONFIG", "areaSubpages", "renderBlockSection", "renderAreaCard", "data-area-subtab"),
+        "dashboard-events.js": ("data-area-subtab", "areaSubpages"),
+        "styles.css": (".block-section", ".area-card", ".area-subtab", ".area-view-group"),
+    }
+    source_texts = {
+        "app.js": text,
+        "dashboard-events.js": events_text,
+        "styles.css": styles_text,
+    }
+    for file_name, snippets in obsolete_layout_snippets.items():
+        for snippet in snippets:
+            if snippet in source_texts[file_name]:
+                errors.append(f"{file_name} contains obsolete nested-layout residue: {snippet}")
     domain_pos = index_text.find("dashboard-domain.js")
     utils_pos = index_text.find("dashboard-utils.js")
     app_pos = index_text.find("app.js")
@@ -1053,6 +990,9 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderLiquidityGapTenorChart",
         "function renderFutureFundingFlowChart",
         "function renderBondInvestmentScaleLimitChart",
+        "function getFutureFundingFlowBusinessSelection",
+        "function getFutureFundingFlowDrilldown",
+        "function getFutureFundingFlowRowsForDrilldown",
     ):
         if liquidity_renderer_function in text:
             errors.append(f"app.js should not define liquidity/funding renderers: {liquidity_renderer_function}")
@@ -1214,6 +1154,46 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
             errors.append("businessSideMap is missing business types: " + ", ".join(map(str, missing)))
         if invalid_side:
             errors.append("businessSideMap has invalid side values: " + ", ".join(invalid_side))
+
+    repricing_gap_groups = domain.get("repricingGapBusinessGroups")
+    expected_repricing_gap_labels = {
+        "assets": ["自营贷款", "投资类资产", "同业资产", "自营非标投资", "存放央行", "内部交易资产"],
+        "liabilities": ["定期存款", "同业负债", "发行债券", "向央行借款", "租赁负债", "内部交易负债"],
+    }
+    if not isinstance(repricing_gap_groups, dict):
+        errors.append("dashboardDomainConfig.repricingGapBusinessGroups should be an object")
+    else:
+        repricing_gap_keys: list[str] = []
+        for group_name, expected_labels in expected_repricing_gap_labels.items():
+            items = repricing_gap_groups.get(group_name)
+            if not isinstance(items, list) or not items:
+                errors.append(f"repricingGapBusinessGroups.{group_name} should be a non-empty list")
+                continue
+            labels = [item.get("label") for item in items if isinstance(item, dict)]
+            if labels != expected_labels:
+                errors.append(
+                    f"repricingGapBusinessGroups.{group_name} should match the approved repricing-gap category order"
+                )
+            expected_side = "asset" if group_name == "assets" else "liability"
+            for index, item in enumerate(items):
+                if not isinstance(item, dict):
+                    errors.append(f"repricingGapBusinessGroups.{group_name}[{index}] should be an object")
+                    continue
+                ensure_fields(item, ["key", "label"], f"repricingGapBusinessGroups.{group_name}[{index}]", errors)
+                key = item.get("key")
+                label = item.get("label")
+                if isinstance(key, str):
+                    repricing_gap_keys.append(key)
+                if label not in business_options or business_side_map.get(label) != expected_side:
+                    errors.append(
+                        f"repricingGapBusinessGroups.{group_name}[{index}] should reference a known {expected_side} type"
+                    )
+                if bool(item.get("internalTransaction")) != str(label).startswith("内部交易"):
+                    errors.append(
+                        f"repricingGapBusinessGroups.{group_name}[{index}] internalTransaction flag is inconsistent"
+                    )
+        if len(set(repricing_gap_keys)) != len(repricing_gap_keys):
+            errors.append("repricingGapBusinessGroups contains duplicate keys")
 
     simulation_default_business_types = domain.get("simulationDefaultBusinessTypes")
     if not isinstance(simulation_default_business_types, dict):
@@ -1389,6 +1369,21 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
             errors.append(f"dashboardDomainConfig.{key} should be a non-empty list")
     if domain.get("liquidityGapTenorOptions") != ["1D", "7D", "30D", "3M", "1Y"]:
         errors.append("liquidityGapTenorOptions should be 1D, 7D, 30D, 3M, 1Y")
+    configured_organizations = config.get("filters", {}).get("options", {}).get("机构", [])
+    expected_foreign_branches = [
+        organization
+        for organization in configured_organizations
+        if isinstance(organization, str) and organization.endswith("分行")
+    ]
+    foreign_branches = domain.get("foreignBranchOrganizations")
+    if (
+        not isinstance(foreign_branches, list)
+        or len(foreign_branches) != len(set(foreign_branches))
+        or set(foreign_branches) != set(expected_foreign_branches)
+    ):
+        errors.append(
+            "foreignBranchOrganizations should match the individual foreign branches in filters.options.机构"
+        )
     for role in ("资金来源", "资金运用"):
         if role not in (domain.get("simulationFundingRoleOptions") or []):
             errors.append(f"simulationFundingRoleOptions should include {role}")

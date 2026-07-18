@@ -12,6 +12,13 @@ const LIQUIDITY_CASH_FLOW_BUCKETS = DOMAIN_CONFIG.liquidityCashFlowSimulationBuc
 const LIQUIDITY_CASH_FLOW_BUCKET_MAX_DAYS = [1, 7, 30, 90, 365];
 const REPRICING_GAP_DERIVATIVE_TYPES = DOMAIN_CONFIG.repricingGapSimulationDerivativeTypes || [];
 const REPRICING_GAP_DERIVATIVE_SIDE_MAP = DOMAIN_CONFIG.repricingGapSimulationDerivativeSideMap || {};
+const REPRICING_FREQUENCY_OPTIONS = [
+  { label: "按月重定价", value: "1" },
+  { label: "按季重定价", value: "3" },
+  { label: "按半年重定价", value: "6" },
+  { label: "按年重定价", value: "12" },
+  { label: "到期一次性重定价", value: "24" },
+];
 
 function isRepricingGapSimulationWidget(widgetOrSeq) {
   const seq = Number(typeof widgetOrSeq === "object" ? (widgetOrSeq?.sourceSeq || widgetOrSeq?.seq) : widgetOrSeq);
@@ -34,6 +41,20 @@ function getRepricingGapSimulationGroups() {
 
 function getRepricingGapSimulationBusinessTypes() {
   return getRepricingGapSimulationGroups().flatMap((group) => group.items);
+}
+
+function getRepricingGapSimulationIncludesInternalTransactions(scenarioOrDraft = {}) {
+  if (typeof scenarioOrDraft?.includesInternalTransactions === "boolean") {
+    return scenarioOrDraft.includesInternalTransactions;
+  }
+  const page = getCurrentPage();
+  const organizations = page ? (ensurePageFilterState(page).机构 || []) : [];
+  return organizations.length === 1 && FOREIGN_BRANCH_ORGANIZATIONS.includes(organizations[0]);
+}
+
+function isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions = false) {
+  if (businessType === "活期存款") return false;
+  return includesInternalTransactions || !String(businessType || "").includes("内部交易");
 }
 
 function getRepricingGapCurrentDate() {
@@ -140,7 +161,6 @@ function buildSubjectiveRepricingGapMatrix() {
 }
 
 function normalizeRepricingGapBaseSource(source) {
-  if (["dynamic", "current"].includes(source)) return "runoff";
   if (["runoff", "subjective", "upload"].includes(source)) return source;
   return "runoff";
 }
@@ -160,28 +180,46 @@ function cloneRepricingGapMatrix(matrix = {}) {
   ]));
 }
 
-function calculateRepricingGapMatrixMetrics(matrix = {}) {
+const REPRICING_GAP_BUCKET_MIDPOINT_MONTHS = [0, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5];
+const REPRICING_GAP_BUCKET_WEIGHTS = REPRICING_GAP_BUCKET_MIDPOINT_MONTHS.map((month) =>
+  Math.max(0, (12 - month) / 12)
+);
+
+function calculateRepricingGapMatrixRowMetrics(matrix = {}, businessType = "") {
+  const values = matrix[businessType] || [];
+  const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+  const adjusted = values.reduce((sum, value, bucketIndex) =>
+    sum + Number(value || 0) * Number(REPRICING_GAP_BUCKET_WEIGHTS[bucketIndex] || 0)
+  , 0);
+  return {
+    total: Number(total.toFixed(1)),
+    adjusted: Number(adjusted.toFixed(1)),
+  };
+}
+
+function calculateRepricingGapMatrixMetrics(matrix = {}, options = {}) {
   const groups = getRepricingGapSimulationGroups();
   const assetGroup = groups.find((group) => group.category === "生息资产");
   const liabilityGroup = groups.find((group) => group.category === "付息负债");
-  const derivativeAssetTypes = REPRICING_GAP_DERIVATIVE_TYPES.filter((businessType) =>
-    REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] === "asset"
+  const includesInternalTransactions = options.includesInternalTransactions !== false;
+  const inScopeItems = (items = []) => items.filter((businessType) =>
+    isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions)
   );
-  const derivativeLiabilityTypes = REPRICING_GAP_DERIVATIVE_TYPES.filter((businessType) =>
-    REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] === "liability"
-  );
-  const bucketMidpointMonths = [0, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5];
-  const bucketWeights = bucketMidpointMonths.map((month) => Math.max(0, (12 - month) / 12));
   const sumRows = (businessTypes, weighted = false) => businessTypes.reduce((total, businessType) =>
-    total + (matrix[businessType] || []).reduce((rowTotal, value, bucketIndex) =>
-      rowTotal + Number(value || 0) * (weighted ? bucketWeights[bucketIndex] : 1), 0
-    ), 0
-  );
-  const totalInterestAssets = sumRows(assetGroup?.items || []);
-  const totalInterestLiabilities = sumRows(liabilityGroup?.items || []);
-  const adjustedInterestAssets = sumRows([...(assetGroup?.items || []), ...derivativeAssetTypes], true);
-  const adjustedInterestLiabilities = sumRows([...(liabilityGroup?.items || []), ...derivativeLiabilityTypes], true);
-  const repricingGap = adjustedInterestAssets - adjustedInterestLiabilities;
+    total + calculateRepricingGapMatrixRowMetrics(matrix, businessType)[weighted ? "adjusted" : "total"]
+  , 0);
+  const totalInterestAssets = sumRows(inScopeItems(assetGroup?.items));
+  const totalInterestLiabilities = sumRows(inScopeItems(liabilityGroup?.items));
+  const adjustedInterestAssets = sumRows(inScopeItems(assetGroup?.items), true);
+  const adjustedInterestLiabilities = sumRows(inScopeItems(liabilityGroup?.items), true);
+  const bankBookDerivativeGap =
+    calculateRepricingGapMatrixRowMetrics(matrix, "银行账簿表外衍生品应收").adjusted
+    - calculateRepricingGapMatrixRowMetrics(matrix, "银行账簿表外衍生品应付").adjusted;
+  const tradingBookDerivativeGap =
+    calculateRepricingGapMatrixRowMetrics(matrix, "交易账簿表外衍生品应收").adjusted
+    - calculateRepricingGapMatrixRowMetrics(matrix, "交易账簿表外衍生品应付").adjusted;
+  const repricingGap = adjustedInterestAssets - adjustedInterestLiabilities
+    + bankBookDerivativeGap + tradingBookDerivativeGap;
   const ratio = totalInterestAssets
     ? Number(((repricingGap / totalInterestAssets) * 100).toFixed(2))
     : 0;
@@ -190,6 +228,8 @@ function calculateRepricingGapMatrixMetrics(matrix = {}) {
     totalInterestLiabilities: Number(totalInterestLiabilities.toFixed(1)),
     adjustedInterestAssets: Number(adjustedInterestAssets.toFixed(1)),
     adjustedInterestLiabilities: Number(adjustedInterestLiabilities.toFixed(1)),
+    bankBookDerivativeGap: Number(bankBookDerivativeGap.toFixed(1)),
+    tradingBookDerivativeGap: Number(tradingBookDerivativeGap.toFixed(1)),
     repricingGap: Number(repricingGap.toFixed(1)),
     ratio,
   };
@@ -231,6 +271,7 @@ function applyNewBusinessToRepricingGapMatrix(baseMatrix, entries = [], targetDa
 
 function buildRepricingGapSimulationResult(scenarioOrDraft) {
   const targetDate = scenarioOrDraft?.baseDate || getDefaultRepricingGapTargetDate();
+  const includesInternalTransactions = getRepricingGapSimulationIncludesInternalTransactions(scenarioOrDraft);
   const baseMatrix = cloneRepricingGapMatrix(
     scenarioOrDraft?.baseMatrix || buildRepricingGapBaseMatrix("runoff", targetDate)
   );
@@ -243,8 +284,9 @@ function buildRepricingGapSimulationResult(scenarioOrDraft) {
     targetDate,
     baseMatrix,
     simulatedMatrix,
-    baseMetrics: calculateRepricingGapMatrixMetrics(baseMatrix),
-    simulatedMetrics: calculateRepricingGapMatrixMetrics(simulatedMatrix),
+    includesInternalTransactions,
+    baseMetrics: calculateRepricingGapMatrixMetrics(baseMatrix, { includesInternalTransactions }),
+    simulatedMetrics: calculateRepricingGapMatrixMetrics(simulatedMatrix, { includesInternalTransactions }),
     entryImpacts,
   };
 }
@@ -287,6 +329,7 @@ function createRepricingGapSimulationDraftFromScenario(scenario) {
     simulationKind: "repricingGap",
     baseDate,
     baseSource,
+    includesInternalTransactions: getRepricingGapSimulationIncludesInternalTransactions(scenario),
     baseMatrix: cloneRepricingGapMatrix(scenario?.baseMatrix || buildRepricingGapBaseMatrix(baseSource, baseDate)),
     entries,
     uploadFileName: "",
@@ -329,6 +372,7 @@ function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSi
     sourceWidgetSeq: REPRICING_GAP_SIMULATION_WIDGET_SEQ,
     baseDate: draft.baseDate,
     baseSource: draft.baseSource,
+    includesInternalTransactions: getRepricingGapSimulationIncludesInternalTransactions(draft),
     baseMatrix: cloneRepricingGapMatrix(draft.baseMatrix),
     simulatedMatrix: cloneRepricingGapMatrix(result.simulatedMatrix),
     baseMetrics: result.baseMetrics,
@@ -404,7 +448,6 @@ function buildSubjectiveLiquidityCashFlowGapMatrix() {
 }
 
 function normalizeLiquidityGapBaseSource(source) {
-  if (source === "current") return "runoff";
   if (["runoff", "subjective", "upload"].includes(source)) return source;
   return "runoff";
 }
@@ -967,12 +1010,6 @@ function getSharedSimulationValue(entries, key, mixedLabel) {
   return mixedLabel;
 }
 
-function summarizeSimulationValues(entries, key) {
-  const values = Array.from(new Set(entries.map((entry) => entry[key]).filter(Boolean)));
-  if (values.length <= 2) return values.join("、");
-  return `${values.slice(0, 2).join("、")}等${values.length}项`;
-}
-
 function normalizeSimulationScenario(page, draft) {
   const entries = getSimulationDraftEntries(draft, page).map((entry) => normalizeSimulationRecord(page, entry));
   const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
@@ -1061,40 +1098,6 @@ function normalizeHedgeSimulationScenario(page, draft = createDefaultHedgeSimula
     scale: hedgeAmount,
     termMonths: hedgeTermMonths,
   };
-}
-
-function renderSimulationSummary(pageId = getCurrentPage()?.id) {
-  const simulation = getPageSimulation(pageId);
-  if (!simulation) return "";
-  if (simulation.simulationType === SIMULATION_MODE_HEDGE) {
-    const hedgedItem = simulation.hedgedItem || HEDGEABLE_ITEM_OPTIONS.find((item) => item.id === simulation.hedgeItemId);
-    return `
-      <div class="simulation-summary">
-        <span class="simulation-summary__item">套期交易模拟测算</span>
-        <span class="simulation-summary__item">被套期项目：${simulation.hedgeItemId || "-"}</span>
-        <span class="simulation-summary__item">类型：${hedgedItem?.type || "-"}</span>
-        <span class="simulation-summary__item">币种：${simulation.currency || hedgedItem?.currency || "-"}</span>
-        <span class="simulation-summary__item">套期金额：${Number(simulation.hedgeAmount || simulation.scale || 0).toFixed(1)}亿元</span>
-        <span class="simulation-summary__item">套期期限：${Number(simulation.hedgeTermMonths || simulation.termMonths || 0).toFixed(0)}个月</span>
-        <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}">调整模拟测算</button>
-        <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
-      </div>
-    `;
-  }
-  const entries = getSimulationEntries(simulation);
-  const totalScale = entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
-  return `
-    <div class="simulation-summary">
-      <span class="simulation-summary__item">新业务模拟测算：${entries.length}笔</span>
-      <span class="simulation-summary__item">机构：${summarizeSimulationValues(entries, "org")}</span>
-      <span class="simulation-summary__item">币种：${summarizeSimulationValues(entries, "currency")}</span>
-      <span class="simulation-summary__item">资金方向：${summarizeSimulationValues(entries, "fundingRole")}</span>
-      <span class="simulation-summary__item">业务类型：${summarizeSimulationValues(entries, "businessType")}</span>
-      <span class="simulation-summary__item">规模合计：${Number(totalScale.toFixed(1))}亿元</span>
-      <button class="simulation-summary__link" type="button" data-open-simulation="${pageId}">调整模拟测算</button>
-      <button class="simulation-summary__link" type="button" data-clear-simulation="${pageId}">清空场景</button>
-    </div>
-  `;
 }
 
 function renderSimulationEntryForm(page, entry, entryIndex, roleEntryIndex, roleEntryCount) {
@@ -1266,11 +1269,13 @@ function sumRepricingGapValues(values = []) {
 }
 
 function renderRepricingGapBaseTable(draft) {
+  const includesInternalTransactions = getRepricingGapSimulationIncludesInternalTransactions(draft);
   const renderBusinessRow = (businessType) => {
     const values = draft.baseMatrix[businessType] || REPRICING_GAP_BUCKETS.map(() => 0);
+    const isInScope = isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions);
     return `
-      <tr data-repricing-base-row="${businessType}">
-        <th scope="row">${businessType}</th>
+      <tr class="${isInScope ? "" : "is-excluded-from-metric"}" data-repricing-base-row="${businessType}">
+        <th scope="row">${businessType}${isInScope ? "" : "（不计入指标）"}</th>
         <td class="repricing-base-table__total">${sumRepricingGapValues(values)}</td>
         ${values.map((value, bucketIndex) => `
           <td>
@@ -1289,8 +1294,11 @@ function renderRepricingGapBaseTable(draft) {
     `;
   };
   const renderTotalRow = (group) => {
+    const inScopeItems = group.items.filter((businessType) =>
+      isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions)
+    );
     const bucketTotals = REPRICING_GAP_BUCKETS.map((_, bucketIndex) =>
-      sumRepricingGapValues(group.items.map((businessType) => draft.baseMatrix[businessType]?.[bucketIndex] || 0))
+      sumRepricingGapValues(inScopeItems.map((businessType) => draft.baseMatrix[businessType]?.[bucketIndex] || 0))
     );
     return `
       <tr class="repricing-base-table__group-total" data-repricing-base-total="${group.category}">
@@ -1318,20 +1326,24 @@ function renderRepricingGapBaseTable(draft) {
   `;
 }
 
-function renderRepricingGapResultTable(matrix) {
+function renderRepricingGapResultTable(matrix, includesInternalTransactions = false) {
   const renderBusinessRow = (businessType) => {
     const values = matrix[businessType] || REPRICING_GAP_BUCKETS.map(() => 0);
+    const isInScope = isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions);
     return `
-      <tr data-repricing-result-row="${businessType}">
-        <th scope="row">${businessType}</th>
+      <tr class="${isInScope ? "" : "is-excluded-from-metric"}" data-repricing-result-row="${businessType}">
+        <th scope="row">${businessType}${isInScope ? "" : "（不计入指标）"}</th>
         <td class="repricing-base-table__total">${sumRepricingGapValues(values)}</td>
         ${values.map((value) => `<td>${Number(value || 0).toFixed(1)}</td>`).join("")}
       </tr>
     `;
   };
   const renderTotalRow = (group) => {
+    const inScopeItems = group.items.filter((businessType) =>
+      isRepricingGapBusinessInMetricScope(businessType, includesInternalTransactions)
+    );
     const bucketTotals = REPRICING_GAP_BUCKETS.map((_, bucketIndex) =>
-      sumRepricingGapValues(group.items.map((businessType) => matrix[businessType]?.[bucketIndex] || 0))
+      sumRepricingGapValues(inScopeItems.map((businessType) => matrix[businessType]?.[bucketIndex] || 0))
     );
     return `
       <tr class="repricing-base-table__group-total" data-repricing-result-total="${group.category}">
@@ -1431,7 +1443,10 @@ function renderRepricingGapSimulationModal(page) {
           </div>
         </div>
         <div class="repricing-simulation-source">
-          <span>当前基准：${sourceLabel}${draft.uploadFileName ? ` / ${draft.uploadFileName}` : ""}</span>
+          <span>
+            当前基准：${sourceLabel}${draft.uploadFileName ? ` / ${draft.uploadFileName}` : ""}；
+            ${result.includesInternalTransactions ? "单个境外分行含内部交易" : "当前机构口径剔除内部交易"}；负债端不含活期存款
+          </span>
           <strong>基准缺口率 ${result.baseMetrics.ratio.toFixed(2)}%</strong>
         </div>
         ${renderRepricingGapBaseTable(draft)}
@@ -1454,7 +1469,7 @@ function renderRepricingGapSimulationModal(page) {
           <div><span>测算后缺口率</span><strong>${result.simulatedMetrics.ratio.toFixed(2)}%</strong></div>
           <div><span>缺口率变化</span><strong class="${ratioDelta >= 0 ? "is-up" : "is-down"}">${ratioDelta >= 0 ? "+" : ""}${ratioDelta.toFixed(2)}pct</strong></div>
         </div>
-        ${renderRepricingGapResultTable(result.simulatedMatrix)}
+        ${renderRepricingGapResultTable(result.simulatedMatrix, result.includesInternalTransactions)}
       </section>
       <div class="overlay-panel__footer">
         <button class="toolbar-action" type="button" data-close-overlay="simulationModal">取消</button>

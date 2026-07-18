@@ -317,10 +317,6 @@ function renderNiiVolatilityDataTable(widget, chartContext) {
   `;
 }
 
-function isMaturityDistributionWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "maturityDistribution" || String(widget.componentType || "").includes("期限分布");
-}
-
 function isRepricingMaturityDistributionWidget(widget) {
   return Number(widget?.sourceSeq || widget?.seq) === 14;
 }

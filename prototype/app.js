@@ -7,7 +7,6 @@ const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
 const PAGE_SHARED_FILTER_LABELS = ["机构", "币种"];
 const PAGE_SHARED_FILTER_NAMES = new Set(["机构", "币种"]);
-const AREA_TAB_CONFIG = config.tabs || config.areaSubpages || {};
 const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
 const LAYOUT_RULE_CONFIG = config.layoutRules || {};
 const WIDGET_BEHAVIOR_CONFIG = config.widgetBehavior || {};
@@ -17,11 +16,11 @@ const SERIES_RULE_CONFIG = config.seriesRules || {};
 const VISUAL_RULE_CONFIG = config.visualRules || {};
 const SIMULATION_RULE_CONFIG = config.simulationRules || {};
 const TABLE_TEMPLATE_CONFIG = config.tableTemplates || {};
-const DETAIL_TABLE_CONFIG = config.detailTables || {};
 const MANAGEMENT_LIMIT_CONFIG = Array.isArray(config.managementLimits) ? config.managementLimits : [];
 const DOMAIN_CONFIG = window.dashboardDomainConfig || {};
 const BUSINESS_DURATION_OPTIONS = DOMAIN_CONFIG.businessDurationOptions || WIDGET_FILTER_PRESET_CONFIG.businessTypeLegend?.options || FILTER_OPTIONS["\u4e1a\u52a1\u7c7b\u578b"] || [];
 const LIQUIDITY_GAP_TENOR_OPTIONS = DOMAIN_CONFIG.liquidityGapTenorOptions || ["1D", "7D", "30D", "3M", "1Y"];
+const FOREIGN_BRANCH_ORGANIZATIONS = DOMAIN_CONFIG.foreignBranchOrganizations || [];
 const DEFAULT_SERIES_DIMENSION_ORDER = Array.isArray(SERIES_RULE_CONFIG.dimensionOrder) ? SERIES_RULE_CONFIG.dimensionOrder : [];
 const DEFAULT_SERIES_LABEL_MAP = SERIES_RULE_CONFIG.labelMap || {};
 const DEFAULT_LINE_SERIES_PALETTE = ["#C36E49", "#3F76B7", "#4F978B", "#C8943A", "#7D72AF", "#B86556", "#5E463A", "#6F9688"];
@@ -62,15 +61,8 @@ const DOMAIN_OPTION_LISTS = {
   rateTypeOptions: DOMAIN_CONFIG.rateTypeOptions || [],
   simulationFundingRoleOptions: DOMAIN_CONFIG.simulationFundingRoleOptions || [],
 };
-const REPRICING_GAP_COLOR = "#4289EE";
-const REPRICING_FREQUENCY_OPTIONS = [
-  { label: "\u6309\u6708\u91cd\u5b9a\u4ef7", value: "1" },
-  { label: "\u6309\u5b63\u91cd\u5b9a\u4ef7", value: "3" },
-  { label: "\u6309\u534a\u5e74\u91cd\u5b9a\u4ef7", value: "6" },
-  { label: "\u6309\u5e74\u91cd\u5b9a\u4ef7", value: "12" },
-  { label: "\u5230\u671f\u4e00\u6b21\u6027\u91cd\u5b9a\u4ef7", value: "24" },
-];
 const BUSINESS_SIDE_MAP = DOMAIN_CONFIG.businessSideMap || {};
+const REPRICING_GAP_BUSINESS_GROUPS = DOMAIN_CONFIG.repricingGapBusinessGroups || { assets: [], liabilities: [] };
 const SIMULATION_DEFAULT_BUSINESS_TYPES = DOMAIN_CONFIG.simulationDefaultBusinessTypes || {};
 const WHOLESALE_LIABILITY_TYPES = DOMAIN_CONFIG.wholesaleLiabilityTypes || [];
 const HEDGEABLE_ITEM_OPTIONS = DOMAIN_CONFIG.hedgeableItemOptions || [];
@@ -83,7 +75,6 @@ const appState = {
   pageFilters: {},
   pageAnalysisPerspectives: {},
   areaFilters: {},
-  areaSubpages: {},
   widgetFilters: {},
   widgetDisplayModes: {},
   openFilterKey: null,
@@ -297,22 +288,17 @@ function renderFlatDashboardPage(page = getCurrentPage()) {
       const areaCards = [];
       const baseAreaState = ensureAreaFilterState(areaGroup);
       const areaState = applyPageSharedFiltersToState(cloneFilterState(baseAreaState), page);
-      const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
-      const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
-      visibleViewGroups.forEach((viewGroup) => {
+      areaGroup.viewGroups.forEach((viewGroup) => {
         const viewScopedState = applyPageSharedFiltersToState(
-          getViewGroupScopedAreaState(areaGroup, viewGroup, areaState),
+          cloneFilterState(areaState),
           page
         );
         const sharedContextControls = renderFlatWidgetContextControls(areaGroup, areaState);
         (viewGroup.widgets || [])
           .flatMap((widget) => getFlatRenderableWidgets(widget))
           .forEach((widget) => {
-            const contextControls = isRepricingMaturityDistributionWidget(widget)
-              ? renderFlatWidgetContextControls(areaGroup, areaState, { hideSubtabs: true })
-              : sharedContextControls;
             const cardOptions = {
-              contextControls,
+              contextControls: sharedContextControls,
               flatMode: true,
               widgetStateOverride: widget.__forcedFrequency ? { 频率: [widget.__forcedFrequency] } : null,
               hiddenLocalFilterNames: widget.__forcedFrequency ? ["频率"] : [],
@@ -366,27 +352,6 @@ function shouldOmitStandaloneWidget(widget) {
   return isSourceOnlyWidget(widget);
 }
 
-function isBaseRepricingGapRateWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "repricingGapRate";
-}
-
-function createRepricingGapFrequencyWidgets(widget) {
-  return [
-    createVirtualRepricingGapWidget(widget, "月频", 1),
-    createVirtualRepricingGapWidget(widget, "日频", 2),
-  ];
-}
-
-function createVirtualRepricingGapWidget(widget, frequency, index) {
-  return {
-    ...widget,
-    seq: Number(widget.seq) * 100 + index,
-    sourceSeq: Number(widget.seq),
-    title: `重定价缺口率（${frequency}）`,
-    __forcedFrequency: frequency,
-  };
-}
-
 function cloneFilterState(source = {}) {
   return Object.keys(source || {}).reduce((next, key) => {
     next[key] = [...(source[key] || [])];
@@ -394,28 +359,7 @@ function cloneFilterState(source = {}) {
   }, {});
 }
 
-function renderFlatWidgetContextControls(areaGroup, areaState, options = {}) {
-  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
-  const tabMarkup = !options.hideSubtabs && areaSubpage.tabs.length
-    ? `
-      <div class="area-subtabs area-subtabs--inline flat-widget-controls__subtabs">
-        ${areaSubpage.tabs
-          .map(
-            (tab) => `
-              <button
-                class="area-subtab ${tab === areaSubpage.activeTab ? "is-active" : ""}"
-                type="button"
-                data-area-subtab="${areaGroup.id}"
-                data-tab-name="${tab}"
-              >
-                ${tab}
-              </button>
-            `
-          )
-          .join("")}
-      </div>
-    `
-    : "";
+function renderFlatWidgetContextControls(areaGroup, areaState) {
   const filterGroups = areaGroup.sharedFilters
     .filter((filterLabel) => !PAGE_SHARED_FILTER_NAMES.has(normalizeFilterName(filterLabel)))
     .map((filterLabel) => {
@@ -429,152 +373,12 @@ function renderFlatWidgetContextControls(areaGroup, areaState, options = {}) {
       );
     })
     .join("");
-  if (!tabMarkup && !filterGroups) return "";
+  if (!filterGroups) return "";
   return `
     <div class="flat-widget-controls">
-      ${tabMarkup}
-      ${filterGroups ? `<div class="filter-panel filter-panel--inline flat-widget-controls__filters">${filterGroups}</div>` : ""}
+      <div class="filter-panel filter-panel--inline flat-widget-controls__filters">${filterGroups}</div>
     </div>
   `;
-}
-
-function getRenderablePageSections(page = getCurrentPage()) {
-  return page?.blocks || [];
-}
-
-function renderBlockSection(block, sectionIndex = 0) {
-  const groupedAreas = groupBlockAreas(block);
-  const areaLayoutClass = shouldRenderAreasInPairs(block, groupedAreas) ? " block-section__areas--paired" : "";
-  const sectionHeaderControls = block.moveAreaHeaderToSection && groupedAreas.length === 1
-    ? renderAreaHeaderChrome(groupedAreas[0], "block-section")
-    : "";
-  const renderedAreas = groupedAreas.map((areaGroup) => renderAreaCard(areaGroup, block)).filter(Boolean);
-  if (!renderedAreas.length) return "";
-  return `
-    <section class="block-section" id="${block.id}">
-      <div class="block-section__header${sectionHeaderControls ? " block-section__header--with-controls" : ""}">
-        <div class="block-section__title-wrap">
-          <h2 class="block-section__title">${formatDisplayTitle(block.name)}</h2>
-        </div>
-        ${sectionHeaderControls}
-      </div>
-      <div class="block-section__body">
-        <div class="block-section__rail" aria-hidden="true"></div>
-        <div class="block-section__areas${areaLayoutClass}">
-          ${renderedAreas.join("")}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderAreaHeaderChrome(areaGroup, ownerClass = "area-card") {
-  const areaState = ensureAreaFilterState(areaGroup);
-  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
-  const filterGroups = areaGroup.sharedFilters
-    .map((filter) =>
-      renderFilterGroup(
-        "area",
-        areaGroup.id,
-        filter,
-        areaState[normalizeFilterName(filter)] || [],
-        getAreaFilterOptions(areaGroup, filter)
-      )
-    )
-    .join("");
-  const tabMarkup = areaSubpage.tabs.length
-    ? `
-      <div class="area-subtabs area-subtabs--inline ${ownerClass}__subtabs">
-        ${areaSubpage.tabs
-          .map(
-            (tab) => `
-              <button
-                class="area-subtab ${tab === areaSubpage.activeTab ? "is-active" : ""}"
-                type="button"
-                data-area-subtab="${areaGroup.id}"
-                data-tab-name="${tab}"
-              >
-                ${tab}
-              </button>
-            `
-          )
-          .join("")}
-      </div>
-    `
-    : "";
-  const controlsMarkup = filterGroups
-    ? `
-      <div class="${ownerClass}__controls area-card__controls">
-        <div class="filter-panel filter-panel--inline">${filterGroups}</div>
-      </div>
-    `
-    : "";
-  if (!tabMarkup && !controlsMarkup) return "";
-  return `
-    <div class="${ownerClass}__header-chrome">
-      ${tabMarkup}
-      ${controlsMarkup}
-    </div>
-  `;
-}
-
-function renderAreaCard(areaGroup, block) {
-  const areaState = ensureAreaFilterState(areaGroup);
-  const areaSubpage = ensureAreaSubpageState(areaGroup, areaState);
-  const headerChrome = renderAreaHeaderChrome(areaGroup, "area-card");
-  const shouldRenderHeader = !block?.moveAreaHeaderToSection || !block?.hideAreaTitleWhenSameAsBlock || block.name !== areaGroup.name;
-  const visibleViewGroups = getVisibleAreaViewGroups(areaGroup, areaSubpage, block);
-  if (!visibleViewGroups.length) return "";
-
-  return `
-    <article class="area-card">
-      ${shouldRenderHeader ? `
-        <div class="area-card__header area-card__header--topbar">
-          <div class="area-card__lead">
-            ${shouldHideAreaTitle(areaGroup, block) ? "" : `
-              <div class="area-card__title-wrap">
-                <h3 class="area-card__title">${formatDisplayTitle(areaGroup.name)}</h3>
-              </div>
-            `}
-            ${headerChrome && shouldHideAreaTitle(areaGroup, block) ? headerChrome : ""}
-          </div>
-          ${headerChrome && !shouldHideAreaTitle(areaGroup, block) ? headerChrome : ""}
-        </div>
-      ` : ""}
-      <div class="area-view-groups">
-        ${visibleViewGroups.map((viewGroup) => renderAreaViewGroup(areaGroup, viewGroup, areaState)).join("")}
-      </div>
-    </article>
-  `;
-}
-
-function renderAreaViewGroup(areaGroup, viewGroup, areaState) {
-  const viewScopedState = getViewGroupScopedAreaState(areaGroup, viewGroup, areaState);
-  const visibleWidgets = (viewGroup.widgets || []).filter((widget) => !isEveSourceTrendWidget(widget));
-  if (!visibleWidgets.length) return "";
-  return `
-    <section class="area-view-group">
-      <div class="widgets-grid">
-        ${visibleWidgets.map((widget) => renderWidgetCard(areaGroup, widget, viewScopedState)).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function shouldHideAreaTitle(areaGroup, block) {
-  return Boolean(block?.hideAreaTitleWhenSameAsBlock && block.name === areaGroup.name);
-}
-
-function getViewGroupScopedAreaState(areaGroup, viewGroup, areaState) {
-  const scopedState = {};
-  Object.keys(areaState || {}).forEach((key) => {
-    scopedState[key] = [...(areaState[key] || [])];
-  });
-  const matchedTab = getAreaSubpageMatch(areaGroup, viewGroup);
-  if (matchedTab && Array.isArray(matchedTab.matchInstitutions) && matchedTab.matchInstitutions.length) {
-    scopedState["机构"] = matchedTab.matchInstitutions.filter(Boolean);
-  }
-  return scopedState;
 }
 
 function getAreaFilterOptions(areaGroup, filterLabel) {
@@ -1668,34 +1472,8 @@ function getDefaultGlobalStartDate() {
   return formatDateValue(monthEnd13MonthsAgo);
 }
 
-function getMonthStartDateValue(referenceDateValue) {
-  const parsed = parseDateValue(referenceDateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
-  return formatDateValue(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
-}
-
 function isDateValue(value) {
   return Boolean(parseDateValue(value));
-}
-
-function getGlobalTimeBounds() {
-  const dates = [];
-  data.pages.forEach((page) => {
-    page.blocks.forEach((block) => {
-      block.areas.forEach((area) => {
-        area.widgets.forEach((widget) => {
-          buildTimelineEntries(widget).forEach((entry) => {
-            if (entry.date) dates.push(entry.date);
-          });
-        });
-      });
-    });
-  });
-  const sorted = uniqueList(dates).sort();
-  const fallback = formatDateValue(new Date());
-  return {
-    min: sorted[0] || fallback,
-    max: sorted[sorted.length - 1] || fallback,
-  };
 }
 
 function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
@@ -1795,16 +1573,6 @@ function getSelectedOrganizations(chartContext) {
 function getSelectedCurrencies(chartContext) {
   const selected = (chartContext?.filterState?.币种 || DEFAULT_FILTER_VALUES.币种 || []).filter(Boolean);
   return selected.length ? selected : (FILTER_OPTIONS.币种 || []).slice(0, 1);
-}
-
-function getSelectedOrgCurrencyPairs(chartContext, maxPairs = 8) {
-  const orgs = getSelectedOrganizations(chartContext);
-  const currencies = getSelectedCurrencies(chartContext);
-  return cartesianProduct([orgs, currencies]).slice(0, maxPairs).map((pair) => ({
-    org: pair[0],
-    currency: pair[1],
-    label: `${shortenOrgLabel(pair[0])} / ${pair[1]}`,
-  }));
 }
 
 function shortenOrgLabel(name) {
@@ -2040,129 +1808,16 @@ function ensureAreaFilterState(areaGroup) {
     areaGroup.sharedFilters.forEach((filterLabel) => {
       const name = normalizeFilterName(filterLabel);
       const optionValues = getAreaFilterOptions(areaGroup, filterLabel);
-      state[name] = getAreaDefaultFilterValues(areaGroup, name, optionValues);
+      state[name] = getDefaultFilterValues(name, optionValues);
     });
     appState.areaFilters[areaGroup.id] = state;
   }
   return appState.areaFilters[areaGroup.id];
 }
 
-function getAreaDefaultFilterValues(areaGroup, filterName, optionValues) {
-  if (filterName === "机构") {
-    const areaTabs = getAreaSubpageConfig(areaGroup);
-    const tabInstitutions = uniqueList(
-      (areaTabs || []).flatMap((tab) => Array.isArray(tab.matchInstitutions) ? tab.matchInstitutions : [])
-    ).filter((value) => optionValues.includes(value));
-    if (tabInstitutions.length) return tabInstitutions;
-  }
-  return getDefaultFilterValues(filterName, optionValues);
-}
-
-function ensureAreaSubpageState(areaGroup, areaState = ensureAreaFilterState(areaGroup)) {
-  const tabs = getAreaSubpageTabs(areaGroup, areaState);
-  if (!tabs.length) return { tabs: [], activeTab: null };
-  if (!appState.areaSubpages[areaGroup.id] || !tabs.includes(appState.areaSubpages[areaGroup.id])) {
-    appState.areaSubpages[areaGroup.id] = tabs[0];
-  }
-  return {
-    tabs,
-    activeTab: appState.areaSubpages[areaGroup.id],
-  };
-}
-
-function getAreaSubpageConfig(areaGroup) {
-  if (!areaGroup?.name) return null;
-  return AREA_TAB_CONFIG[areaGroup.name] || null;
-}
-
-function getAreaSubpageTabs(areaGroup, areaState = ensureAreaFilterState(areaGroup)) {
-  const areaTabs = getAreaSubpageConfig(areaGroup);
-  if (!areaTabs) return [];
-  const selectedInstitutions = (areaState["机构"] || []).filter(Boolean);
-  return uniqueList(
-    areaTabs
-      .filter((tab) => {
-        const matchesScope = areaGroup.viewGroups.some((viewGroup) => viewGroupMatchesTab(viewGroup, tab));
-        if (!matchesScope) return false;
-        if (!Array.isArray(tab.matchInstitutions) || !tab.matchInstitutions.length) return true;
-        return selectedInstitutions.some((institution) => tab.matchInstitutions.includes(institution));
-      })
-      .map((tab) => tab.label)
-  );
-}
-
-function getAreaSubpageLabel(areaGroup, viewScope) {
-  const matchedTab = getAreaSubpageMatch(areaGroup, viewScope);
-  return matchedTab?.label || null;
-}
-
-function getAreaSubpageMatch(areaGroup, viewScope) {
-  const areaTabs = getAreaSubpageConfig(areaGroup);
-  if (!areaTabs) return null;
-  const candidate = typeof viewScope === "object" ? viewScope : { viewScope };
-  return areaTabs.find((tab) => viewGroupMatchesTab(candidate, tab)) || null;
-}
-
-function getVisibleAreaViewGroups(areaGroup, areaSubpage, block) {
-  const areaLayout = getAreaLayoutConfig(areaGroup, block);
-  if (areaLayout.mergeViewGroups && !areaSubpage.tabs.length) {
-    return [mergeAreaViewGroups(areaGroup)];
-  }
-
-  if (!areaSubpage.tabs.length) return areaGroup.viewGroups;
-
-  const activeViewGroups = areaGroup.viewGroups.filter(
-    (viewGroup) => getAreaSubpageLabel(areaGroup, viewGroup) === areaSubpage.activeTab
-  );
-  const pinnedViewGroup = findPinnedViewGroup(areaGroup.viewGroups, areaLayout.pinnedViewScopeIncludes);
-  return pinnedViewGroup ? uniqueViewGroups([...activeViewGroups, pinnedViewGroup]) : activeViewGroups;
-}
-
 function getPageBehavior(page = getCurrentPage()) {
   if (!page?.name) return {};
   return PAGE_BEHAVIOR_CONFIG[page.name] || {};
-}
-
-function getBlockLayoutConfig(block, page = getCurrentPage()) {
-  if (!page?.name || !block?.name) return {};
-  return LAYOUT_RULE_CONFIG.blocks?.[`${page.name}/${block.name}`] || {};
-}
-
-function getAreaLayoutConfig(areaGroup, block, page = getCurrentPage()) {
-  if (!page?.name || !block?.name || !areaGroup?.name) return {};
-  const blockNames = uniqueList([block.sourceBlockName, block.name].filter(Boolean));
-  return blockNames.reduce((config, blockName) => {
-    const areaConfig = LAYOUT_RULE_CONFIG.areas?.[`${page.name}/${blockName}/${areaGroup.name}`] || {};
-    return { ...config, ...areaConfig };
-  }, {});
-}
-
-function mergeAreaViewGroups(areaGroup) {
-  return {
-    id: `${areaGroup.id}-merged`,
-    viewScope: "merged",
-    widgets: areaGroup.viewGroups.flatMap((viewGroup) => viewGroup.widgets || []),
-  };
-}
-
-function findPinnedViewGroup(viewGroups, matchers = []) {
-  if (!Array.isArray(matchers) || !matchers.length) return null;
-  const exactMatch = viewGroups.find((viewGroup) =>
-    matchers.some((matcher) => String(viewGroup?.viewScope || "") === String(matcher || ""))
-  );
-  if (exactMatch) return exactMatch;
-  return viewGroups.find((viewGroup) =>
-    matchers.some((matcher) => getViewGroupScopeLookup(viewGroup).includes(matcher))
-  ) || null;
-}
-
-function uniqueViewGroups(items) {
-  const seen = new Set();
-  return (items || []).filter((item) => {
-    if (!item?.id || seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
 }
 
 function ensureWidgetFilterState(widget, widgetBehavior = getWidgetBehavior(widget)) {
@@ -2254,32 +1909,6 @@ function resolveAreaSharedFilters(area) {
   return Array.from(normalizedMap.values());
 }
 
-function getViewGroupScopeLookup(viewGroup) {
-  const scopeMeta = viewGroup?.scopeMeta || {};
-  return [
-    viewGroup?.viewScope,
-    scopeMeta.tabKey,
-    scopeMeta.institution,
-    scopeMeta.snapshotMode === "snapshot" ? "时点" : "",
-    scopeMeta.snapshotMode === "trend" ? "时间序列" : "",
-    scopeMeta.timeMode === "monthly" ? "月频" : "",
-    scopeMeta.timeMode === "frequencyToggle" ? "月频 / 日频" : "",
-  ]
-    .filter(Boolean)
-    .join(" / ");
-}
-
-function viewGroupMatchesTab(viewGroup, tab) {
-  if (!viewGroup || !tab) return false;
-  const scopeMeta = viewGroup.scopeMeta || {};
-  const metaMatcher = tab.matchScopeMeta || {};
-  if (metaMatcher.tabGroup && scopeMeta.tabGroup !== metaMatcher.tabGroup) return false;
-  if (metaMatcher.tabKey && scopeMeta.tabKey !== metaMatcher.tabKey) return false;
-  if (metaMatcher.institution && scopeMeta.institution !== metaMatcher.institution) return false;
-  if (Object.keys(metaMatcher).length) return true;
-  return getViewGroupScopeLookup(viewGroup).includes(tab.matchViewScope || "");
-}
-
 function getWidgetTableTemplateKey(widget, fallbackKey = "compact") {
   const behavior = getConfiguredWidgetBehavior(widget);
   if (behavior.tableTemplate) return behavior.tableTemplate;
@@ -2315,16 +1944,10 @@ function groupBlockAreas(block) {
     target.sharedFilters = uniqueList([...target.sharedFilters, ...resolveAreaSharedFilters(area)]);
     target.viewGroups.push({
       id: area.id,
-      viewScope: area.viewScope,
-      scopeMeta: area.scopeMeta || {},
       widgets: area.widgets,
     });
   });
   return Array.from(grouped.values());
-}
-
-function shouldRenderAreasInPairs(block, groupedAreas) {
-  return Boolean(getBlockLayoutConfig(block).pairAreas) && groupedAreas.length === 2;
 }
 
 function shouldSpanFullWidth(widget) {
@@ -2344,32 +1967,8 @@ function isInlineWidgetFilter(widgetSeq, filterName) {
   return (getConfiguredWidgetBehaviorBySeq(widgetSeq).inlineFilters || []).includes(filterName);
 }
 
-function isBalanceScaleGrowthWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "balanceScaleGrowth";
-}
-
-function isBusinessScaleGrowthWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "businessScaleGrowth";
-}
-
-function isFutureFundingFlowWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "futureFundingFlow";
-}
-
-function isEveRatioTrendWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "eveRatioTrend";
-}
-
-function isEveSourceTrendWidget(widget) {
-  return isSourceOnlyWidget(widget);
-}
-
 function isSourceOnlyWidget(widget) {
   return widget?.renderRole === "sourceOnly";
-}
-
-function isRepricingGapRateWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "repricingGapRate";
 }
 
 function isLiquidityDiagnosticRatioWidget(widget) {
@@ -2378,14 +1977,6 @@ function isLiquidityDiagnosticRatioWidget(widget) {
 
 function isNiiVolatilityWidget(widget) {
   return getConfiguredWidgetBehavior(widget).chartKind === "niiVolatility";
-}
-
-function isLiquidityGapTenorWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).chartKind === "liquidityGapTenor";
-}
-
-function isBusinessStructureTableWidget(widget) {
-  return getConfiguredWidgetBehavior(widget).tableKind === "businessStructure";
 }
 
 function isDonutWidget(widget) {
@@ -2510,33 +2101,5 @@ function findWidgetBySeq(widgetSeq) {
     }
   }
   return null;
-}
-
-function getFutureFundingFlowBusinessSelection(chartContext) {
-  const selected = (chartContext.filterState["业务类型"] || []).filter(Boolean);
-  const all = getBusinessAnalysisPerspectiveDefinition("liquidityBalanceStructure").businessTypes || [];
-  return selected.length ? selected : all;
-}
-
-function getFutureFundingFlowDrilldown(widget, flowState) {
-  const widgetKey = String(widget.seq);
-  const current = appState.futureFundingFlowDrilldowns?.[widgetKey] || {};
-  const hasCurrentDate = flowState.future.businessMatrix.rows.some((row) => row.date === current.date);
-  const hasCurrentType = flowState.future.businessMatrix.series.some((series) => series.name === current.businessType);
-  if (hasCurrentDate && hasCurrentType) return current;
-  const firstRow = flowState.future.businessMatrix.rows[0];
-  const firstSeries = flowState.future.businessMatrix.series[0];
-  return {
-    date: firstRow?.date || "",
-    label: firstRow?.label || "",
-    businessType: firstSeries?.name || "",
-  };
-}
-
-function getFutureFundingFlowRowsForDrilldown(flowState, drilldown) {
-  if (!drilldown?.date || !drilldown?.businessType) return [];
-  return flowState.future.detailRows.filter((row) =>
-    row.date === drilldown.date && row.businessType === drilldown.businessType
-  );
 }
 

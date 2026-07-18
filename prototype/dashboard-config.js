@@ -92,7 +92,6 @@ window.dashboardConfig = {
       ]
     }
   },
-  "tabs": {},
   "pageBehavior": {
     "利率风险": {
       "simulationMode": "interest"
@@ -334,8 +333,7 @@ window.dashboardConfig = {
     },
     "80": {
       "tableKind": "businessDetail",
-      "detailScope": "stock",
-      "detailTablePreset": "businessChangeDetail"
+      "detailScope": "stock"
     },
     "83": {
       "chartKind": "balanceScaleGrowth",
@@ -349,7 +347,6 @@ window.dashboardConfig = {
     "85": {
       "tableKind": "businessDetail",
       "detailScope": "new",
-      "detailTablePreset": "businessChangeDetail",
       "methodologyKey": "newMonthly"
     },
     "89": {
@@ -387,7 +384,6 @@ window.dashboardConfig = {
     "97": {
       "tableKind": "businessDetail",
       "detailScope": "maturity",
-      "detailTablePreset": "businessChangeDetail",
       "methodologyKey": "maturityMonthly"
     }
   },
@@ -527,7 +523,6 @@ window.dashboardConfig = {
       "name": "时间区间（起止）",
       "label": "统计月末区间",
       "type": "dateRange",
-      "defaultValues": [],
       "multi": false
     }
   },
@@ -566,12 +561,7 @@ window.dashboardConfig = {
     }
   },
   "layoutRules": {
-    "blocks": {},
-    "areas": {},
     "widgets": {
-      "4": {
-        "fullWidth": false
-      },
       "54": {
         "fullWidth": true
       }
@@ -652,56 +642,6 @@ window.dashboardConfig = {
         "chart-table",
         "chart-table--wide",
         "chart-table--matrix"
-      ]
-    }
-  },
-  "detailTables": {
-    "businessChangeDetail": {
-      "columns": [
-        {
-          "key": "businessId",
-          "label": "业务编号"
-        },
-        {
-          "key": "counterparty",
-          "label": "客户"
-        },
-        {
-          "key": "businessType",
-          "label": "业务类型"
-        },
-        {
-          "key": "sideLabel",
-          "label": "资产/负债"
-        },
-        {
-          "key": "startDate",
-          "label": "起始日"
-        },
-        {
-          "key": "maturityDate",
-          "label": "到期日"
-        },
-        {
-          "key": "repricingDate",
-          "label": "下一重定价日"
-        },
-        {
-          "key": "amount",
-          "label": "金额/余额"
-        },
-        {
-          "key": "rate",
-          "label": "利率"
-        },
-        {
-          "key": "rateType",
-          "label": "固浮属性"
-        },
-        {
-          "key": "term",
-          "label": "剩余期限"
-        }
       ]
     }
   }

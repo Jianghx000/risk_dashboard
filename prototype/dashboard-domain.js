@@ -56,6 +56,14 @@ window.dashboardDomainConfig = {
     "3M",
     "1Y"
   ],
+  "foreignBranchOrganizations": [
+    "香港分行",
+    "纽约分行",
+    "新加坡分行",
+    "卢森堡分行",
+    "伦敦分行",
+    "悉尼分行"
+  ],
   "liquidityCashFlowSimulationBuckets": [
     "次日",
     "2日至7日",
@@ -154,6 +162,24 @@ window.dashboardDomainConfig = {
     "内部交易负债": "liability",
     "表外衍生品应付": "liability",
     "表外衍生品应收": "asset"
+  },
+  "repricingGapBusinessGroups": {
+    "assets": [
+      { "key": "self-operated-loans", "label": "自营贷款" },
+      { "key": "investment-assets", "label": "投资类资产" },
+      { "key": "interbank-assets", "label": "同业资产" },
+      { "key": "non-standard-investments", "label": "自营非标投资" },
+      { "key": "central-bank-deposits", "label": "存放央行" },
+      { "key": "internal-transaction-assets", "label": "内部交易资产", "internalTransaction": true }
+    ],
+    "liabilities": [
+      { "key": "term-deposits", "label": "定期存款" },
+      { "key": "interbank-liabilities", "label": "同业负债" },
+      { "key": "issued-bonds", "label": "发行债券" },
+      { "key": "central-bank-borrowings", "label": "向央行借款" },
+      { "key": "lease-liabilities", "label": "租赁负债" },
+      { "key": "internal-transaction-liabilities", "label": "内部交易负债", "internalTransaction": true }
+    ]
   },
   "hedgeableItemOptions": [
     {

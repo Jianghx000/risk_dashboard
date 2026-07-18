@@ -15,7 +15,6 @@ window.dashboardData = {
             {
               "id": "area-1",
               "name": "最大经济价值变动比例",
-              "viewScope": "时间序列（月频）",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -27,7 +26,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。通过筛选机构和币种展示最大经济价值变动比例走势；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：EVE变动额/EVE变动比例",
@@ -43,7 +42,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：与上述所选择的机构一致，展示所选择的机构的一级资本净额（最大经济价值变动比例△EVE 分母）的走势（不区分币种）。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。开发补充：本图标题已明确为本外币合计口径，若页面仍保留币种公共筛选器，则本图不按币种拆分取数。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：筛选器保留，默认全选，不影响本图取数",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币，筛选器保留但不影响本图取数",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：EVE变动额/EVE变动比例",
@@ -60,7 +59,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的所有图表/表格共用机构、币种两个筛选器。展示口径：时间序列（月频）。原始要求：与上述所筛选的机构和币种一致，展示所选择的机构和币种在6种不同监管情景（平行上移、下移、变陡峭、变平缓、短端上升、短端下降）下的经济价值变动的走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：EVE变动额/EVE变动比例",
@@ -73,16 +72,11 @@ window.dashboardData = {
                   "renderRole": "sourceOnly"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-7",
               "name": "净利息收入波动率",
-              "viewScope": "时间序列（月频）",
               "sharedFilters": [
                 "机构",
                 "币种",
@@ -95,7 +89,7 @@ window.dashboardData = {
                   "componentType": "双轴柱线组合图",
                   "displayDescription": "筛选项：机构；币种；利率情景。联动规则：同一第三层区域下的所有图表/表格共用机构、币种、利率情景三个筛选器。展示口径：时间序列（月频）。原始要求：先筛选机构和币种，然后再选择不同的利率情景（所有利率平行上移200bp、活期利率不变但其他利率平行上移200bp），展示所选择的机构和币种在不同利率情景下的净利息收入波动及波动率走势。开发细化：采用趋势图实现，横轴为月份，切换筛选项后整图联动刷新。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；情景：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币；利率情景：默认所有利率平行上移200bp",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], scenario_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：NII波动额/NII波动率",
@@ -106,16 +100,11 @@ window.dashboardData = {
                   "originPosition": "原始行7"
                 }
               ],
-              "filterPreset": "orgCurrencyRateScenario",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
+              "filterPreset": "orgCurrencyRateScenario"
             },
             {
               "id": "area-9",
               "name": "重定价缺口率",
-              "viewScope": "时点口径 / 月频 / 日频",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -127,7 +116,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 月频 / 日频。展示所选机构、币种的经期限调整重定价缺口率走势；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。计算过程采用底层业务联合 Shapley 归因：每类资产业务将重定价规模和总生息资产规模绑定为一个因素，负债业务及银行账簿、交易账簿表外衍生品应收应付作为独立业务因素，所有业务影响之和严格等于缺口率较比较基期的变化。归因区纵向展示资产端业务、负债端业务、银行账簿表外衍生品和交易账簿表外衍生品四个分支；卡片展示当前规模、较基期变化、影响及迷你趋势图，点击后在右侧横向展开具体业务类别。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：缺口规模/缺口率",
@@ -143,7 +132,7 @@ window.dashboardData = {
                   "componentType": "穿透折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：时间序列（月频）。指标口径：资产负债重定价久期缺口 = 资产重定价久期 - 负债重定价久期。开发细化：采用折线图展示久期缺口走势，点击时间点后穿透展示当期资产端、负债端久期及完整利率风险业务分类的分业务贡献；每类业务将规模和久期作为一个整体因素计算合计影响，业务卡片展示规模较基期、久期较基期、对最终久期缺口的影响，并以左轴规模（亿元）、右轴久期（年）的双轴迷你图展示两个输入因素的历史趋势。法人汇总的内部交易类别保留展示但按零规模计算，单个境外分行包含内部交易。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：资产负债重定价久期缺口",
@@ -158,7 +147,7 @@ window.dashboardData = {
                   "componentType": "期限分布图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：时点口径 / 时点。原始要求：在上述选择机构的基础上，进一步选择币种，展示所选择的单个币种下，不同业务（贷款、债券、存款等）在未来不同时间窗口的到期规模。开发细化：按当前图表名称对应的可视化组件实现。",
                   "grain": "时点快照",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：隔夜、1~2个月、2~3个月至11~12个月的重定价期限桶",
                   "metricDescription": "指标：规模",
@@ -169,18 +158,11 @@ window.dashboardData = {
                   "originPosition": "原始行14"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot",
-                "timeMode": "frequencyToggle",
-                "tabGroup": "repricingGapCaliber",
-                "tabKey": "时点口径"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-interest-portfolio-duration",
               "name": "债券修正久期",
-              "viewScope": "存量业务 / 限额监测",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -192,7 +174,7 @@ window.dashboardData = {
                   "componentType": "限额折线图",
                   "displayDescription": "筛选项：机构；币种。展示所选机构、币种口径下债券修正久期走势；机构单选时，为所选币种中命中债券投资组合久期限额的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：债券修正久期、限额",
@@ -202,16 +184,11 @@ window.dashboardData = {
                   "devNote": "组件：限额折线图；折线表示债券修正久期，虚线表示限额"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend",
-                "timeMode": "monthly"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-investment-financing-bond-investment",
               "name": "债券投资",
-              "viewScope": "限额监测",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -223,7 +200,7 @@ window.dashboardData = {
                   "componentType": "限额双柱时序图",
                   "displayDescription": "筛选项：机构；币种。按时间序列展示所选机构、币种口径下债券投资规模和非金融企业债投资规模；机构单选时，为所选币种中命中对应限额的币种显示各自限额线，并通过图例注明适用范围。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：债券投资规模、非金融企业债投资规模、限额",
@@ -233,10 +210,7 @@ window.dashboardData = {
                   "devNote": "组件：双柱限额时序图；两种颜色柱子分别表示债券投资规模和非金融企业债投资规模，叠加限额线"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "trend"
-              }
+              "filterPreset": "orgCurrency"
             }
           ],
           "areaCount": 5,
@@ -258,7 +232,6 @@ window.dashboardData = {
             {
               "id": "area-42",
               "name": "流动性覆盖率LCR",
-              "viewScope": "月频 / 日频 / 分币种",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -270,7 +243,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表/表格共用机构、币种筛选器。展示口径：月频 / 日频 / 分币种。原始要求：在上述选择机构的基础上，进一步选择币种，展示所选机构不同币种的LCR走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：LCR",
@@ -281,16 +254,11 @@ window.dashboardData = {
                   "originPosition": "原始行42"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "timeMode": "frequencyToggle",
-                "breakdownMode": "currency"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-46",
               "name": "净稳定资金比率NSFR",
-              "viewScope": "月频 / 日频",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -302,7 +270,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。联动规则：同一第三层区域下的图表共用机构、币种筛选器。展示口径：月频 / 日频。原始要求：通过筛选机构（境内或法人）和币种，展示所选机构和币种下的净稳定资金比例NSFR走势。开发细化：采用趋势图实现，横轴为时间，支持在图卡内切换月频 / 日频展示，切换筛选项后整图联动刷新。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：按图表标题定义",
@@ -313,16 +281,12 @@ window.dashboardData = {
                   "originPosition": "原始行46"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "timeMode": "frequencyToggle"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-49",
               "name": "流动性缺口",
               "groupKey": "liquidity-gap-and-funding-flow",
-              "viewScope": "月频 / 日频",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -334,7 +298,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种；期限长度（1D/7D/30D/3M/1Y）；统计口径（仅30D支持时点/月日均，其他期限仅时点）。采用柱状图+折线图展示缺口规模和缺口率，柱状图和折线趋势点均支持查看计算过程。计算口径：流动性缺口=到期表内外资产（含内部交易）-到期表内外负债（含内部交易）+活期存款调整+活期存放调整；到期表内外资产（含内部交易）=到期表内外资产+表外收入+内部交易资产；到期表内外负债（含内部交易）=到期表内外负债+表外支出+内部交易负债；流动性缺口率=100%-（到期表内外负债（含内部交易）-活期存款调整-活期存放调整）÷到期表内外资产（含内部交易），各组成项使用同一期限。机构单选时，为所选币种中同时命中30D时点或月日均限额口径的币种显示限额线，并通过图例注明适用范围。支持基于五期限桶现金流缺口表录入新业务及多笔现金流进行模拟测算。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选；期限：默认30D；口径：默认时点",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币；期限：默认30D；口径：默认时点",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[], caliber_code, stat_caliber_codes[], tenor_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：缺口规模/缺口率",
@@ -350,7 +314,7 @@ window.dashboardData = {
                   "componentType": "折线图",
                   "displayDescription": "筛选项：机构；币种。展示口径：月频 / 日频。点击趋势点可查看流动性资产、流动性负债及其组成项的计算过程。计算公式：流动性比例=流动性资产/流动性负债；机构单选时，为所选币种中命中管理限额配置的币种显示限额线，并通过图例注明适用范围。",
                   "grain": "月度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计月",
                   "metricDescription": "指标：流动性比例、流动性资产、流动性负债",
@@ -361,16 +325,12 @@ window.dashboardData = {
                   "originPosition": "新增"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "timeMode": "frequencyToggle"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-51",
               "name": "流动性缺口",
               "groupKey": "liquidity-gap-and-funding-flow",
-              "viewScope": "时点",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -382,7 +342,7 @@ window.dashboardData = {
                   "componentType": "堆叠柱线组合图",
                   "displayDescription": "筛选项：机构；币种；流动性业务类别。联动规则：同一第三层区域下的图表共用机构、币种筛选器，业务类别通过图例筛选。展示口径：未来30天逐日。按统一的流动性风险业务分类堆叠展示未来逐日资金流，并叠加当日净额、累计净额两条折线；数据页签展示对应业务明细。",
                   "grain": "日度",
-                  "defaultFilters": "机构：默认全选；币种：默认全选",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "frontendParams": "dashboard_id, area_code, org_ids[], currency_codes[]",
                   "axisDescription": "横轴：统计日期",
                   "metricDescription": "指标：分流动性业务类别资金流规模、当日净额、累计净额",
@@ -393,10 +353,7 @@ window.dashboardData = {
                   "originPosition": "新增"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "snapshotMode": "snapshot"
-              }
+              "filterPreset": "orgCurrency"
             }
           ],
           "areaCount": 4,
@@ -418,7 +375,6 @@ window.dashboardData = {
             {
               "id": "area-stock",
               "name": "存量业务",
-              "viewScope": "合并区域",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -428,74 +384,38 @@ window.dashboardData = {
                   "seq": 72,
                   "title": "资产负债规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 73,
                   "title": "分业务规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 79,
                   "title": "资产负债结构一览表",
                   "componentType": "表格",
-                  "displayDescription": "",
                   "grain": "时点快照",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 },
                 {
                   "seq": 80,
                   "title": "存量业务明细清单",
-                  "componentType": "琛ㄦ牸",
-                  "displayDescription": "",
-                  "grain": "鏄庣粏",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "componentType": "表格",
+                  "grain": "明细",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "mergeMode": "areaMerged"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-new",
               "name": "新发生业务",
-              "viewScope": "合并区域",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -505,74 +425,38 @@ window.dashboardData = {
                   "seq": 83,
                   "title": "新发生资产负债规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 84,
                   "title": "分业务新发生规模及增速",
                   "componentType": "双轴柱线组合图",
-                  "displayDescription": "",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 89,
                   "title": "新发生业务资产负债结构一览表",
                   "componentType": "表格",
-                  "displayDescription": "",
                   "grain": "时间区间",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 },
                 {
                   "seq": 85,
                   "title": "新发生业务明细清单",
-                  "componentType": "琛ㄦ牸",
-                  "displayDescription": "",
-                  "grain": "鏄庣粏",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "componentType": "表格",
+                  "grain": "明细",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "mergeMode": "areaMerged"
-              }
+              "filterPreset": "orgCurrency"
             },
             {
               "id": "area-maturity",
               "name": "到期业务",
-              "viewScope": "合并区域",
               "sharedFilters": [
                 "机构",
                 "币种"
@@ -584,14 +468,7 @@ window.dashboardData = {
                   "componentType": "双轴柱线组合图",
                   "displayDescription": "展示历史实际到期以及按合同约定推演的未来到期，未来日期段需与历史日期段有明显区分。",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 91,
@@ -599,14 +476,7 @@ window.dashboardData = {
                   "componentType": "双轴柱线组合图",
                   "displayDescription": "按业务类型展示历史实际到期以及按合同约定推演的未来到期，未来日期段需与历史日期段有明显区分。",
                   "grain": "月度",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": ""
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币"
                 },
                 {
                   "seq": 96,
@@ -614,37 +484,19 @@ window.dashboardData = {
                   "componentType": "表格",
                   "displayDescription": "在标题旁提供历史实际到期、未来合同到期两个并列页签；历史页仅选择历史日期，未来页仅选择未来日期，避免历史/未来区间混用。",
                   "grain": "时间区间",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 },
                 {
                   "seq": 97,
                   "title": "到期业务明细清单",
-                  "componentType": "琛ㄦ牸",
-                  "displayDescription": "",
-                  "grain": "鏄庣粏",
-                  "defaultFilters": "",
-                  "frontendParams": "",
-                  "axisDescription": "",
-                  "metricDescription": "",
-                  "legendDescription": "",
-                  "responseFields": "",
-                  "linkageRule": "",
-                  "devNote": "",
+                  "componentType": "表格",
+                  "grain": "明细",
+                  "defaultFilters": "机构：默认法人汇总；币种：默认全折人民币",
                   "layout": "full"
                 }
               ],
-              "filterPreset": "orgCurrency",
-              "scopeMeta": {
-                "mergeMode": "areaMerged"
-              }
+              "filterPreset": "orgCurrency"
             }
           ],
           "areaCount": 3,
@@ -657,5 +509,5 @@ window.dashboardData = {
     }
   ],
   "sourceMode": "curated-prototype",
-  "sourceNote": "手工整理后的驾驶舱结构；旧分层已压平，废弃组件已从数据层移除。"
+  "sourceNote": "手工整理后的风险分析视图结构；旧分层已压平，废弃组件已从数据层移除。"
 };

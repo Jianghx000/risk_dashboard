@@ -303,7 +303,7 @@ def apply_current_dashboard_structure(payload: dict[str, Any]) -> dict[str, Any]
 
     payload["widgetCount"] = total_widgets
     payload["sourceMode"] = "curated-prototype"
-    payload["sourceNote"] = "\u5bfc\u51fa\u540e\u5df2\u6309\u5f53\u524d\u9a7e\u9a76\u8231\u7ed3\u6784\u538b\u5e73\u65e7\u5c42\u7ea7\uff0c\u5e76\u79fb\u9664\u5df2\u5e9f\u5f03\u7ec4\u4ef6\u3002"
+    payload["sourceNote"] = "导出后已按当前风险分析视图结构压平旧层级，并移除已废弃组件。"
     return payload
 
 
@@ -325,13 +325,12 @@ def build_payload(workbook_path: Path) -> dict[str, Any]:
             {"id": f"block-{len(page['blocks']) + 1}", "name": row["block_name"], "areas": OrderedDict()},
         )
 
-        area_name, view_scope, area_key = resolve_area_descriptor(row)
+        area_name, _, area_key = resolve_area_descriptor(row)
         area = block["areas"].setdefault(
             area_key,
             {
                 "id": f"area-{row['seq']}",
                 "name": area_name,
-                "viewScope": view_scope,
                 "sharedFilters": [],
                 "widgets": [],
             },

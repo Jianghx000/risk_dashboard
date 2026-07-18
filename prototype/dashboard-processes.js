@@ -1,6 +1,6 @@
 ﻿/* Diagnostic process charts and drilldown modals. */
 
-const DIAGNOSTIC_FOREIGN_BRANCHES = ["香港分行", "纽约分行", "新加坡分行", "卢森堡分行", "伦敦分行", "悉尼分行"];
+const REPRICING_GAP_COLOR = "#4289EE";
 
 function getDiagnosticFilterState(pageId, chartContextOrState = {}) {
   if (chartContextOrState.filterState) return chartContextOrState.filterState;
@@ -15,12 +15,12 @@ function getDiagnosticOrganizations(pageId, chartContextOrState = {}) {
 
 function isOverseasCapitalScope(organizations = []) {
   return organizations.length > 0 && organizations.every((organization) =>
-    organization === "境外分行汇总" || DIAGNOSTIC_FOREIGN_BRANCHES.includes(organization)
+    organization === "境外分行汇总" || FOREIGN_BRANCH_ORGANIZATIONS.includes(organization)
   );
 }
 
 function isSingleForeignBranchScope(organizations = []) {
-  return organizations.length === 1 && DIAGNOSTIC_FOREIGN_BRANCHES.includes(organizations[0]);
+  return organizations.length === 1 && FOREIGN_BRANCH_ORGANIZATIONS.includes(organizations[0]);
 }
 
 function renderEveRatioTrendChart(widget, chartContext) {
@@ -45,6 +45,8 @@ function renderEveRatioTrendChart(widget, chartContext) {
           fill="#ffffff"
           stroke="${isSelected ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY}"
           stroke-width="3"
+          role="button"
+          tabindex="0"
           data-eve-point="true"
           data-widget-seq="${widget.seq}"
           data-date-index="${index}"
@@ -62,7 +64,7 @@ function renderEveRatioTrendChart(widget, chartContext) {
 
   return `
     <div class="chart-shell chart-shell--eve-ratio">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="最大经济价值变动比例走势，数据点可查看计算过程">
         ${axis}
         ${managementLimitOverlay}
         <polyline fill="none" stroke="${EVE_COLOR_PRIMARY}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
@@ -366,27 +368,29 @@ function renderEveProcessNode({
     valueFormat,
   });
   return `
-    <button class="eve-process-node ${activeNode === key ? "is-active" : ""} ${isWorst ? "is-worst" : ""}" type="button" ${dataAttribute}="${key}">
-      <span class="eve-process-node__top">
-        <span class="eve-process-node__title"><strong>${title}</strong></span>
-        <span class="eve-process-node__metric">
-          <span class="eve-process-node__value">${value}</span>
-          <span class="eve-process-node__comparisons">
-            <span class="eve-process-node__change ${change.className}">${change.text}</span>
-            ${showImpact ? `<span class="eve-process-node__impact ${impactDisplay.className}">${impactDisplay.text}</span>` : ""}
+    <article class="eve-process-node ${activeNode === key ? "is-active" : ""} ${isWorst ? "is-worst" : ""}" ${dataAttribute}="${key}">
+      <button class="eve-process-node__select" type="button" aria-label="选择${title}">
+        <span class="eve-process-node__top">
+          <span class="eve-process-node__title"><strong>${title}</strong></span>
+          <span class="eve-process-node__metric">
+            <span class="eve-process-node__value">${value}</span>
+            <span class="eve-process-node__comparisons">
+              <span class="eve-process-node__change ${change.className}">${change.text}</span>
+              ${showImpact ? `<span class="eve-process-node__impact ${impactDisplay.className}">${impactDisplay.text}</span>` : ""}
+            </span>
           </span>
         </span>
-      </span>
-      <span
+      </button>
+      <button
         class="eve-process-sparkline"
-        role="button"
-        tabindex="0"
+        type="button"
+        aria-label="放大${title}趋势"
         title="点击放大趋势"
         data-process-sparkline="true"
         data-process-preview="${previewPayload}"
-      >${renderEveSparkline(series, selectedIndex, isWorst ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY)}</span>
-      ${actionText ? `<span class="eve-process-node__action">${actionText}</span>` : ""}
-    </button>
+      >${renderEveSparkline(series, selectedIndex, isWorst ? EVE_COLOR_WORST : EVE_COLOR_PRIMARY)}</button>
+      ${actionText ? `<button class="eve-process-node__action" type="button">${actionText}</button>` : ""}
+    </article>
   `;
 }
 
@@ -408,10 +412,7 @@ function renderEveScenarioExpansion(model, selectedIndex, comparisonIndex, activ
           valueFormat: "amount",
           labels: model.displayLabels,
           impact: impactMap[`scenario:${scenario.key}`],
-        }).replace(
-          '<button class="eve-process-node',
-          `<button class="eve-process-node eve-process-node--compact${isWorst ? ' is-worst' : ''}`
-        );
+        }).replace('<article class="eve-process-node', '<article class="eve-process-node eve-process-node--compact');
       }).join("")}
     </div>
   `;
@@ -1294,6 +1295,48 @@ function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
   const ratios = dueOnOffBalanceAssets.map((value, index) => Number((
     100 - (adjustedDueOnOffBalanceLiabilities[index] / value) * 100
   ).toFixed(1)));
+  let simulationResult = null;
+  let simulatedLiquidityGap = null;
+  let simulatedRatios = null;
+  let simulationTargetIndex = -1;
+  const pageId = chartContextOrState.pageId || getCurrentPage()?.id || "liquidity-risk";
+  const simulation = typeof getPageSimulation === "function" ? getPageSimulation(pageId) : null;
+  const hasLiquidityGapSimulation = Number(simulation?.sourceWidgetSeq) === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ
+    && simulation?.simulationKind === "liquidityGap"
+    && simulation?.baseMatrix;
+  if (hasLiquidityGapSimulation && count) {
+    simulationResult = buildLiquidityGapSimulationResult(simulation);
+    const bucketIndex = LIQUIDITY_GAP_DIAGNOSTIC_TENOR_INDEX[selectedTenor] ?? 2;
+    simulationTargetIndex = count - 1;
+    simulatedLiquidityGap = [...liquidityGap];
+    simulatedRatios = [...ratios];
+    const baseAssets = Number(simulationResult.baseMetrics.cumulativeInflows[bucketIndex] || 0);
+    const baseGap = Number(simulationResult.baseMetrics.cumulativeTotals[bucketIndex] || 0);
+    const baseAdjustedLiabilities = Number((baseAssets - baseGap).toFixed(1));
+    assetTotal[simulationTargetIndex] = baseAssets;
+    offBalanceIncome[simulationTargetIndex] = 0;
+    internalTransactionAssets[simulationTargetIndex] = 0;
+    dueOnOffBalanceAssets[simulationTargetIndex] = baseAssets;
+    liabilityTotal[simulationTargetIndex] = baseAdjustedLiabilities;
+    offBalanceExpense[simulationTargetIndex] = 0;
+    internalTransactionLiabilities[simulationTargetIndex] = 0;
+    dueOnOffBalanceLiabilities[simulationTargetIndex] = baseAdjustedLiabilities;
+    demandDeposits[simulationTargetIndex] = 0;
+    noteDemandDeposits[simulationTargetIndex] = 0;
+    demandPlacements[simulationTargetIndex] = 0;
+    noteDemandPlacements[simulationTargetIndex] = 0;
+    demandDepositAdjustment[simulationTargetIndex] = 0;
+    demandPlacementAdjustment[simulationTargetIndex] = 0;
+    adjustedDueOnOffBalanceLiabilities[simulationTargetIndex] = baseAdjustedLiabilities;
+    liquidityGap[simulationTargetIndex] = baseGap;
+    ratios[simulationTargetIndex] = Number(simulationResult.baseMetrics.gapRatios[bucketIndex] || 0);
+    simulatedLiquidityGap[simulationTargetIndex] = Number(
+      simulationResult.simulatedMetrics.cumulativeTotals[bucketIndex] || 0
+    );
+    simulatedRatios[simulationTargetIndex] = Number(
+      simulationResult.simulatedMetrics.gapRatios[bucketIndex] || 0
+    );
+  }
 
   return {
     kind: "liquidityGap",
@@ -1308,6 +1351,10 @@ function buildLiquidityGapDiagnosticModel(widget, chartContextOrState = {}) {
     numerator: liquidityGap,
     denominator: dueOnOffBalanceAssets,
     ratios,
+    simulatedLiquidityGap,
+    simulatedRatios,
+    simulationTargetIndex,
+    simulationResult,
     components: {
       assetTotal,
       offBalanceIncome,
@@ -1493,6 +1540,8 @@ function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
         fill="#ffffff"
         stroke="${isSelected ? EVE_COLOR_WORST : color}"
         stroke-width="3"
+        role="button"
+        tabindex="0"
         data-liquidity-point="true"
         data-widget-seq="${widget.seq}"
         data-liquidity-kind="${model.kind}"
@@ -1508,7 +1557,7 @@ function renderLiquidityDiagnosticRatioChart(widget, chartContext) {
     : "";
   return `
     <div class="chart-shell chart-shell--eve-ratio chart-shell--liquidity-ratio">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="${model.title}走势，数据点可查看计算过程">
         ${axis}
         ${managementLimitOverlay}
         <polyline fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
@@ -2135,6 +2184,8 @@ function renderRepricingGapRateChart(widget, chartContext) {
           fill="#ffffff"
           stroke="${isSelected ? EVE_COLOR_WORST : REPRICING_GAP_COLOR}"
           stroke-width="3"
+          role="button"
+          tabindex="0"
           data-repricing-gap-point="true"
           data-widget-seq="${widget.seq}"
           data-source-widget-seq="${widget.sourceSeq || widget.seq}"
@@ -2153,7 +2204,7 @@ function renderRepricingGapRateChart(widget, chartContext) {
 
   return `
     <div class="chart-shell chart-shell--eve-ratio chart-shell--repricing-gap">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="重定价缺口率走势，数据点可查看计算过程">
         ${axis}
         ${managementLimitOverlay}
         <polyline fill="none" stroke="${REPRICING_GAP_COLOR}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ratioPath}"></polyline>
@@ -2255,42 +2306,32 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
   const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || widget?.sourceSeq || 9, filterState));
   const count = labels.length;
   const normalizedOffset = signature % 19;
-  const assetItems = [
-    ["self-operated-loans", "自营贷款", 205, 2.4, 8, 0],
-    ["investment-assets", "投资类资产", 132, 1.8, 6, 1],
-    ["interbank-assets", "同业资产", 92, 1.3, 5, 2],
-    ["non-standard-investments", "自营非标投资", 64, 0.9, 4, 3],
-    ["central-bank-deposits", "存放央行", 38, 0.6, 3, 4],
-  ].map(([key, title, base, slope, wave, phase]) => ({
-    key,
-    title,
-    values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
-  }));
-  const liabilityItems = [
-    ["term-deposits", "定期存款", 188, 2.2, 8, 1],
-    ["interbank-liabilities", "同业负债", 105, 1.4, 6, 2],
-    ["issued-bonds", "发行债券", 72, 1.0, 5, 3],
-    ["central-bank-borrowings", "向央行借款", 36, 0.5, 3, 4],
-    ["lease-liabilities", "租赁负债", 18, 0.3, 2, 5],
-  ].map(([key, title, base, slope, wave, phase]) => ({
-    key,
-    title,
-    values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
-  }));
-  const internalAssetItem = {
-    key: "internal-transaction-assets",
-    title: "内部交易资产",
-    values: buildDiagnosticAmountSeries(count, normalizedOffset, 42, 0.7, 3, 2),
+  const diagnosticProfiles = {
+    "self-operated-loans": [205, 2.4, 8, 0],
+    "investment-assets": [132, 1.8, 6, 1],
+    "interbank-assets": [92, 1.3, 5, 2],
+    "non-standard-investments": [64, 0.9, 4, 3],
+    "central-bank-deposits": [38, 0.6, 3, 4],
+    "internal-transaction-assets": [42, 0.7, 3, 2],
+    "term-deposits": [188, 2.2, 8, 1],
+    "interbank-liabilities": [105, 1.4, 6, 2],
+    "issued-bonds": [72, 1.0, 5, 3],
+    "central-bank-borrowings": [36, 0.5, 3, 4],
+    "lease-liabilities": [18, 0.3, 2, 5],
+    "internal-transaction-liabilities": [33, 0.6, 2.5, 4],
   };
-  const internalLiabilityItem = {
-    key: "internal-transaction-liabilities",
-    title: "内部交易负债",
-    values: buildDiagnosticAmountSeries(count, normalizedOffset, 33, 0.6, 2.5, 4),
-  };
-  if (includesInternalTransactions) {
-    assetItems.push(internalAssetItem);
-    liabilityItems.push(internalLiabilityItem);
-  }
+  const buildBusinessItems = (definitions = []) => definitions
+    .filter((definition) => includesInternalTransactions || !definition.internalTransaction)
+    .map((definition) => {
+      const [base = 0, slope = 0, wave = 0, phase = 0] = diagnosticProfiles[definition.key] || [];
+      return {
+        key: definition.key,
+        title: definition.label,
+        values: buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave, phase),
+      };
+    });
+  const assetItems = buildBusinessItems(REPRICING_GAP_BUSINESS_GROUPS.assets);
+  const liabilityItems = buildBusinessItems(REPRICING_GAP_BUSINESS_GROUPS.liabilities);
   const bankBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 31, 0.4, 2.8, 1);
   const bankBookPayable = buildDiagnosticAmountSeries(count, normalizedOffset, 26, 0.35, 2.4, 3);
   const tradingBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 19, 0.28, 2.1, 2);
@@ -2323,20 +2364,44 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     simulatedRatios[simulationTargetIndex] = simulationResult.simulatedMetrics.ratio;
     ratios[simulationTargetIndex] = simulationResult.baseMetrics.ratio;
     totalInterestAssets[simulationTargetIndex] = simulationResult.baseMetrics.totalInterestAssets;
-    const componentTotal = totalInterestAssetItems.reduce((sum, item) => sum + item.values[simulationTargetIndex], 0);
-    totalInterestAssetItems[0].values[simulationTargetIndex] = Number((
-      totalInterestAssetItems[0].values[simulationTargetIndex]
-      + simulationResult.baseMetrics.totalInterestAssets
-      - componentTotal
-    ).toFixed(1));
+    assetItems.forEach((item) => {
+      item.values[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+        simulationResult.baseMatrix,
+        item.title
+      ).adjusted;
+    });
+    liabilityItems.forEach((item) => {
+      item.values[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+        simulationResult.baseMatrix,
+        item.title
+      ).adjusted;
+    });
+    totalInterestAssetItems.forEach((item) => {
+      item.values[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+        simulationResult.baseMatrix,
+        item.title
+      ).total;
+    });
     adjustedInterestAssets[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestAssets;
     adjustedInterestLiabilities[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestLiabilities;
-    bankBookReceivable[simulationTargetIndex] = 0;
-    bankBookPayable[simulationTargetIndex] = 0;
-    bankBookDerivativeGap[simulationTargetIndex] = 0;
-    tradingBookReceivable[simulationTargetIndex] = 0;
-    tradingBookPayable[simulationTargetIndex] = 0;
-    tradingBookDerivativeGap[simulationTargetIndex] = 0;
+    bankBookReceivable[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+      simulationResult.baseMatrix,
+      "银行账簿表外衍生品应收"
+    ).adjusted;
+    bankBookPayable[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+      simulationResult.baseMatrix,
+      "银行账簿表外衍生品应付"
+    ).adjusted;
+    bankBookDerivativeGap[simulationTargetIndex] = simulationResult.baseMetrics.bankBookDerivativeGap;
+    tradingBookReceivable[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+      simulationResult.baseMatrix,
+      "交易账簿表外衍生品应收"
+    ).adjusted;
+    tradingBookPayable[simulationTargetIndex] = calculateRepricingGapMatrixRowMetrics(
+      simulationResult.baseMatrix,
+      "交易账簿表外衍生品应付"
+    ).adjusted;
+    tradingBookDerivativeGap[simulationTargetIndex] = simulationResult.baseMetrics.tradingBookDerivativeGap;
     numerator[simulationTargetIndex] = simulationResult.baseMetrics.repricingGap;
   }
   return {
@@ -2510,7 +2575,7 @@ function renderRepricingGapProcessModal() {
               selectedIndex,
               comparisonIndex,
               activeNode,
-              state.detailExpandedNodes || state.detailExpandedNode,
+              state.detailExpandedNodes,
               impactMap
             )}
           </div>
@@ -2555,39 +2620,40 @@ function renderRepricingGapAttributionCard({
     valueFormat: "amount",
   });
   return `
-    <button
+    <article
       class="eve-process-node repricing-gap-attribution-card repricing-gap-attribution-card--${cardKind} ${activeNode === key ? "is-active" : ""}"
-      type="button"
       data-repricing-gap-process-node="${key}"
       data-repricing-gap-business-card="${key}"
     >
-      <span class="repricing-gap-attribution-card__header">
-        <strong>${title}</strong>
-        ${note ? `<small>${note}</small>` : ""}
-      </span>
-      <span class="repricing-gap-attribution-card__metrics">
-        ${metrics.map((metric) => {
-          const delta = formatRepricingGapAmountDelta(metric.values, selectedIndex, comparisonIndex);
-          return `
-            <span class="repricing-gap-attribution-card__metric">
-              <span>${metric.label}</span>
-              <strong>${formatEveAmount(getProcessSeriesValue(metric.values, selectedIndex))}</strong>
-              <em class="${delta.className}">${delta.text}</em>
-            </span>
-          `;
-        }).join("")}
-      </span>
-      <span class="eve-process-node__impact repricing-gap-attribution-card__impact ${impactDisplay.className}">${impactDisplay.text}</span>
-      <span
+      <button class="eve-process-node__select repricing-gap-attribution-card__select" type="button" aria-label="选择${title}">
+        <span class="repricing-gap-attribution-card__header">
+          <strong>${title}</strong>
+          ${note ? `<small>${note}</small>` : ""}
+        </span>
+        <span class="repricing-gap-attribution-card__metrics">
+          ${metrics.map((metric) => {
+            const delta = formatRepricingGapAmountDelta(metric.values, selectedIndex, comparisonIndex);
+            return `
+              <span class="repricing-gap-attribution-card__metric">
+                <span>${metric.label}</span>
+                <strong>${formatEveAmount(getProcessSeriesValue(metric.values, selectedIndex))}</strong>
+                <em class="${delta.className}">${delta.text}</em>
+              </span>
+            `;
+          }).join("")}
+        </span>
+        <span class="eve-process-node__impact repricing-gap-attribution-card__impact ${impactDisplay.className}">${impactDisplay.text}</span>
+      </button>
+      <button
         class="eve-process-sparkline"
-        role="button"
-        tabindex="0"
+        type="button"
+        aria-label="放大${title}趋势"
         title="点击放大趋势"
         data-process-sparkline="true"
         data-process-preview="${previewPayload}"
-      >${renderEveSparkline(primarySeries, selectedIndex, EVE_COLOR_PRIMARY)}</span>
-      ${actionText ? `<span class="eve-process-node__action">${actionText}</span>` : ""}
-    </button>
+      >${renderEveSparkline(primarySeries, selectedIndex, EVE_COLOR_PRIMARY)}</button>
+      ${actionText ? `<button class="eve-process-node__action" type="button">${actionText}</button>` : ""}
+    </article>
   `;
 }
 
@@ -2601,11 +2667,7 @@ function renderRepricingGapBusinessStrip(title, cards = []) {
 }
 
 function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
-  const expandedNodeKeys = Array.isArray(detailExpandedNodes)
-    ? detailExpandedNodes
-    : detailExpandedNodes
-      ? [detailExpandedNodes]
-      : [];
+  const expandedNodeKeys = Array.isArray(detailExpandedNodes) ? detailExpandedNodes : [];
   const isExpanded = (key) => expandedNodeKeys.includes(key);
   const totalInterestAssetsByBusiness = Object.fromEntries(model.totalInterestAssetItems.map((item) => [
     item.key.replace(/^total-/, ""),
@@ -2890,14 +2952,14 @@ function renderRepricingDurationGapContributionExpansion(widget, model, selected
               </span>
               <span class="eve-process-node__impact repricing-duration-business-card__value ${impactDisplay.className}">${impactText}</span>
             </span>
-            <span
+            <button
               class="eve-process-sparkline repricing-duration-dual-sparkline"
-              role="button"
-              tabindex="0"
+              type="button"
+              aria-label="放大${row.businessType}规模及久期双轴趋势"
               title="点击放大规模及久期双轴趋势"
               data-process-sparkline="true"
               data-process-preview="${previewPayload}"
-            >${renderRepricingDurationDualAxisSparkline(scaleSeries, durationSeries, selectedIndex, comparisonIndex)}</span>
+            >${renderRepricingDurationDualAxisSparkline(scaleSeries, durationSeries, selectedIndex, comparisonIndex)}</button>
           </article>
         `;
       }).join("")}

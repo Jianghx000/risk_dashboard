@@ -279,21 +279,10 @@ function buildLiquidityGapTenorSeries(widget, chartContext) {
     ratioValues: [...diagnosticModel.ratios],
     diagnosticModel,
   };
-  const simulation = typeof getPageSimulation === "function" ? getPageSimulation(chartContext.pageId) : null;
-  const hasLiquidityGapSimulation = Number(simulation?.sourceWidgetSeq) === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ
-    && simulation?.simulationKind === "liquidityGap"
-    && simulation?.baseMatrix;
-  if (hasLiquidityGapSimulation && series.scaleValues.length) {
-    const result = buildLiquidityGapSimulationResult(simulation);
-    const bucketIndex = { "1D": 0, "7D": 1, "30D": 2, "3M": 3, "1Y": 4 }[selectedTenor] ?? 2;
-    const targetIndex = series.scaleValues.length - 1;
-    series.simulatedScaleValues = [...series.scaleValues];
-    series.simulatedRatioValues = [...series.ratioValues];
-    series.scaleValues[targetIndex] = result.baseMetrics.cumulativeTotals[bucketIndex] || 0;
-    series.ratioValues[targetIndex] = result.baseMetrics.gapRatios[bucketIndex] || 0;
-    series.simulatedScaleValues[targetIndex] = result.simulatedMetrics.cumulativeTotals[bucketIndex] || 0;
-    series.simulatedRatioValues[targetIndex] = result.simulatedMetrics.gapRatios[bucketIndex] || 0;
-    series.simulationTargetIndex = targetIndex;
+  if (diagnosticModel.simulatedLiquidityGap && Number.isInteger(diagnosticModel.simulationTargetIndex)) {
+    series.simulatedScaleValues = [...diagnosticModel.simulatedLiquidityGap];
+    series.simulatedRatioValues = [...diagnosticModel.simulatedRatios];
+    series.simulationTargetIndex = diagnosticModel.simulationTargetIndex;
   }
   return [series];
 }
@@ -358,6 +347,8 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
         fill="${getBarFillColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.78)}"
         stroke="${isSelected ? EVE_COLOR_WORST : getBarStrokeColor(series.label, LIQUIDITY_GAP_TENOR_OPTIONS, series.colorIndex, 0.3)}"
         stroke-width="${isSelected ? 2.8 : 1}"
+        role="button"
+        tabindex="0"
         data-liquidity-point="true"
         data-widget-seq="${widget.seq}"
         data-liquidity-kind="liquidityGap"
@@ -390,6 +381,8 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
             fill="#ffffff"
             stroke="${isSelected ? EVE_COLOR_WORST : color}"
             stroke-width="2.8"
+            role="button"
+            tabindex="0"
             data-liquidity-point="true"
             data-widget-seq="${widget.seq}"
             data-liquidity-kind="liquidityGap"
@@ -466,7 +459,7 @@ function renderLiquidityGapTenorChart(widget, chartContext) {
 
   return `
     <div class="chart-shell chart-shell--eve-ratio chart-shell--liquidity-gap-process">
-      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="流动性缺口规模及缺口率走势，数据点可查看计算过程">
         ${axis}
         ${managementLimitOverlay}
         ${barMarkup}
@@ -570,6 +563,34 @@ function buildFundingFlowCompositeState(widget, chartContext) {
       detailRows: buildFutureFundingFlowDetailRows(widget, chartContext, businessMatrix, dailyNet, cumulativeNet),
     },
   };
+}
+
+function getFutureFundingFlowBusinessSelection(chartContext) {
+  const selected = (chartContext.filterState["业务类型"] || []).filter(Boolean);
+  const all = getBusinessAnalysisPerspectiveDefinition("liquidityBalanceStructure").businessTypes || [];
+  return selected.length ? selected : all;
+}
+
+function getFutureFundingFlowDrilldown(widget, flowState) {
+  const widgetKey = String(widget.seq);
+  const current = appState.futureFundingFlowDrilldowns?.[widgetKey] || {};
+  const hasCurrentDate = flowState.future.businessMatrix.rows.some((row) => row.date === current.date);
+  const hasCurrentType = flowState.future.businessMatrix.series.some((series) => series.name === current.businessType);
+  if (hasCurrentDate && hasCurrentType) return current;
+  const firstRow = flowState.future.businessMatrix.rows[0];
+  const firstSeries = flowState.future.businessMatrix.series[0];
+  return {
+    date: firstRow?.date || "",
+    label: firstRow?.label || "",
+    businessType: firstSeries?.name || "",
+  };
+}
+
+function getFutureFundingFlowRowsForDrilldown(flowState, drilldown) {
+  if (!drilldown?.date || !drilldown?.businessType) return [];
+  return flowState.future.detailRows.filter((row) =>
+    row.date === drilldown.date && row.businessType === drilldown.businessType
+  );
 }
 
 function buildFutureFundingFlowBusinessMatrix(widget, chartContext, futureDates) {
@@ -827,7 +848,9 @@ function renderFutureFundingFlowChart(widget, chartContext) {
         data-date="${row.date}"
         data-label="${row.label}"
         data-business-type="${businessType}"
+        role="button"
         tabindex="0"
+        aria-label="${row.label} ${businessType} 查看未来资金流明细"
       `;
       if (value >= 0) {
         const y = zeroY - positiveOffset - height;
@@ -854,7 +877,7 @@ function renderFutureFundingFlowChart(widget, chartContext) {
     <div class="chart-shell chart-shell--funding-flow chart-shell--future-funding-flow">
       <div class="future-funding-flow-layout">
         <div class="future-funding-flow-chart">
-          <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <svg viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" aria-label="未来资金流走势，柱形分段可查看业务明细">
             ${axis}
             ${barsMarkup}
             ${renderLine("当日净额", flowState.future.dailyNet, SEMANTIC_COLORS.fundingInflow, 3)}

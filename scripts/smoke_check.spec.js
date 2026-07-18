@@ -431,6 +431,8 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator("#processSparklinePreview")).toContainText("自营贷款规模及久期趋势");
   await expect(page.locator("#processSparklinePreview")).toContainText("主轴 · 规模");
   await expect(page.locator("#processSparklinePreview")).toContainText("次轴 · 久期");
+  await expect(page.locator("button button")).toHaveCount(0);
+  await expect(loanDurationBusinessCard.locator("[data-process-sparkline]")).toHaveAttribute("type", "button");
   await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
   await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
   const liabilityDurationBusinessCards = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card^="liability:"]');
@@ -913,6 +915,158 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
   }
 });
 
+test("可交互SVG图形支持键盘且不被辅助技术隐藏", async ({ page }) => {
+  await openPage(page);
+  const auditInteractiveTargets = async (selectors) => page.locator(selectors.join(",")).evaluateAll((nodes) => ({
+    count: nodes.length,
+    missingRole: nodes.filter((node) => node.getAttribute("role") !== "button").length,
+    missingTabIndex: nodes.filter((node) => node.getAttribute("tabindex") !== "0").length,
+    hiddenBySvg: nodes.filter((node) => node.closest("svg")?.getAttribute("aria-hidden") === "true").length,
+    missingName: nodes.filter((node) => !String(node.getAttribute("aria-label") || "").trim()).length,
+  }));
+
+  const interestSelectors = [
+    "[data-eve-point]",
+    "[data-repricing-gap-point]",
+    "[data-repricing-duration-gap-point]",
+    "[data-repricing-maturity-cell]",
+  ];
+  const interestAudit = await auditInteractiveTargets(interestSelectors);
+  expect(interestAudit.count).toBeGreaterThan(0);
+  expect(interestAudit).toMatchObject({ missingRole: 0, missingTabIndex: 0, hiddenBySvg: 0, missingName: 0 });
+  await page.locator("[data-eve-point]").nth(2).press("Enter");
+  await expect(page.locator('article[data-widget-seq="1"] .eve-point-popover')).toBeVisible();
+
+  await page.getByRole("button", { name: TEXT.pages[1], exact: true }).click();
+  const liquiditySelectors = ["[data-liquidity-point]", "[data-future-funding-flow-cell]"];
+  const liquidityAudit = await auditInteractiveTargets(liquiditySelectors);
+  expect(liquidityAudit.count).toBeGreaterThan(0);
+  expect(liquidityAudit).toMatchObject({ missingRole: 0, missingTabIndex: 0, hiddenBySvg: 0, missingName: 0 });
+  const liquidityPoint = page.locator("[data-liquidity-point]").nth(2);
+  await liquidityPoint.press(" ");
+  await expect(liquidityPoint.locator("xpath=ancestor::article[1]").locator(".eve-point-popover")).toBeVisible();
+  const futureSegment = page.locator("[data-future-funding-flow-cell]").nth(1);
+  await futureSegment.press("Enter");
+  await expect(futureSegment).toHaveClass(/is-active/);
+  await expect(page.locator("[data-future-funding-flow-cell].is-active")).toHaveCount(1);
+});
+
+test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => {
+  await openPage(page);
+  const audit = await page.evaluate(() => {
+    const interestPage = data.pages.find((item) => item.id === "interest-risk");
+    appState.currentPageId = interestPage.id;
+    appState.pageFilters[interestPage.id] = { 机构: ["法人汇总"], 币种: ["全折人民币"] };
+    const repricingDraft = createRepricingGapSimulationDraftFromScenario(null);
+    appState.simulationDraft = repricingDraft;
+    const repricingScenario = normalizeRepricingGapSimulationScenario(interestPage, repricingDraft);
+    appState.pageSimulations[interestPage.id] = repricingScenario;
+    const repricingModel = buildRepricingGapDiagnosticModel(findWidgetBySeq(9).widget, { pageId: interestPage.id });
+    const repricingIndex = repricingModel.simulationTargetIndex;
+    const sumAt = (items, index) => items.reduce((sum, item) => sum + Number(item.values[index] || 0), 0);
+    const repricingBranches = {
+      totalInterestAssets: sumAt(repricingModel.totalInterestAssetItems, repricingIndex),
+      adjustedInterestAssets: sumAt(repricingModel.assetItems, repricingIndex),
+      adjustedInterestLiabilities: sumAt(repricingModel.liabilityItems, repricingIndex),
+      bankBookDerivativeGap: Number((repricingModel.bankBookReceivable[repricingIndex] - repricingModel.bankBookPayable[repricingIndex]).toFixed(1)),
+      tradingBookDerivativeGap: Number((repricingModel.tradingBookReceivable[repricingIndex] - repricingModel.tradingBookPayable[repricingIndex]).toFixed(1)),
+    };
+    const scopeMatrix = buildSubjectiveRepricingGapMatrix();
+    scopeMatrix["自营贷款"][0] = 100;
+    scopeMatrix["内部交易资产"][0] = 20;
+    scopeMatrix["内部交易负债"][0] = 10;
+    scopeMatrix["活期存款"][0] = 30;
+    const legalScopeMetrics = calculateRepricingGapMatrixMetrics(scopeMatrix, { includesInternalTransactions: false });
+    const overseasScopeMetrics = calculateRepricingGapMatrixMetrics(scopeMatrix, { includesInternalTransactions: true });
+
+    const liquidityPage = data.pages.find((item) => item.id === "liquidity-risk");
+    appState.currentPageId = liquidityPage.id;
+    appState.pageFilters[liquidityPage.id] = { 机构: ["法人汇总"], 币种: ["全折人民币"] };
+    const liquidityDraft = createLiquidityGapSimulationDraftFromScenario(null);
+    appState.simulationDraft = liquidityDraft;
+    const liquidityScenario = normalizeLiquidityGapSimulationScenario(liquidityPage, liquidityDraft);
+    appState.pageSimulations[liquidityPage.id] = liquidityScenario;
+    const liquidityModel = buildLiquidityGapDiagnosticModel(findWidgetBySeq(49).widget, {
+      pageId: liquidityPage.id,
+      filterState: { 期限长度: ["30D"], 口径: ["时点"] },
+    });
+    const liquidityIndex = liquidityModel.simulationTargetIndex;
+    const bucketIndex = 2;
+    const components = liquidityModel.components;
+    return {
+      repricing: {
+        targetIndex: repricingIndex,
+        includesInternalTransactions: repricingScenario.includesInternalTransactions,
+        metrics: repricingScenario.baseMetrics,
+        branches: repricingBranches,
+        numerator: repricingModel.numerator[repricingIndex],
+        ratio: repricingModel.ratios[repricingIndex],
+        hasInternalAssetLeaf: repricingModel.assetItems.some((item) => item.title.includes("内部交易")),
+        hasInternalLiabilityLeaf: repricingModel.liabilityItems.some((item) => item.title.includes("内部交易")),
+        legalScopeMetrics,
+        overseasScopeMetrics,
+      },
+      liquidity: {
+        targetIndex: liquidityIndex,
+        expectedGap: liquidityScenario.baseMetrics.cumulativeTotals[bucketIndex],
+        expectedRatio: liquidityScenario.baseMetrics.gapRatios[bucketIndex],
+        expectedSimulatedGap: liquidityScenario.simulatedMetrics.cumulativeTotals[bucketIndex],
+        expectedSimulatedRatio: liquidityScenario.simulatedMetrics.gapRatios[bucketIndex],
+        gap: components.liquidityGap[liquidityIndex],
+        ratio: liquidityModel.ratios[liquidityIndex],
+        simulatedGap: liquidityModel.simulatedLiquidityGap[liquidityIndex],
+        simulatedRatio: liquidityModel.simulatedRatios[liquidityIndex],
+        assetClosure: components.assetTotal[liquidityIndex]
+          + components.offBalanceIncome[liquidityIndex]
+          + components.internalTransactionAssets[liquidityIndex],
+        assets: components.dueOnOffBalanceAssets[liquidityIndex],
+        liabilityClosure: components.liabilityTotal[liquidityIndex]
+          + components.offBalanceExpense[liquidityIndex]
+          + components.internalTransactionLiabilities[liquidityIndex],
+        liabilities: components.dueOnOffBalanceLiabilities[liquidityIndex],
+        formulaGap: components.dueOnOffBalanceAssets[liquidityIndex]
+          - components.dueOnOffBalanceLiabilities[liquidityIndex]
+          + components.demandDepositAdjustment[liquidityIndex]
+          + components.demandPlacementAdjustment[liquidityIndex],
+      },
+    };
+  });
+
+  expect(audit.repricing.targetIndex).toBeGreaterThanOrEqual(0);
+  expect(audit.repricing.includesInternalTransactions).toBeFalsy();
+  expect(audit.repricing.hasInternalAssetLeaf).toBeFalsy();
+  expect(audit.repricing.hasInternalLiabilityLeaf).toBeFalsy();
+  expect(audit.repricing.branches).toEqual(expect.objectContaining({
+    totalInterestAssets: audit.repricing.metrics.totalInterestAssets,
+    adjustedInterestAssets: audit.repricing.metrics.adjustedInterestAssets,
+    adjustedInterestLiabilities: audit.repricing.metrics.adjustedInterestLiabilities,
+    bankBookDerivativeGap: audit.repricing.metrics.bankBookDerivativeGap,
+    tradingBookDerivativeGap: audit.repricing.metrics.tradingBookDerivativeGap,
+  }));
+  expect(audit.repricing.numerator).toBe(audit.repricing.metrics.repricingGap);
+  expect(audit.repricing.ratio).toBe(audit.repricing.metrics.ratio);
+  expect(audit.repricing.legalScopeMetrics).toMatchObject({
+    totalInterestAssets: 100,
+    adjustedInterestAssets: 100,
+    adjustedInterestLiabilities: 0,
+    repricingGap: 100,
+  });
+  expect(audit.repricing.overseasScopeMetrics).toMatchObject({
+    totalInterestAssets: 120,
+    adjustedInterestAssets: 120,
+    adjustedInterestLiabilities: 10,
+    repricingGap: 110,
+  });
+  expect(audit.liquidity.targetIndex).toBeGreaterThanOrEqual(0);
+  expect(audit.liquidity.gap).toBe(audit.liquidity.expectedGap);
+  expect(audit.liquidity.ratio).toBe(audit.liquidity.expectedRatio);
+  expect(audit.liquidity.simulatedGap).toBe(audit.liquidity.expectedSimulatedGap);
+  expect(audit.liquidity.simulatedRatio).toBe(audit.liquidity.expectedSimulatedRatio);
+  expect(audit.liquidity.assetClosure).toBe(audit.liquidity.assets);
+  expect(audit.liquidity.liabilityClosure).toBe(audit.liquidity.liabilities);
+  expect(audit.liquidity.formulaGap).toBeCloseTo(audit.liquidity.gap, 8);
+});
+
 test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574", async ({ page }) => {
   await openPage(page);
   const sharedRiskStartDate = await page.evaluate(() => appState.globalStartDate);
@@ -1294,6 +1448,9 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(simulationModal.getByRole("heading", { name: TEXT.simulationButton, exact: true })).toBeVisible();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const baselineTable = simulationModal.locator(".repricing-base-table").first();
+  await expect(simulationModal).toContainText("当前机构口径剔除内部交易；负债端不含活期存款");
+  await expect(baselineTable.locator('[data-repricing-base-row="\u6d3b\u671f\u5b58\u6b3e"]')).toHaveClass(/is-excluded-from-metric/);
+  await expect(baselineTable.locator('[data-repricing-base-row="\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7"]')).toHaveClass(/is-excluded-from-metric/);
   await expect(simulationModal.locator("[data-repricing-base-upload]").locator("..")).toContainText("\u4e0a\u4f20\u7f3a\u53e3\u8868");
   await expect(baselineTable.locator("thead th").nth(0)).toHaveText("\u4e1a\u52a1\u7c7b\u522b");
   await expect(baselineTable.locator("thead th:not(:first-child)")).toHaveCount(14);
