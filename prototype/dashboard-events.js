@@ -13,6 +13,17 @@ function clearDiagnosticPointPopovers() {
   return true;
 }
 
+function updateFilterOptionSelection(stateBucket, filterName, filterValue) {
+  if (isSingleSelectFilter(filterName)) {
+    stateBucket[filterName] = [filterValue];
+    return;
+  }
+  const current = new Set(stateBucket[filterName] || []);
+  if (current.has(filterValue)) current.delete(filterValue);
+  else current.add(filterValue);
+  stateBucket[filterName] = current.size ? Array.from(current) : [filterValue];
+}
+
 pageTabsEl.addEventListener("click", (event) => {
   const button = event.target.closest("[data-page-id]");
   if (!button) return;
@@ -136,14 +147,16 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openLiquidityProcessButton = event.target.closest("[data-open-liquidity-process]");
   if (openLiquidityProcessButton) {
     const sourceState = appState.liquidityMetricPointPopover || {};
+    const labels = String(openLiquidityProcessButton.dataset.liquidityLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean);
+    const latestIndex = Math.max(0, labels.length - 1);
     appState.liquidityProcessModal = {
       widgetSeq: Number(openLiquidityProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 42),
       kind: openLiquidityProcessButton.dataset.liquidityKind || sourceState.kind || "",
       metric: openLiquidityProcessButton.dataset.liquidityMetric || sourceState.metric || "ratio",
-      dateIndex: Number(openLiquidityProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
-      labels: String(openLiquidityProcessButton.dataset.liquidityLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      dateIndex: latestIndex,
+      labels,
       signature: Number(openLiquidityProcessButton.dataset.liquiditySignature || sourceState.signature || 0),
-      comparisonIndex: null,
+      comparisonIndex: latestIndex > 0 ? latestIndex - 1 : null,
       activeNode: (openLiquidityProcessButton.dataset.liquidityMetric || sourceState.metric) === "amount" ? "gap" : "ratio",
       numeratorExpanded: false,
       denominatorExpanded: false,
@@ -189,12 +202,14 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openRepricingDurationGapProcessButton = event.target.closest("[data-open-repricing-duration-gap-process]");
   if (openRepricingDurationGapProcessButton) {
     const sourceState = appState.repricingDurationGapPointPopover || {};
+    const labels = String(openRepricingDurationGapProcessButton.dataset.repricingDurationGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean);
+    const latestIndex = Math.max(0, labels.length - 1);
     appState.repricingDurationGapProcessModal = {
       widgetSeq: Number(openRepricingDurationGapProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 15),
-      dateIndex: Number(openRepricingDurationGapProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
-      labels: String(openRepricingDurationGapProcessButton.dataset.repricingDurationGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      dateIndex: latestIndex,
+      labels,
       signature: Number(openRepricingDurationGapProcessButton.dataset.repricingDurationGapSignature || sourceState.signature || 0),
-      comparisonIndex: null,
+      comparisonIndex: latestIndex > 0 ? latestIndex - 1 : null,
       activeNode: "duration-gap",
       assetExpanded: false,
       liabilityExpanded: false,
@@ -207,13 +222,15 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openRepricingGapProcessButton = event.target.closest("[data-open-repricing-gap-process]");
   if (openRepricingGapProcessButton) {
     const sourceState = appState.repricingGapPointPopover || {};
+    const labels = String(openRepricingGapProcessButton.dataset.repricingGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean);
+    const latestIndex = Math.max(0, labels.length - 1);
     appState.repricingGapProcessModal = {
       widgetSeq: Number(openRepricingGapProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 0),
       sourceSeq: Number(openRepricingGapProcessButton.dataset.sourceWidgetSeq || sourceState.sourceSeq || 9),
-      dateIndex: Number(openRepricingGapProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
-      labels: String(openRepricingGapProcessButton.dataset.repricingGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      dateIndex: latestIndex,
+      labels,
       signature: Number(openRepricingGapProcessButton.dataset.repricingGapSignature || sourceState.signature || 0),
-      comparisonIndex: null,
+      comparisonIndex: latestIndex > 0 ? latestIndex - 1 : null,
       activeNode: "ratio",
       detailExpandedNodes: [],
     };
@@ -240,12 +257,14 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openEveProcessButton = event.target.closest("[data-open-eve-process]");
   if (openEveProcessButton) {
     const sourceState = appState.evePointPopover || {};
+    const labels = String(openEveProcessButton.dataset.eveLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean);
+    const latestIndex = Math.max(0, labels.length - 1);
     appState.eveProcessModal = {
       widgetSeq: Number(openEveProcessButton.dataset.widgetSeq || sourceState.widgetSeq || EVE_RATIO_WIDGET_SEQ),
-      dateIndex: Number(openEveProcessButton.dataset.dateIndex || sourceState.dateIndex || 0),
-      labels: String(openEveProcessButton.dataset.eveLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean),
+      dateIndex: latestIndex,
+      labels,
       signature: Number(openEveProcessButton.dataset.eveSignature || sourceState.signature || 0),
-      comparisonIndex: null,
+      comparisonIndex: latestIndex > 0 ? latestIndex - 1 : null,
       activeNode: "eve",
       numeratorExpanded: false,
       denominatorExpanded: false,
@@ -339,11 +358,8 @@ dashboardViewEl.addEventListener("click", (event) => {
   if (filterOption) {
     const { ownerType, ownerId, filterName, filterValue } = filterOption.dataset;
     const stateBucket = getFilterStateBucket(ownerType, ownerId);
-    const current = new Set(stateBucket[filterName] || []);
-    if (current.has(filterValue)) current.delete(filterValue);
-    else current.add(filterValue);
-    stateBucket[filterName] = current.size ? Array.from(current) : [filterValue];
-    appState.openFilterKey = buildFilterKey(ownerType, ownerId, filterName);
+    updateFilterOptionSelection(stateBucket, filterName, filterValue);
+    appState.openFilterKey = isSingleSelectFilter(filterName) ? null : buildFilterKey(ownerType, ownerId, filterName);
     if (ownerType === "page") appState.pageFilters[ownerId] = stateBucket;
     else if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
     else appState.areaFilters[ownerId] = stateBucket;
@@ -793,28 +809,31 @@ insightModalEl.addEventListener("click", (event) => {
   render();
 });
 
-eveProcessModalEl.addEventListener("input", (event) => {
-  const slider = event.target.closest("[data-eve-process-date-slider]");
-  if (!slider || !appState.eveProcessModal) return;
-  const dateIndex = Number(slider.value || 0);
-  const comparisonIndex = appState.eveProcessModal.comparisonIndex;
-  appState.eveProcessModal = {
-    ...appState.eveProcessModal,
+function updateProcessDateRangeState(state, slider) {
+  const sliderGroup = slider.closest("[data-process-date-range]");
+  const currentSlider = sliderGroup?.querySelector('[data-process-date-slider="current"]');
+  const lastIndex = Math.max(0, Number(currentSlider?.max || 0));
+  const role = slider.dataset.processDateSlider;
+  const nextIndex = clampNumber(Number(slider.value || 0), 0, lastIndex);
+  let dateIndex = clampNumber(Number(state.dateIndex || 0), 0, lastIndex);
+  let comparisonIndex = getProcessComparisonIndex(state, dateIndex, lastIndex + 1);
+  if (role === "current") {
+    dateIndex = clampNumber(nextIndex, lastIndex > 0 ? 1 : 0, lastIndex);
+    if (comparisonIndex < 0 || comparisonIndex >= dateIndex) comparisonIndex = dateIndex - 1;
+  } else if (role === "comparison" && dateIndex > 0) {
+    comparisonIndex = clampNumber(nextIndex, 0, dateIndex - 1);
+  }
+  return {
+    ...state,
     dateIndex,
-    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
-      ? comparisonIndex
-      : null,
+    comparisonIndex: comparisonIndex >= 0 ? comparisonIndex : null,
   };
-  renderEveProcessModal();
-});
+}
 
 eveProcessModalEl.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-eve-process-comparison]");
-  if (!select || !appState.eveProcessModal) return;
-  appState.eveProcessModal = {
-    ...appState.eveProcessModal,
-    comparisonIndex: select.value === "" ? null : Number(select.value),
-  };
+  const slider = event.target.closest("[data-process-date-slider]");
+  if (!slider || !appState.eveProcessModal) return;
+  appState.eveProcessModal = updateProcessDateRangeState(appState.eveProcessModal, slider);
   renderEveProcessModal();
 });
 
@@ -853,28 +872,10 @@ eveProcessModalEl.addEventListener("click", (event) => {
   renderEveProcessModal();
 });
 
-liquidityProcessModalEl.addEventListener("input", (event) => {
-  const slider = event.target.closest("[data-liquidity-process-date-slider]");
-  if (!slider || !appState.liquidityProcessModal) return;
-  const dateIndex = Number(slider.value || 0);
-  const comparisonIndex = appState.liquidityProcessModal.comparisonIndex;
-  appState.liquidityProcessModal = {
-    ...appState.liquidityProcessModal,
-    dateIndex,
-    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
-      ? comparisonIndex
-      : null,
-  };
-  renderLiquidityProcessModal();
-});
-
 liquidityProcessModalEl.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-liquidity-process-comparison]");
-  if (!select || !appState.liquidityProcessModal) return;
-  appState.liquidityProcessModal = {
-    ...appState.liquidityProcessModal,
-    comparisonIndex: select.value === "" ? null : Number(select.value),
-  };
+  const slider = event.target.closest("[data-process-date-slider]");
+  if (!slider || !appState.liquidityProcessModal) return;
+  appState.liquidityProcessModal = updateProcessDateRangeState(appState.liquidityProcessModal, slider);
   renderLiquidityProcessModal();
 });
 
@@ -944,28 +945,10 @@ liquidityProcessModalEl.addEventListener("click", (event) => {
   renderLiquidityProcessModal();
 });
 
-repricingGapProcessModalEl.addEventListener("input", (event) => {
-  const slider = event.target.closest("[data-repricing-gap-process-date-slider]");
-  if (!slider || !appState.repricingGapProcessModal) return;
-  const dateIndex = Number(slider.value || 0);
-  const comparisonIndex = appState.repricingGapProcessModal.comparisonIndex;
-  appState.repricingGapProcessModal = {
-    ...appState.repricingGapProcessModal,
-    dateIndex,
-    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
-      ? comparisonIndex
-      : null,
-  };
-  renderRepricingGapProcessModal();
-});
-
 repricingGapProcessModalEl.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-repricing-gap-process-comparison]");
-  if (!select || !appState.repricingGapProcessModal) return;
-  appState.repricingGapProcessModal = {
-    ...appState.repricingGapProcessModal,
-    comparisonIndex: select.value === "" ? null : Number(select.value),
-  };
+  const slider = event.target.closest("[data-process-date-slider]");
+  if (!slider || !appState.repricingGapProcessModal) return;
+  appState.repricingGapProcessModal = updateProcessDateRangeState(appState.repricingGapProcessModal, slider);
   renderRepricingGapProcessModal();
 });
 
@@ -1007,28 +990,10 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
   renderRepricingGapProcessModal();
 });
 
-repricingDurationGapProcessModalEl.addEventListener("input", (event) => {
-  const slider = event.target.closest("[data-repricing-duration-gap-process-date-slider]");
-  if (!slider || !appState.repricingDurationGapProcessModal) return;
-  const dateIndex = Number(slider.value || 0);
-  const comparisonIndex = appState.repricingDurationGapProcessModal.comparisonIndex;
-  appState.repricingDurationGapProcessModal = {
-    ...appState.repricingDurationGapProcessModal,
-    dateIndex,
-    comparisonIndex: Number.isInteger(comparisonIndex) && comparisonIndex < dateIndex
-      ? comparisonIndex
-      : null,
-  };
-  renderRepricingDurationGapProcessModal();
-});
-
 repricingDurationGapProcessModalEl.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-repricing-duration-gap-process-comparison]");
-  if (!select || !appState.repricingDurationGapProcessModal) return;
-  appState.repricingDurationGapProcessModal = {
-    ...appState.repricingDurationGapProcessModal,
-    comparisonIndex: select.value === "" ? null : Number(select.value),
-  };
+  const slider = event.target.closest("[data-process-date-slider]");
+  if (!slider || !appState.repricingDurationGapProcessModal) return;
+  appState.repricingDurationGapProcessModal = updateProcessDateRangeState(appState.repricingDurationGapProcessModal, slider);
   renderRepricingDurationGapProcessModal();
 });
 
@@ -1093,10 +1058,8 @@ filterPopoverEl.addEventListener("click", (event) => {
   if (filterOption) {
     const { ownerType, ownerId, filterName, filterValue } = filterOption.dataset;
     const stateBucket = getFilterStateBucket(ownerType, ownerId);
-    const current = new Set(stateBucket[filterName] || []);
-    if (current.has(filterValue)) current.delete(filterValue);
-    else current.add(filterValue);
-    stateBucket[filterName] = current.size ? Array.from(current) : [filterValue];
+    updateFilterOptionSelection(stateBucket, filterName, filterValue);
+    appState.openFilterKey = isSingleSelectFilter(filterName) ? null : appState.openFilterKey;
     if (ownerType === "page") appState.pageFilters[ownerId] = stateBucket;
     else if (ownerType === "widget") appState.widgetFilters[ownerId] = stateBucket;
     else appState.areaFilters[ownerId] = stateBucket;

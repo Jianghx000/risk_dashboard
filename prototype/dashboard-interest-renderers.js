@@ -143,7 +143,12 @@ function renderRepricingDurationGapPointPopover(widget, model, point, index) {
 }
 
 function buildRepricingDurationGapDetailRows(widget, chartContext, model, selectedIndex) {
-  const options = BUSINESS_DURATION_OPTIONS.length ? BUSINESS_DURATION_OPTIONS : Object.keys(BUSINESS_SIDE_MAP);
+  const durationGapBusinessTypes = Array.isArray(DOMAIN_CONFIG.repricingDurationGapBusinessTypes)
+    ? DOMAIN_CONFIG.repricingDurationGapBusinessTypes
+    : [];
+  const options = durationGapBusinessTypes.length
+    ? durationGapBusinessTypes
+    : (BUSINESS_DURATION_OPTIONS.length ? BUSINESS_DURATION_OPTIONS : Object.keys(BUSINESS_SIDE_MAP));
   const selectedBusinessTypes = [
     ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "asset"),
     ...options.filter((item) => BUSINESS_SIDE_MAP[item] === "liability"),

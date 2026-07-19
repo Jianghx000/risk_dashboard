@@ -1,5 +1,9 @@
 window.dashboardConfig = {
   "filters": {
+    "singleSelect": [
+      "机构",
+      "币种"
+    ],
     "options": {
       "机构": [
         "法人汇总",

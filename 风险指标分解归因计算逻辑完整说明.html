@@ -1,0 +1,1765 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>风险指标分解归因计算逻辑完整说明</title>
+  <style>
+    :root {
+      --ink: #17324d;
+      --muted: #637b92;
+      --blue: #1769aa;
+      --blue-2: #e9f4ff;
+      --line: #cfe1f1;
+      --paper: #ffffff;
+      --canvas: #eef5fb;
+      --orange: #b85b21;
+      --orange-bg: #fff5eb;
+      --green: #20744a;
+      --green-bg: #eef9f3;
+      --red: #a64040;
+      --red-bg: #fff0f0;
+      --code: #10283d;
+      --shadow: 0 12px 34px rgba(29, 74, 110, .10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 15px/1.78 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .cover {
+      color: white;
+      background: linear-gradient(135deg, #0d3d69, #1769aa 58%, #4d9ddb);
+      padding: 58px max(6vw, 40px) 54px;
+    }
+    .cover__eyebrow { margin: 0 0 12px; opacity: .82; letter-spacing: .14em; }
+    .cover h1 { max-width: 1050px; margin: 0; font-size: clamp(34px, 5vw, 62px); line-height: 1.18; }
+    .cover__lead { max-width: 920px; margin: 22px 0 0; font-size: 19px; opacity: .94; }
+    .cover__meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .cover__meta span { padding: 7px 13px; border: 1px solid rgba(255,255,255,.32); border-radius: 999px; background: rgba(255,255,255,.10); }
+    .layout { display: grid; grid-template-columns: 286px minmax(0, 1120px); gap: 28px; justify-content: center; padding: 30px; }
+    .toc {
+      position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow: auto;
+      padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow);
+    }
+    .toc strong { display: block; margin-bottom: 10px; font-size: 17px; }
+    .toc ol { margin: 0; padding-left: 22px; }
+    .toc li { margin: 6px 0; color: var(--muted); }
+    main { min-width: 0; }
+    section { scroll-margin-top: 20px; margin: 0 0 24px; padding: 34px; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); }
+    h2 { margin: 0 0 18px; color: #0e4f84; font-size: 28px; line-height: 1.35; }
+    h3 { margin: 30px 0 12px; color: #174f78; font-size: 20px; }
+    h4 { margin: 22px 0 8px; font-size: 16px; }
+    p { margin: 9px 0; }
+    ul, ol { margin: 9px 0; padding-left: 24px; }
+    li + li { margin-top: 5px; }
+    .lead { font-size: 17px; color: #385a73; }
+    .formula {
+      margin: 15px 0; padding: 17px 20px; overflow-x: auto; border-left: 5px solid var(--blue);
+      border-radius: 10px; background: var(--blue-2); color: #103f65; font: 600 17px/1.75 Cambria, "Microsoft YaHei", serif;
+    }
+    .formula small { display: block; color: var(--muted); font: 13px/1.6 "Microsoft YaHei", sans-serif; }
+    .callout { margin: 16px 0; padding: 15px 18px; border-radius: 12px; border: 1px solid var(--line); background: #f7fbff; }
+    .callout--important { border-color: #f0c59e; background: var(--orange-bg); }
+    .callout--ok { border-color: #bde2cc; background: var(--green-bg); }
+    .callout--warn { border-color: #ebbbbb; background: var(--red-bg); }
+    .callout strong:first-child { color: #174f78; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin: 16px 0; }
+    .card { padding: 17px; border: 1px solid var(--line); border-radius: 13px; background: #fbfdff; }
+    .card h4 { margin-top: 0; color: #155a90; }
+    .steps { counter-reset: step; display: grid; gap: 13px; margin: 18px 0; }
+    .step { position: relative; padding: 15px 18px 15px 56px; border: 1px solid var(--line); border-radius: 13px; background: #fbfdff; }
+    .step::before { counter-increment: step; content: counter(step); position: absolute; left: 16px; top: 15px; width: 27px; height: 27px; border-radius: 50%; color: white; background: var(--blue); text-align: center; line-height: 27px; font-weight: 700; }
+    .table-wrap { margin: 15px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { padding: 11px 13px; border-bottom: 1px solid #dfebf5; text-align: left; vertical-align: top; }
+    th { color: #164f79; background: #edf6fd; }
+    tr:last-child td { border-bottom: 0; }
+    code { padding: .08em .34em; border-radius: 5px; background: #edf3f8; color: #1f536f; font-family: Consolas, monospace; }
+    pre { margin: 0; white-space: pre; tab-size: 2; }
+    pre code { display: block; min-width: max-content; padding: 18px; border-radius: 0; color: #d9efff; background: var(--code); font: 13px/1.62 Consolas, monospace; }
+    .code-shell { margin: 15px 0; overflow: hidden; border: 1px solid #274963; border-radius: 13px; background: var(--code); }
+    .code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; color: #d9efff; background: #17364f; }
+    button { padding: 7px 12px; border: 1px solid #83b6de; border-radius: 8px; color: #0d568e; background: white; cursor: pointer; font-weight: 700; }
+    button:hover { background: #eaf6ff; }
+    .code-scroll { max-height: 720px; overflow: auto; }
+    .tree { display: grid; gap: 8px; margin: 15px 0; font-family: Consolas, "Microsoft YaHei", monospace; }
+    .tree div { padding: 9px 12px; border-left: 3px solid #8ebee2; background: #f6fbff; }
+    .tree .l2 { margin-left: 28px; }
+    .tree .l3 { margin-left: 56px; }
+    .tag { display: inline-block; margin: 2px 5px 2px 0; padding: 3px 8px; border-radius: 999px; color: #155a90; background: #e8f4fd; font-size: 12px; }
+    .metric { color: var(--orange); font-weight: 700; }
+    .reconcile { padding: 12px 15px; border-radius: 10px; background: #edf8f2; color: var(--green); font-weight: 700; }
+    .page-note { color: var(--muted); font-size: 13px; }
+    .footer { padding: 26px 30px 42px; text-align: center; color: var(--muted); }
+    #test-output { white-space: pre-wrap; font-family: Consolas, monospace; }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; padding: 18px; }
+      .toc { position: static; max-height: none; }
+      section { padding: 24px; }
+    }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } .cover { padding: 42px 22px; } }
+    @media print {
+      body { background: white; font-size: 11pt; }
+      .cover { color: #17324d; background: white; border-bottom: 2px solid #1769aa; padding: 20mm 12mm; }
+      .layout { display: block; padding: 0; }
+      .toc, .code-toolbar button, #self-test { display: none; }
+      section { break-inside: avoid-page; box-shadow: none; border: 0; border-bottom: 1px solid #ccdce8; border-radius: 0; }
+      .code-scroll { max-height: none; overflow: visible; }
+      pre code { white-space: pre-wrap; min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="cover">
+    <p class="cover__eyebrow">资产负债风险分析 · IT实施参考手册</p>
+    <h1>风险指标分解归因计算逻辑完整说明</h1>
+    <p class="cover__lead">统一说明从“指标为什么变化”到“每个因素影响多少”的业务口径、数学方法、数据接口、可执行 JavaScript 与验收规则。</p>
+    <div class="cover__meta"><span>版本 4.4</span><span>2026-07-19</span><span>覆盖当前项目全部计算过程指标</span><span>原始精度计算 · 展示层舍入</span></div>
+  </header>
+  <div class="layout">
+    <nav class="toc" aria-label="文档目录">
+      <strong>目录</strong>
+      <ol>
+        <li><a href="#scope">范围与正式口径</a></li>
+        <li><a href="#general">通用拆解方法</a></li>
+        <li><a href="#overview">指标方法总览</a></li>
+        <li><a href="#eve">△EVE</a></li>
+        <li><a href="#lcr">LCR</a></li>
+        <li><a href="#nsfr-liquidity-ratio">NSFR与流动性比例</a></li>
+        <li><a href="#liquidity-gap">流动性缺口及缺口率</a></li>
+        <li><a href="#repricing-gap">重定价缺口率</a></li>
+        <li><a href="#duration-gap">重定价久期缺口</a></li>
+        <li><a href="#interface">数据接口与输出</a></li>
+        <li><a href="#implementation">完整参考代码</a></li>
+        <li><a href="#acceptance">验收与上线控制</a></li>
+      </ol>
+    </nav>
+    <main>
+      <section id="scope">
+        <h2>1. 范围与正式口径</h2>
+        <p class="lead">本文档不是把八个指标说明简单拼接在一起，而是以一套统一的“业务分组—数学归因—末级分配—勾稽验收”框架重构全部内容。</p>
+        <div class="callout callout--important"><strong>正式口径：</strong>因素怎样组成“一个业务因素”、哪些层级需要非线性归因、哪些线性组允许等价折叠，必须先由业务定义。数学方法在业务结构确定后负责公平、对称和精确勾稽，但不能替代业务定义。</div>
+        <h3>1.1 本文覆盖的八类指标</h3>
+        <p><span class="tag">△EVE</span><span class="tag">LCR</span><span class="tag">NSFR</span><span class="tag">流动性比例</span><span class="tag">流动性缺口</span><span class="tag">流动性缺口率</span><span class="tag">重定价缺口率</span><span class="tag">资产负债重定价久期缺口</span></p>
+        <p>不纳入独立 EVE demo、已经删除的旧页面和旧层级，也不把未来现金流明细、重定价期限分布等“明细查看”误写成因素归因指标。</p>
+        <h3>1.2 全部指标共同遵守的规则</h3>
+        <div class="grid">
+          <div class="card"><h4>同一比较边界</h4><p>基期与本期必须使用相同机构、币种、期限、统计口径和内部交易规则。比较基期默认上一期，但可由用户选择。</p></div>
+          <div class="card"><h4>原始精度计算</h4><p>中间过程不做 <code>toFixed</code>、不按卡片显示值倒算；仅在最终界面格式化。</p></div>
+          <div class="card"><h4>严格勾稽</h4><p>所有末级因素影响之和必须等于“本期指标－基期指标”。不得用末级结果按比例强制缩放来掩盖算法误差。</p></div>
+          <div class="card"><h4>单位一致</h4><p>比例类影响使用百分点（pct）；金额类影响使用亿元；久期缺口影响使用年。增速不是贡献值。</p></div>
+          <div class="card"><h4>线性组允许等价折叠</h4><p>同一正式组内的固定符号加减项仍属于 Owen 路径，但其内部排列可用共同单位系数等价折叠；末级影响直接在各外部组环境中计算，父节点影响等于末级影响之和。</p></div>
+          <div class="card"><h4>非线性项保留顺序公平</h4><p>除法、乘法、加权平均和max等导致交互时，在业务允许的层级内使用 Shapley 或分组 Owen。</p></div>
+        </div>
+      </section>
+
+      <section id="general">
+        <h2>2. 通用拆解方法：Shapley 是基础，Owen 是正式分组扩展</h2>
+        <div class="callout callout--important"><strong>先说结论：</strong>Shapley 解决“所有因素处于同一层级时，怎样公平分配交互影响”；Owen 解决“因素存在正式业务分组时，怎样在不破坏分组结构的前提下公平归因”。本项目在存在分子/分母、资产/负债、业务类别等正式层级时，主要采用分组 Owen 或嵌套 Owen，而不是把全部末级字段平铺后做普通 Shapley。</div>
+
+        <h3>2.1 Shapley：没有业务分组时的基础方法</h3>
+        <p>设指标评价函数为 <code>v</code>，每个因素都可以在基期值和本期值之间替换。普通 Shapley 枚举全部因素的先后顺序；某因素在每条路径上的“替换后指标－替换前指标”就是该路径的边际贡献，最终影响取所有路径边际贡献的平均值。</p>
+        <div class="formula">φ<sub>i</sub><sup>Shapley</sup> = 所有 n! 条因素排列中，因素 i 边际贡献的算术平均</div>
+        <p>普通 Shapley 隐含一个重要假设：所有因素都是平级的，可以自由穿插排列。它适用于 NSFR 的 ASF/RSF、同一侧久期业务等没有额外联盟边界的场景；一旦业务上要求“某些因素必须先作为一组”，就需要 Owen。</p>
+
+        <h3>2.2 Owen：先确认“谁是一组”，再对结构化路径统一求平均</h3>
+        <p>假设全部因素被划分为互不重叠的正式业务组 <code>G₁…Gₘ</code>。Owen 不是先独立算出一个组总额、再事后把总额分摊给组员；它是在每一条允许的组间顺序和组内顺序上直接计算末级因素的边际贡献。所谓“组间层、组内层”，是对同一批结构化路径的两种观察层级。</p>
+        <div class="steps">
+          <div class="step"><strong>定义组间环境：</strong>把每个业务组视为一个整体，枚举 m 个组的全部 <code>m!</code> 种先后顺序，确定某组进入时外部其他组处于基期还是本期。</div>
+          <div class="step"><strong>嵌入组内计算：</strong>在每一种外部组环境下，对本组内部因素的有效顺序计算完整指标边际差，直接得到末级因素影响。</div>
+          <div class="step"><strong>保持连续：</strong>每条有效路径中，同一组的成员连续出现，不能出现 A组一半→B组→A组另一半这种跨组穿插。</div>
+          <div class="step"><strong>汇总与勾稽：</strong>每组总体影响是该组全部末级影响之和，同时等于把该组整体替换时的组级控制总额；若组内还有正式分组，就继续递归形成嵌套 Owen。</div>
+        </div>
+        <div class="formula">φ<sub>i</sub><sup>Owen</sup> = 组间顺序 × 各组内部顺序所形成的全部结构化路径中，因素 i 边际贡献的平均值</div>
+        <div class="callout"><strong>与普通 Shapley 的关系：</strong>若没有实质分组，或每组都只有一个因素，Owen 就退化为普通 Shapley。Owen 不是另一套不相干的算法，而是在 Shapley“顺序公平”原则上增加业务联盟约束。</div>
+        <div class="callout callout--important"><strong>为什么还要保留“组总体影响”：</strong>它不是另一轮归因，也不是组内结果的分配基数，而是末级 Owen 影响的汇总值和组级替换结果的控制值。两者应完全相等，用于页面父节点展示和“父节点=子节点合计”的审计勾稽。</div>
+
+        <h3>2.3 数值例子：分子组与分母组的两层 Owen</h3>
+        <p>使用一个与银行业务无关、但能体现分组结构的比例公式：</p>
+        <div class="formula">y = 100 × (A + B) ÷ (C + D)<br><small>分子组 G<sub>N</sub>={A,B}；分母组 G<sub>L</sub>={C,D}</small></div>
+        <div class="tree">
+          <div>第1层：y</div>
+          <div class="l2">第2层：分子组 G<sub>N</sub>　｜　分母组 G<sub>L</sub></div>
+          <div class="l3">第3层：G<sub>N</sub> 内为 A＋B；G<sub>L</sub> 内为 C＋D</div>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>时点</th><th>A</th><th>B</th><th>A+B</th><th>C</th><th>D</th><th>C+D</th><th>y</th></tr></thead>
+          <tbody>
+            <tr><td>基期</td><td>60</td><td>40</td><td>100</td><td>50</td><td>50</td><td>100</td><td>100.000000</td></tr>
+            <tr><td>本期</td><td>66</td><td>44</td><td>110</td><td>55</td><td>52</td><td>107</td><td>102.803738</td></tr>
+          </tbody>
+        </table></div>
+        <p>普通 Shapley 把 A、B、C、D 全部视为平级因素，共有 <code>4!=24</code> 条路径，其中包括 A→C→B→D 这类打断分子组的路径。Owen 只允许完整分子组与完整分母组交换先后：组间有 <code>Gₙ→Gₗ</code>、<code>Gₗ→Gₙ</code> 两种顺序；分子组内部形式上可写为 A→B、B→A；分母组内部为 C→D、D→C，所以标准定义对应 <span class="metric">2!×2!×2!=8</span> 条结构化路径。由于 A、B 是完全线性的同号加项，两种内部排列没有实质差异，可精确折叠为4个不同的有效计算环境。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>代表路径</th><th>A的路径贡献</th><th>B的路径贡献</th><th>C的路径贡献</th><th>D的路径贡献</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>A→B→C→D</td><td>+6.000000</td><td>+4.000000</td><td>-5.238095</td><td>-1.958166</td><td>先完成整个分子组，再替换分母组</td></tr>
+            <tr><td>C→D→A→B</td><td>+5.607477</td><td>+3.738318</td><td>-4.761905</td><td>-1.780151</td><td>先完成整个分母组，再替换分子组</td></tr>
+          </tbody>
+        </table></div>
+        <p>对全部 8 条结构化路径取平均，得到：</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>层级</th><th>因素</th><th>Owen影响</th><th>处理逻辑</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="2">分子组 G<sub>N</sub><br>合计 +9.672897</td><td>A</td><td>+5.803738</td><td rowspan="2">A、B在组内为线性求和，可用共同系数分配，无须实际重复枚举A/B顺序</td></tr>
+            <tr><td>B</td><td>+3.869159</td></tr>
+            <tr><td rowspan="2">分母组 G<sub>L</sub><br>合计 -6.869159</td><td>C</td><td>-4.905168</td><td rowspan="2">C、D位于分母，边际贡献取决于谁先替换，必须保留C→D与D→C两种顺序</td></tr>
+            <tr><td>D</td><td>-1.963991</td></tr>
+          </tbody>
+        </table></div>
+        <div class="reconcile">5.803738 + 3.869159 - 4.905168 - 1.963991 = 2.803738 = y₁ - y₀</div>
+
+        <h3>2.4 为什么 A、B 不需要实际区分先后顺序</h3>
+        <p>A、B在分子组内是线性求和，交换二者的替换顺序不会改变平均边际贡献。其末级影响可以直接在分母处于基期、本期两个外部环境下取平均，等价为使用共同单位系数：</p>
+        <div class="formula">k<sub>N</sub> = ½[100/(C₀+D₀)+100/(C₁+D₁)] = 0.96728972<br>影响<sub>A</sub> = ΔA×k<sub>N</sub> = 6×0.96728972 = 5.803738<br>影响<sub>B</sub> = ΔB×k<sub>N</sub> = 4×0.96728972 = 3.869159</div>
+        <p>这种“线性组折叠”是标准 Owen 的等价计算优化，不是先算组总额后按比例分摊，也不是改用另一套口径。父节点影响由 A、B 的末级影响相加得到，并与分子组整体替换的控制总额一致。实现时只需枚举 <code>2种组间顺序×2种分母组内顺序=4个有效计算环境</code>，无需重复计算 A/B 顺序。相反，C、D同处非线性分母，仍要在各外部环境中保留组内顺序平均。</p>
+
+        <h3>2.5 分组之后，组内到底怎样拆</h3>
+        <div class="grid">
+          <div class="card"><h4>线性组</h4><p>组内因素只以固定符号加减进入同一中间量。对每个外部组环境求单位影响系数，再乘各因素带符号增量；这与完整枚举内部排列完全等价，允许正负因素互相抵销。</p></div>
+          <div class="card"><h4>非线性组</h4><p>组内因素位于分母、乘积、max或加权平均中，谁先替换会改变边际贡献。必须在每个外部组环境中执行组内 Shapley并重算完整指标，不能只在单一固定环境中算完后再分配组总额。</p></div>
+          <div class="card"><h4>联合因素</h4><p>多个展示字段来自同一底层业务状态，不能自由排列。例如同业资产净额和负债净额来自同一个有符号净头寸，应联合替换；必要时再用业务可行的桥接状态解释总影响。</p></div>
+          <div class="card"><h4>嵌套业务组</h4><p>若组内还有正式类别，就把子组内计算嵌入每一个上层外部环境，递归到末级输入字段；各级父节点均由下级影响汇总并与本级整体替换结果交叉校验。</p></div>
+        </div>
+        <p>因此，Owen 的核心是：<strong>业务分组先约束可行路径，末级因素在全部结构化路径中直接取得平均边际贡献，组影响由末级结果汇总并逐层勾稽。</strong></p>
+
+        <h3>2.6 从两层 Owen 到项目中的嵌套 Owen</h3>
+        <div class="grid">
+          <div class="card"><h4>两层分组 Owen</h4><p>枚举一级业务组顺序，并在每个组间环境中直接计算组内因素边际贡献。△EVE 的分子/资本组、LCR 的 HQLA/净现金流出组、流动性缺口率的调整后负债/资产组均属于这一类；其中线性组可按共同系数等价折叠组内顺序。</p></div>
+          <div class="card"><h4>三层嵌套 Owen</h4><p>在一级组下继续保留二级业务类别，并在二级类别内继续拆因素。重定价缺口率依次保持“四大业务组→资产业务类别→重定价规模/总规模”三层结构。</p></div>
+        </div>
+        <p>第11节完整代码包含可复用的 <code>calculateTwoLevelOwen</code> 标准两层函数，并对上述8条路径数值例子执行内置勾稽测试；各业务指标再基于相同原则采用针对其层级和线性结构优化后的实现。</p>
+
+        <h3>2.7 三类归因方法与一种辅助拆分</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>方法</th><th>适用条件</th><th>本文中的应用</th></tr></thead>
+          <tbody>
+            <tr><td>直接线性分解</td><td>指标是末级因素的固定符号加减</td><td>流动性缺口金额</td></tr>
+            <tr><td>普通 Shapley</td><td>全部因素处于同一业务层级，并存在除法、乘法或加权平均交互</td><td>NSFR；久期缺口资产侧、负债侧的联合业务因素</td></tr>
+            <tr><td>分组 Owen / 嵌套 Owen</td><td>必须维护业务分组或多层业务类别，同时公平处理组间与组内交互</td><td>△EVE、LCR、流动性比例、流动性缺口率、重定价缺口率</td></tr>
+            <tr><td>业务桥接（辅助拆分）</td><td>一个联合因素发生方向切换，需要把其总贡献解释为两个可行阶段</td><td>流动性比例同业净头寸零点桥接</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="overview">
+        <h2>3. 指标方法总览</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>指标</th><th>业务公式</th><th>正式归因层级</th><th>末级单位</th></tr></thead>
+          <tbody>
+            <tr><td>△EVE</td><td>100×六情景最大经济价值损失÷资本净额</td><td>分子/资本分组 Owen；分子组六情景 Shapley；境外资本 O/L/T</td><td>pct</td></tr>
+            <tr><td>LCR</td><td>100×HQLA÷max(O-I,25%O)</td><td>HQLA/净流出分组 Owen；净流出组内直接替换O/I并逐步重算max</td><td>pct</td></tr>
+            <tr><td>NSFR</td><td>100×ASF÷RSF</td><td>两因素对称 Shapley，仅拆到 ASF/RSF</td><td>pct</td></tr>
+            <tr><td>流动性比例</td><td>100×[A+max(N,0)]÷[L+max(-N,0)]</td><td>其他资产/其他负债/同业净头寸三组 Owen；同业跨零桥接为资产端与负债端两段</td><td>pct</td></tr>
+            <tr><td>流动性缺口</td><td>A-L+D+P</td><td>直接带符号线性分解</td><td>亿元</td></tr>
+            <tr><td>流动性缺口率</td><td>100×(1-N/A)</td><td>调整后负债/资产两组 Owen；负债组线性折叠，资产末级在两个组间环境中执行组内 Shapley</td><td>pct</td></tr>
+            <tr><td>重定价缺口率</td><td>100×(资产重定价-负债重定价+两账簿缺口)÷总规模</td><td>四大业务组→六类资产业务→每类业务的重定价规模/总规模</td><td>pct</td></tr>
+            <tr><td>重定价久期缺口</td><td>资产加权久期-负债加权久期</td><td>顶层资产减负债线性折叠；两侧分别对“规模+久期”联合业务因素做 Shapley</td><td>年</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout callout--important"><strong>逐项复核后的统一判断：</strong>页面有父子卡片，不等于每一层都必须新增一轮 Owen。线性顶层可以精确折叠，联合业务状态不能拆成可自由排列的玩家；只有真正影响边际贡献、且具有正式业务边界的非线性层级才保留顺序。按此原则，流动性缺口金额和久期缺口顶层不做过度拆分，同业净头寸及久期“规模+久期”不做错误独立化，重定价缺口率则保留必要的三层嵌套。</div>
+        <div class="callout callout--ok"><strong>完整性结论：</strong>上述八类与项目当前所有“可查看计算过程并显示因素影响”的指标一一对应。其余页面数据可以展示增量、增速或明细，但不属于本文的因素归因范围。</div>
+      </section>
+
+      <section id="eve">
+        <h2>4. △EVE：六情景max归因、资本除法与境外资本穿透</h2>
+        <h3>4.1 业务公式</h3>
+        <div class="formula">△EVE率 = 100 × M ÷ C<br>M(x₁,…,x₆) = max(-x₁,…,-x₆) = -min(x₁,…,x₆)</div>
+        <p>其中 <code>xₛ=冲击后EVE－基准EVE</code>，负值代表经济价值损失。项目面对固定的基期—当前期组合，并在归因前校验全部64个基期—当前期混合状态的六情景最大损失均不小于0，因此不再对每个情景额外计算 <code>max(0,-xₛ)</code>。六种情景为同一时点并列的监管压力情景，分子直接取六情景中的最大损失；正向增加不取绝对值。资本净额 C 的口径按机构范围区分：</p>
+        <div class="formula">法人汇总：C = 法人本外币合计一级资本净额<br>境外分行：C = O ÷ L × T</div>
+        <p>其中 O=境外分行 RWA，L=法人 RWA，T=法人本外币合计一级资本净额。</p>
+        <h3>4.2 正式归因层级</h3>
+        <div class="tree">
+          <div>△EVE率变化</div>
+          <div class="l2">分子 M：平行上移｜平行下移｜变陡峭｜变平缓｜短端上升｜短端下降</div>
+          <div class="l2">分母 C：法人资本净额，或境外分行 O ÷ L × T</div>
+          <div class="l3">境外分行末级：O（境外RWA）｜L（法人RWA）｜T（法人一级资本净额）</div>
+        </div>
+        <div class="callout callout--important"><strong>最不利情景切换不是第七个因素：</strong>最大损失情景由六个情景经过max函数后内生形成。正式归因把六种情景作为分子组的六个末级因素，每替换一个情景都重新计算一次max；切换产生的非线性已经进入六个情景的边际贡献。基期和当前期最不利情景名称仅作为辅助状态和审计标签，不再单独计量影响。</div>
+        <h3>4.3 计算步骤</h3>
+        <div class="steps">
+          <div class="step">固定六个情景的顺序和基期、当前期原始值。对任一子集 S，S内情景取当前期值，其余情景取基期值，并直接计算 <code>v(S)=maxₛ(-xₛ(S))</code>。六因素共有 <code>2⁶=64</code> 个唯一混合状态；每个状态均校验 <code>v(S)≥0</code>。</div>
+          <div class="step">对六个情景执行标准Shapley：每个情景覆盖不包含自身的32个子集，按标准阶乘权重计算加入前后 <code>v(S∪{s})-v(S)</code> 的加权平均。六项金额贡献之和严格等于 <code>M₁-M₀</code>。</div>
+          <div class="step">顶层仍保持“分子组M/资本组C”的两组Owen。六情景金额贡献使用共同单位系数 <code>kM=½(100/C₀+100/C₁)</code> 转换成对△EVE率的pct影响；六项pct影响之和等于分子组总体影响。</div>
+          <div class="step">法人资本作为资本组的单一末级因素；境外资本组内部对 O/L/T 的六种顺序，在“资本组先于/后于分子组”的两种环境中平均。代码用64个分子混合状态和12条资本路径等价实现完整结构化Owen，无需显式遍历法人汇总的1440条或境外分行的8640条排列路径。</div>
+        </div>
+        <h3>4.4 数值例子</h3>
+        <p>六情景的基期损失值为 <code>(120,-90,100,-80,70,-60)</code>，当前期为 <code>(130,-95,140,-84,75,-62)</code>。基期由平行上移形成最大损失120，当前期由变陡峭形成最大损失140。对64个混合状态取max并执行Shapley后，平行上移分得5、变陡峭分得15，其余情景为0；六项合计20，正好等于 M 从120增至140。境外资本参数由 O/L/T=100/1000/500 变为110/1100/520，C 由50变为52，故 <code>kM=½(100/50+100/52)=1.96153846</code>。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>因素</th><th>影响（pct）</th><th>解释</th></tr></thead>
+          <tbody>
+            <tr><td>平行上移</td><td>+9.807692</td><td>六情景Shapley金额贡献5 × kM</td></tr>
+            <tr><td>平行下移</td><td>0.000000</td><td>全部混合路径中的加权边际贡献为0</td></tr>
+            <tr><td>变陡峭</td><td>+29.423077</td><td>六情景Shapley金额贡献15 × kM</td></tr>
+            <tr><td>变平缓</td><td>0.000000</td><td>全部混合路径中的加权边际贡献为0</td></tr>
+            <tr><td>短端上升</td><td>0.000000</td><td>全部混合路径中的加权边际贡献为0</td></tr>
+            <tr><td>短端下降</td><td>0.000000</td><td>全部混合路径中的加权边际贡献为0</td></tr>
+            <tr><td>境外分行RWA（O）</td><td>-24.333333</td><td>O增加会提高资本分母</td></tr>
+            <tr><td>法人RWA（L）</td><td>+24.348485</td><td>L增加会降低分摊资本</td></tr>
+            <tr><td>法人一级资本净额（T）</td><td>-10.015152</td><td>T增加会提高资本分母</td></tr>
+          </tbody>
+        </table></div>
+        <div class="reconcile">基期 240.000000%，本期 269.230769%，九项影响合计 +29.230769pct，与指标变化完全一致。最不利情景由平行上移切换为变陡峭，但切换只作状态说明，不形成额外贡献。</div>
+      </section>
+
+      <section id="lcr">
+        <h2>5. LCR：直接重算max约束下的分组Owen</h2>
+        <h3>5.1 业务公式</h3>
+        <div class="formula">LCR = 100 × H ÷ D<br>D = max(O-I, 25%×O)</div>
+        <p>H=合格优质流动性资产 HQLA，O=现金流出，I=现金流入。H 由系统直接输入的一级资产、2A资产、2B资产三个字段线性求和；归因模块不再推导、折算或二次调整这三个字段。</p>
+        <h3>5.2 正式归因层级</h3>
+        <div class="tree">
+          <div>LCR变化</div>
+          <div class="l2">HQLA组：一级资产 ＋ 2A资产 ＋ 2B资产</div>
+          <div class="l2">经调整后净现金流出组：现金流出O｜现金流入I</div>
+        </div>
+        <p>顶层对“HQLA组/净现金流出组”两种先后顺序取平均；净现金流出组内部对“现金流出→现金流入”和“现金流入→现金流出”两种顺序取平均，共4条路径。每替换一个因素，都必须使用当时的O、I重新计算：</p>
+        <div class="formula">D(O,I)=max(O-I,25%×O)<br>v(H,O,I)=100×H÷D(O,I)</div>
+        <p>只要基期和本期现金流出O均大于0，任何跨期混合状态都有 <code>D≥25%O&gt;0</code>，不会因为O-I等于0或为负而产生零分母。</p>
+        <h3>5.3 为什么“约束分支切换”不作为独立贡献因素</h3>
+        <div class="callout callout--important"><strong>分支是O、I经过max函数后内生得到的计算状态，不是独立观测因素。</strong>因此正式贡献只分配给HQLA、现金流出和现金流入。基期生效分支、本期生效分支及是否切换继续作为辅助元数据展示，但不单独分配影响；max约束产生的非线性效应已经包含在O、I的边际影响中。</div>
+        <p>HQLA 的三个组成项是三个相互独立的直接输入字段，线性求和后使用共同单位系数：</p>
+        <div class="formula">k<sub>H</sub> = ½(100/D₀ + 100/D₁)<br>一级、2A、2B各自影响 = 各自增量 × k<sub>H</sub></div>
+        <p>该公式来自两种组间顺序的平均：HQLA先变化时分母为 D₀，HQLA后变化时分母为 D₁。即使 HQLA 总增量恰好为零，内部组成项仍可一正一负并严格抵销。</p>
+        <h3>5.4 数值例子</h3>
+        <p>基期 H=400、O=600、I=470，D=max(130,150)=150，生效分支为25%O；本期 H=420、O=640、I=450，D=max(190,160)=190，分支切换为O-I。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>因素</th><th>本期较基期变化</th><th>影响（pct）</th></tr></thead>
+          <tbody><tr><td>HQLA</td><td>+20</td><td>+11.929825</td></tr><tr><td>现金流出O</td><td>+40</td><td>-44.850361</td></tr><tr><td>现金流入I</td><td>-20</td><td>-12.693498</td></tr></tbody>
+        </table></div>
+        <div class="reconcile">基期 266.666667%，本期 221.052632%，三项影响合计 -45.614035pct。辅助状态显示分母由25%O分支切换为O-I分支，但切换本身不单独计量贡献。</div>
+      </section>
+
+      <section id="nsfr-liquidity-ratio">
+        <h2>6. NSFR 与流动性比例：普通两因素比例与跨分子分母联合因素</h2>
+        <h3>6.1 NSFR</h3>
+        <div class="formula">NSFR = 100 × ASF ÷ RSF</div>
+        <p>当前项目只拆到“可用稳定资金 ASF”和“所需稳定资金 RSF”，不继续虚构权重项目或报表行归因。两因素影响为：</p>
+        <div class="formula">影响<sub>ASF</sub> = ½[(100ASF₁/RSF₀-100ASF₀/RSF₀)+(100ASF₁/RSF₁-100ASF₀/RSF₁)]<br>影响<sub>RSF</sub> = ½[(100ASF₀/RSF₁-100ASF₀/RSF₀)+(100ASF₁/RSF₁-100ASF₁/RSF₀)]</div>
+        <p>例如 ASF/RSF 从120/100变为126/105，NSFR仍为120%。ASF产生正向影响、RSF产生等额负向影响，合计为零。</p>
+        <h3>6.2 流动性比例</h3>
+        <div class="formula">流动性比例 = 100 × 流动性资产 ÷ 流动性负债</div>
+        <p>监管列示仍然保留流动性资产9项和流动性负债7项，但归因不能简单沿用“资产组/负债组”两组结构，因为两个同业净额不是彼此独立的输入，而是同一个有符号净头寸的两侧列示结果。</p>
+        <div class="grid">
+          <div class="card"><h4>流动性资产 9 项</h4><p>1.1现金、1.2黄金、1.3超额准备金存款、1.4一个月内到期同业往来轧差后资产净额、1.5应收利息及其他应收款、1.6合格贷款、1.7债券投资、1.8可随时变现证券投资、1.9其他一个月内可变现资产。</p></div>
+          <div class="card"><h4>流动性负债 7 项</h4><p>2.1活期存款、2.2一个月内到期定期存款、2.3同业往来轧差后负债净额、2.4已发行债券、2.5应付利息和各项应付款、2.6向中央银行借款、2.7其他一个月内到期负债。</p></div>
+        </div>
+        <h3>6.3 同业因素的正式定义</h3>
+        <div class="formula">N = 一个月内到期同业流动性资产 - 一个月内到期同业流动性负债<br>同业资产方净额 = max(N,0)<br>同业负债方净额 = max(-N,0)</div>
+        <div class="callout callout--important"><strong>正式口径：</strong>两个监管科目在页面上分别列入流动性资产和流动性负债，但归因时必须把 N 作为一个联合因素同时替换两侧输出。若独立替换，会产生“资产方20、负债方10同时存在”等不对应任何单一轧差净头寸的混合状态。</div>
+        <p>令 A 为除同业资产方净额以外的其他8项流动性资产合计，L 为除同业负债方净额以外的其他6项流动性负债合计，则完整评价函数为：</p>
+        <div class="formula">R(A,L,N) = 100 × [A + max(N,0)] ÷ [L + max(-N,0)]</div>
+
+        <h3>6.4 正式三组 Owen 层级</h3>
+        <div class="tree">
+          <div>流动性比例变化</div>
+          <div class="l2">第一组：其他流动性资产 A（8项，线性组）</div>
+          <div class="l2">第二组：其他流动性负债 L（6项，组内 Shapley）</div>
+          <div class="l2">第三组：同业往来轧差净头寸 N（联合因素）</div>
+          <div class="l3">N 的监管输出：资产方净额 max(N,0) ｜ 负债方净额 max(-N,0)</div>
+          <div class="l3">N 的影响解释：资产端退出/形成影响 ｜ 负债端退出/形成影响</div>
+        </div>
+        <p>一级组间共有 <code>3!=6</code> 条路径：A→L→N、A→N→L、L→A→N、L→N→A、N→A→L、N→L→A。每条路径轮到 A 时按当时分母的共同单位系数分配8项资产；轮到 L 时在当时 A、N 环境下对6项负债做组内 Shapley；轮到 N 时联合替换净头寸。</p>
+
+        <h3>6.5 方向切换时的零点桥接</h3>
+        <p>若 <code>N₀&gt;0</code>、<code>N₁&lt;0</code>，净头寸真实可行的变化方向必然是 <code>N₀→0→N₁</code>。在每一条 Owen 路径中，先固定该路径轮到 N 时的其他资产 A<sup>*</sup> 和其他负债 L<sup>*</sup>：</p>
+        <div class="formula">资产端退出影响 = R(A<sup>*</sup>,L<sup>*</sup>,0) - R(A<sup>*</sup>,L<sup>*</sup>,N₀)<br>负债端形成影响 = R(A<sup>*</sup>,L<sup>*</sup>,N₁) - R(A<sup>*</sup>,L<sup>*</sup>,0)</div>
+        <p>反向由负债方转为资产方时，仍按 <code>N₀→0→N₁</code>：第一段是负债端退出影响，第二段是资产端形成影响。若基期、本期始终位于同一侧，则全部影响归入该侧，另一侧为0。零点桥接不会增加新的Owen参与者，也不会新增排列，只是把每条路径中 N 的联合边际贡献拆成两个业务可解释阶段。</p>
+
+        <h3>6.6 完整数值例子：六条路径怎样得到两侧影响</h3>
+        <p>设基期/本期为：A从100变为110，L从80变为90，N从+20变为-10。指标由 <code>(100+20)/80=150%</code> 变为 <code>110/(90+10)=110%</code>，总变化为 -40pct。</p>
+        <p>例如 A→N→L 路径中，轮到 N 时 A 已是110、L仍是80：资产端从20退出到0，影响 <code>100×[110/80-(110+20)/80]=-25.00pct</code>；负债端从0形成10，影响 <code>100×[110/90-110/80]=-15.28pct</code>。N→A→L 路径中，轮到 N 时 A=100、L=80，对应两段影响分别为 -25.00pct、-13.89pct。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>N替换时的外部环境</th><th>在6条路径中出现次数</th><th>资产端退出影响</th><th>负债端形成影响</th></tr></thead>
+          <tbody>
+            <tr><td>A=100，L=80</td><td>2</td><td>-25.00pct</td><td>-13.89pct</td></tr>
+            <tr><td>A=110，L=80</td><td>1</td><td>-25.00pct</td><td>-15.28pct</td></tr>
+            <tr><td>A=100，L=90</td><td>1</td><td>-22.22pct</td><td>-11.11pct</td></tr>
+            <tr><td>A=110，L=90</td><td>2</td><td>-22.22pct</td><td>-12.22pct</td></tr>
+          </tbody>
+        </table></div>
+        <div class="reconcile">六条路径分别平均：同业资产端影响 -23.611111pct；同业负债端影响 -13.101852pct；同业联合因素合计 -36.712963pct。再加其他资产组和其他负债组影响，全部末级因素严格等于指标总变化 -40pct。</div>
+        <p class="page-note">页面仍在流动性资产下展示1.4资产方净额卡片、在流动性负债下展示2.3负债方净额卡片，并分别显示上述两侧影响；但算法元数据必须标明二者来自同一联合因素，不能解释为两个可以自由排列的独立驱动。</p>
+      </section>
+
+      <section id="liquidity-gap">
+        <h2>7. 流动性缺口及缺口率：线性金额与非线性比例分开处理</h2>
+        <h3>7.1 业务口径</h3>
+        <div class="formula">Gap<sub>T</sub> = A<sub>T</sub> - L<sub>T</sub> + D<sub>T</sub> + P<sub>T</sub></div>
+        <ul>
+          <li><strong>A 到期表内外资产（含内部交易）</strong> = 到期表内资产 + 表外收入 + 内部交易资产；</li>
+          <li><strong>L 到期表内外负债（含内部交易）</strong> = 到期表内负债 + 表外支出 + 内部交易负债；</li>
+          <li><strong>D 活期存款调整</strong> = 3.5.2活期存款 - 附注活期存款；</li>
+          <li><strong>P 活期存放调整</strong> = 3.2活期存放 - 附注活期存放。</li>
+        </ul>
+        <div class="callout callout--important"><strong>名称必须准确：</strong>表外收入、表外支出已经单独拆出，因此末级名称使用“到期表内资产”“到期表内负债”；父节点才是“到期表内外资产/负债（含内部交易）”。内部交易以加项并入，不能写成“剔除内部交易”。</div>
+        <h3>7.2 缺口金额归因</h3>
+        <p>Gap 是固定符号的线性加减，不使用 Shapley。每个末级因素的影响就是带符号增量：</p>
+        <div class="formula">资产三项：+Δx　　负债三项：-Δx<br>3.5.2活期存款：+Δx　附注活期存款：-Δx<br>3.2活期存放：+Δx　附注活期存放：-Δx</div>
+        <h3>7.3 缺口率归因</h3>
+        <div class="formula">监管公式：GapRate<sub>T</sub> = 100 × [A<sub>T</sub>-N<sub>T</sub>] ÷ A<sub>T</sub><br>等价变形：GapRate<sub>T</sub> = 100 × [1-N<sub>T</sub>/A<sub>T</sub>]<br>N = L-D-P</div>
+        <p>监管公式用于说明业务定义；等价变形用于归因计算。正式方法是以 N（到期表内外负债，含内部交易、调整活期）和 A（到期表内外资产，含内部交易）为两个业务组的<strong>两组 Owen</strong>，组间顺序为 <code>N→A</code> 与 <code>A→N</code>。这不是先计算 A 组总体影响，再脱离 Owen 做一次事后分摊。</p>
+        <ul>
+          <li><strong>N 组：</strong>在固定 A 的任一组间环境中，N 的末级项目都是线性带符号求和，标准 Owen 枚举不同组内顺序会得到相同边际贡献，因此可用共同系数 <code>-½(100/A₀+100/A₁)</code> 等价折叠；这只是计算优化，归因口径仍是 Owen。</li>
+          <li><strong>A 组：</strong>当组间顺序为 <code>A→N</code> 时，在 <code>N=N₀</code> 的环境中遍历三个资产末级的6种顺序；当组间顺序为 <code>N→A</code> 时，在 <code>N=N₁</code> 的环境中再次遍历6种顺序。因此每个资产末级覆盖 <code>2×3!=12</code> 个结构化 Owen 环境。</li>
+        </ul>
+        <div class="formula">φ<sub>Aᵢ</sub><sup>Owen</sup> = ½[φ<sub>Aᵢ</sub><sup>Shapley</sup>(N=N₀) + φ<sub>Aᵢ</sub><sup>Shapley</sup>(N=N₁)]</div>
+        <p>参考代码把上述两套组内 Shapley 合并为评价函数 <code>½[100(1-N₀/A)+100(1-N₁/A)]</code> 后计算一次。根据 Shapley 的线性性质，这与逐条遍历12个结构化环境完全等价。资产组总体影响由三个资产末级 Owen 影响相加得到，并与顶层 A 组影响勾稽；它不是组内分配的外部输入。</p>
+        <div class="callout callout--important"><strong>不要改成全部末级因素的普通 Shapley：</strong>普通 Shapley 会允许资产项目与负债、活期调整项目相互穿插，破坏 N/A 两个正式业务组的连续性；当前“组间 Owen + 组内 Shapley”正是标准 Owen 的实现方式。</div>
+        <h3>7.4 数值例子</h3>
+        <p>基期 A=300+20+10=330，L=280+15+5=300，D=30-6=24，P=10-4=6；本期 A=310+22+11=343，L=290+16+6=312，D=33-7=26，P=12-5=7。</p>
+        <div class="table-wrap"><table><thead><tr><th>指标</th><th>基期</th><th>本期</th><th>变化</th></tr></thead><tbody><tr><td>流动性缺口</td><td>60亿元</td><td>64亿元</td><td>+4亿元</td></tr><tr><td>流动性缺口率</td><td>18.181818%</td><td>18.658892%</td><td>+0.477074pct</td></tr></tbody></table></div>
+        <p>缺口率的两组 Owen 结果为：调整后负债 N 从270增至279，影响 -2.675590pct；到期资产 A 从330增至343，影响 +3.152664pct；两组相加正好等于总变化 +0.477074pct。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>层级</th><th>因素</th><th>影响</th><th>计算说明</th></tr></thead>
+          <tbody>
+            <tr><td>顶层Owen</td><td>调整后负债N</td><td>-2.675590pct</td><td>N→A与A→N两个组间顺序的平均</td></tr>
+            <tr><td>顶层Owen</td><td>到期资产A</td><td>+3.152664pct</td><td>三个资产末级在N₀/N₁两个环境中的组内Shapley之和</td></tr>
+            <tr><td>A组末级</td><td>到期表内资产</td><td>+2.424858pct</td><td rowspan="3">每项均覆盖2×3!=12个结构化Owen环境</td></tr>
+            <tr><td>A组末级</td><td>表外收入</td><td>+0.485194pct</td></tr>
+            <tr><td>A组末级</td><td>内部交易资产</td><td>+0.242611pct</td></tr>
+          </tbody>
+        </table></div>
+        <p class="page-note">1D/7D/30D/3M/1Y 均使用用户所选同一期限的累计分子、分母和调整项，不得把不同期限混用。</p>
+      </section>
+
+      <section id="repricing-gap">
+        <h2>8. 重定价缺口率：三层嵌套 Owen，拆开资产业务的双重作用</h2>
+        <h3>8.1 业务公式</h3>
+        <div class="formula">R = 100 × [Σr<sub>i</sub> - Σl<sub>j</sub> + G<sub>B</sub> + G<sub>T</sub>] ÷ Σt<sub>i</sub></div>
+        <p>rᵢ=第 i 类资产业务重定价规模，tᵢ=该业务总规模，lⱼ=第 j 类负债业务重定价规模；G<sub>B</sub>、G<sub>T</sub>分别为银行账簿、交易账簿表外衍生品重定价缺口（应收－应付）。</p>
+        <ul>
+          <li>法人汇总剔除内部交易；单个境外分行包含内部交易；</li>
+          <li>负债端不含活期存款；</li>
+          <li>资产端业务：自营贷款、投资类资产、同业资产、自营非标投资、存放央行、内部交易资产；</li>
+          <li>负债端业务：定期存款、同业负债、发行债券、向央行借款、租赁负债、内部交易负债。</li>
+        </ul>
+        <h3>8.2 为什么资产必须采用三层结构</h3>
+        <p>同一类资产业务的重定价规模进入分子、总规模进入分母。若把该业务类别整体作为一个因素，只能得到“业务合计影响”；正式口径需要同时给出该业务在分子端和分母端的独立影响，因此采用以下完整层级：</p>
+        <div class="tree">
+          <div>第1层：资产端业务｜负债端业务｜银行账簿衍生品｜交易账簿衍生品</div>
+          <div class="l2">第2层（资产端）：自营贷款｜投资类资产｜同业资产｜自营非标投资｜存放央行｜内部交易资产</div>
+          <div class="l3">第3层（自营贷款）：重定价规模｜总规模</div>
+          <div class="l3">第3层（投资类资产）：重定价规模｜总规模</div>
+          <div class="l3">第3层（同业资产）：重定价规模｜总规模</div>
+          <div class="l3">第3层（自营非标投资）：重定价规模｜总规模</div>
+          <div class="l3">第3层（存放央行）：重定价规模｜总规模</div>
+          <div class="l3">第3层（内部交易资产）：重定价规模｜总规模</div>
+        </div>
+        <div class="callout callout--important"><strong>适用范围必须一致：</strong>六类资产业务全部采用“重定价规模＋总规模”双字段结构，不能只拆自营贷款、投资类资产而把其他类别降为单字段。法人汇总时内部交易资产不进入有效因素集合；单个境外分行时该类别正常参与计算。</div>
+        <p>这不是把所有字段平铺。四大业务组、资产业务类别、业务内部两个字段依次保持为正式联盟结构，使用三层嵌套 Owen：</p>
+        <ol>
+          <li>枚举资产、负债、两类衍生品四个一级组的外部环境；</li>
+          <li>在每个一级环境中枚举有效资产业务类别的联盟状态；</li>
+          <li>在每类资产业务进入时，对“重定价规模”和“总规模”两种先后顺序取平均，直接得到两个末级影响；</li>
+          <li>业务类别合计影响等于两个末级影响之和，资产端合计影响等于全部有效资产业务类别影响之和。</li>
+        </ol>
+        <p>负债和衍生品只线性进入分子，不再枚举其内部顺序，统一使用平均分母系数 <code>½(100/T₀+100/T₁)</code> 分配。</p>
+        <h3>8.3 反事实有效性控制</h3>
+        <div class="callout callout--warn"><strong>生产计算必须校验：</strong>每类资产业务在基期、本期及跨期混合状态均满足 <code>0≤重定价规模≤总规模</code>。若 r₀&gt;t₁ 或 r₁&gt;t₀，独立替换会产生不可能的业务状态；默认应中止并报数据/口径异常，不得悄悄继续或强制缩放结果。</div>
+        <h3>8.4 计算量</h3>
+        <p>使用子集权重实现，不生成完整排列。若有效资产业务数为 n：</p>
+        <div class="formula">资产双字段边际差计算次数 = 16 × n × 2<sup>n</sup><br>指标函数求值次数（未缓存） = 32 × n × 2<sup>n</sup></div>
+        <div class="table-wrap"><table><thead><tr><th>范围</th><th>有效资产业务 n</th><th>边际差</th><th>未缓存函数求值</th></tr></thead><tbody><tr><td>法人汇总（内部交易置零并从运算剔除）</td><td>5</td><td>2,560</td><td>5,120</td></tr><tr><td>单个境外分行</td><td>6</td><td>6,144</td><td>12,288</td></tr></tbody></table></div>
+        <p>该数量对单机构、单币种、单时点计算很小；批量回溯时按“机构×币种×日期”并行，并缓存重复联盟状态即可。</p>
+        <h3>8.5 数值例子</h3>
+        <p>简化为两类资产：贷款 r/t 由100/200变为110/210，投资由80/150变为75/160；负债重定价规模150→155，银行账簿缺口5→4，交易账簿缺口-2→0。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>因素</th><th>重定价规模影响</th><th>总规模影响</th><th>合计影响（pct）</th></tr></thead>
+          <tbody>
+            <tr><td>贷款</td><td>+2.778850</td><td>-0.259224</td><td>+2.519627</td></tr>
+            <tr><td>投资</td><td>-1.389425</td><td>-0.257615</td><td>-1.647040</td></tr>
+            <tr><td>负债端</td><td colspan="2">重定价规模合计</td><td>-1.389961</td></tr>
+            <tr><td>银行账簿衍生品</td><td colspan="2">重定价缺口</td><td>-0.277992</td></tr>
+            <tr><td>交易账簿衍生品</td><td colspan="2">重定价缺口</td><td>+0.555985</td></tr>
+          </tbody>
+        </table></div>
+        <div class="reconcile">基期缺口率 = 33/350 = 9.428571%；本期 = 34/370 = 9.189189%；全部因素合计 -0.239382pct，与指标变化完全一致。</div>
+      </section>
+
+      <section id="duration-gap">
+        <h2>9. 资产负债重定价久期缺口：规模和久期保持为一个业务因素</h2>
+        <h3>9.1 业务公式</h3>
+        <div class="formula">DurationGap = D<sub>A</sub> - D<sub>L</sub><br>D<sub>side</sub> = Σ(S<sub>i</sub>×d<sub>i</sub>) ÷ ΣS<sub>i</sub></div>
+        <p>Sᵢ=业务规模，dᵢ=该业务重定价久期。资产端和负债端拆分均不纳入表外衍生品。</p>
+        <div class="grid">
+          <div class="card"><h4>资产端 6 类</h4><p>自营贷款、投资类资产、同业资产、自营非标投资、存放央行、内部交易资产。</p></div>
+          <div class="card"><h4>负债端 7 类</h4><p>活期存款、定期存款、同业负债、发行债券、向央行借款、租赁负债、内部交易负债。</p></div>
+        </div>
+        <h3>9.2 顶层为什么不需要 Owen</h3>
+        <p>久期缺口在顶层是 <code>D<sub>A</sub>-D<sub>L</sub></code> 的固定符号线性加减。资产侧怎样变化不会改变负债侧业务对 D<sub>L</sub> 的边际贡献，反之亦然。形式上即使把资产侧、负债侧设为两个 Owen 组，两种组间顺序也会得到完全相同的结果，因此可以精确折叠：资产侧独立计算，负债侧独立计算后统一乘以 -1。</p>
+        <div class="callout"><strong>这与重定价缺口率不同：</strong>久期缺口两侧之间没有共同分母，顶层不存在资产/负债交互；真正的非线性只发生在每一侧加权平均内部，因此本指标不需要为了页面层级而额外建立顶层 Owen。</div>
+        <h3>9.3 正式因素定义与完整层级</h3>
+        <p>每类业务的 <code>{规模Sᵢ, 久期dᵢ}</code> 作为一个联合因素参与本侧 Shapley，不再拆成“规模影响”和“久期影响”。规模与久期共同描述同一业务时点状态并形成加权项 Sᵢdᵢ；若强行拆成两个独立玩家，会引入“新规模配旧久期”等额外混合状态，归因含义反而变成另一套业务口径。</p>
+        <div class="tree">
+          <div>第1层（线性汇总）：资产端业务影响－负债端久期变动影响</div>
+          <div class="l2">资产端 Shapley：自营贷款｜投资类资产｜同业资产｜自营非标投资｜存放央行｜内部交易资产</div>
+          <div class="l3">每个资产因素：{规模，久期} 联合替换，只输出一个业务影响</div>
+          <div class="l2">负债端 Shapley：活期存款｜定期存款｜同业负债｜发行债券｜向央行借款｜租赁负债｜内部交易负债</div>
+          <div class="l3">每个负债因素：{规模，久期} 联合替换；对负债加权久期的贡献统一反号后计入缺口</div>
+        </div>
+        <ul>
+          <li>资产侧各业务影响之和 = D<sub>A,1</sub>-D<sub>A,0</sub>；</li>
+          <li>负债侧先计算 D<sub>L</sub> 的业务影响，再整体乘 -1；</li>
+          <li>全部业务影响之和 = DurationGap₁-DurationGap₀。</li>
+        </ul>
+        <p>卡片仍可同时展示当前规模、规模增量/增速、当前久期、久期增量/增速，但“影响”只有一个合计值，这与正式因素定义一致。</p>
+        <h3>9.4 数值例子</h3>
+        <p>两类资产的规模/久期由100/2、100/4变为120/2.2、80/4.1，资产加权久期由3.00变为2.96；两类负债由120/1.5、80/3变为110/1.6、90/2.8，负债加权久期由2.10变为2.14。</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>侧别</th><th>业务因素</th><th>对本侧加权久期的影响（年）</th><th>计入久期缺口的影响（年）</th></tr></thead>
+          <tbody>
+            <tr><td>资产</td><td>A={规模,久期}</td><td>+0.022424</td><td>+0.022424</td></tr>
+            <tr><td>资产</td><td>B={规模,久期}</td><td>-0.062424</td><td>-0.062424</td></tr>
+            <tr><td>负债</td><td>C={规模,久期}</td><td>+0.086165</td><td>-0.086165</td></tr>
+            <tr><td>负债</td><td>D={规模,久期}</td><td>-0.046165</td><td>+0.046165</td></tr>
+          </tbody>
+        </table></div>
+        <div class="reconcile">资产侧：+0.022424-0.062424=-0.040000；负债侧计入缺口：-0.086165+0.046165=-0.040000；久期缺口由0.90年变为0.82年，合计影响 -0.080000年。</div>
+        <h3>9.5 计算量与零规模因素</h3>
+        <p>某侧有 n 个联合业务因素时，子集权重 Shapley 需要 <code>n×2<sup>n-1</sup></code> 次边际差。保留当前全部6类资产、7类负债时，共需 <code>6×2⁵+7×2⁶=640</code> 次边际差。</p>
+        <p class="page-note">法人汇总的内部交易类别可以保留展示并将规模置零；若其基期、本期规模均为零，它是 Shapley 的“虚拟玩家”，理论影响必为0，保留或剔除不会改变其他业务的归因结果。业务口径允许时可在计算前剔除以优化性能，此时5类资产、6类负债约需272次边际差；单个境外分行包含内部交易，不得剔除有值因素。</p>
+      </section>
+
+      <section id="interface">
+        <h2>10. IT数据接口与统一输出结构</h2>
+        <h3>10.1 请求公共字段</h3>
+        <div class="code-shell"><pre><code>{
+  "metricCode": "REPRICING_GAP_RATE",
+  "scope": {
+    "orgCode": "LEGAL_ENTITY",
+    "currencyCode": "CNY_EQUIVALENT",
+    "tenor": "30D",
+    "caliber": "POINT_IN_TIME"
+  },
+  "baseDate": "2026-01-31",
+  "currentDate": "2026-02-28",
+  "base": { "...": "指标专属原始因子" },
+  "current": { "...": "指标专属原始因子" },
+  "options": { "tolerance": 1e-9, "strictHybrid": true }
+}</code></pre></div>
+        <ul>
+          <li>后端只传 JSON number 类型的有限数值，不传 <code>null</code>、<code>NaN</code>、<code>Infinity</code>、布尔值、空字符串、数值字符串、已经格式化的“亿元字符串”或百分号字符串；</li>
+          <li>所有数组或对象必须以稳定业务编码为 key，中文名称只作 label；</li>
+          <li>基期、本期因素集合必须一致。新增/退出业务用 0 补齐，不得因缺行导致因素错位；</li>
+          <li>内部交易是否纳入应在取数层完成，并随结果返回 <code>includesInternalTransactions</code>。</li>
+        </ul>
+        <div class="callout callout--important"><strong>严格数值校验：</strong>参考实现不做任何隐式类型转换，也不把非法值按 0 处理。原始因子、计算中间值、末级影响、分组影响、指标值及勾稽残差只要出现非 number 类型或非有限数值，立即抛出异常并停止返回归因结果。</div>
+        <h3>10.2 统一响应</h3>
+        <div class="code-shell"><pre><code>{
+  "metric": "repricingGapRate",
+  "unit": "pct",
+  "baseValue": 9.428571428571429,
+  "currentValue": 9.18918918918919,
+  "change": -0.23938223938223935,
+  "method": "three-level-nested-owen",
+  "groups": [
+    {
+      "key": "assets",
+      "label": "资产端业务",
+      "impact": 0.8725868725868722,
+      "children": [
+        {
+          "key": "investment",
+          "label": "investment",
+          "impact": -1.6470398970398974,
+          "children": [
+            { "key": "investment.repricingScale", "label": "重定价规模", "impact": -1.3894251394251396 },
+            { "key": "investment.totalScale", "label": "总规模", "impact": -0.2576147576147578 }
+          ]
+        },
+        {
+          "key": "loan",
+          "label": "loan",
+          "impact": 2.5196267696267696,
+          "children": [
+            { "key": "loan.repricingScale", "label": "重定价规模", "impact": 2.7788502788502787 },
+            { "key": "loan.totalScale", "label": "总规模", "impact": -0.2592235092235093 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "liabilities",
+      "label": "负债端业务",
+      "impact": -1.3899613899613898,
+      "children": [
+        { "key": "deposits", "label": "deposits", "impact": -1.3899613899613898 }
+      ]
+    },
+    {
+      "key": "bankBook",
+      "label": "银行账簿表外衍生品",
+      "impact": -0.277992277992278,
+      "children": [
+        { "key": "bankBook.receivable", "label": "应收", "impact": 0 },
+        { "key": "bankBook.payable", "label": "应付", "impact": -0.277992277992278 }
+      ]
+    },
+    {
+      "key": "tradingBook",
+      "label": "交易账簿表外衍生品",
+      "impact": 0.555984555984556,
+      "children": [
+        { "key": "tradingBook.receivable", "label": "应收", "impact": 0.555984555984556 },
+        { "key": "tradingBook.payable", "label": "应付", "impact": 0 }
+      ]
+    }
+  ],
+  "reconciliation": {
+    "impactSum": -0.23938223938223968,
+    "residual": 3.3306690738754696e-16,
+    "passed": true,
+    "tolerance": 1e-9
+  },
+  "metadata": {
+    "precision": "raw",
+    "displayRounding": "frontend-only",
+    "numericValidation": "strict-number-and-finite",
+    "effectiveAssetBusinessCount": 2,
+    "marginalDifferenceCount": 128,
+    "uncachedEvaluationCount": 256,
+    "strictHybrid": true
+  }
+}</code></pre></div>
+        <p>该示例完整列出四个一级分组及全部末级因素：每个父节点影响均等于其子节点影响之和，四个一级分组影响之和等于 <code>reconciliation.impactSum</code>，再与指标实际变化进行最终勾稽。示例不再用不完整的局部节点代表完整响应。</p>
+        <h3>10.3 指标专属输入摘要</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>函数</th><th>base/current 所需字段</th><th>特别控制</th></tr></thead>
+          <tbody>
+            <tr><td><code>decomposeEve</code></td><td><code>scenarios</code>；法人 <code>capital</code>，或境外 <code>overseasRwa/legalRwa/legalTier1Capital</code></td><td>六情景顺序固定；遍历64个混合状态并逐次重算max；并列标签优先基期情景</td></tr>
+            <tr><td><code>decomposeLcr</code></td><td><code>hqlaComponents.level1/level2A/level2B</code>、<code>cashOutflow/cashInflow</code></td><td>HQLA三项为直接输入字段；max并列沿用基期分支</td></tr>
+            <tr><td><code>decomposeNsfr</code></td><td><code>asf/rsf</code></td><td>RSF必须大于0</td></tr>
+            <tr><td><code>decomposeLiquidityRatio</code></td><td><code>assets/liabilities</code> 为剔除同业净额后的项目键值对象；另传 <code>interbankNetPosition</code></td><td>三组Owen；同业输出互斥；跨零时按每条路径桥接</td></tr>
+            <tr><td><code>decomposeLiquidityGap</code></td><td>10个监管报表末级项目</td><td>所有项目使用同一期限T；缺口金额直接线性分解，缺口率采用N/A两组Owen</td></tr>
+            <tr><td><code>decomposeRepricingGapRate</code></td><td><code>assets/liabilities/bankBook/tradingBook</code></td><td>六类资产业务均传repricingScale、totalScale；校验全部真实及跨期混合状态</td></tr>
+            <tr><td><code>decomposeDurationGap</code></td><td><code>assets/liabilities</code>，每项含scale、duration</td><td>顶层线性折叠；两侧分别做联合业务Shapley；不含表外衍生品</td></tr>
+          </tbody>
+        </table></div>
+        <h3>10.4 页面字段映射</h3>
+        <p>结果指标卡只显示“当前值、较基期”；不再重复显示“影响”。分解因素卡显示“当前值、增量、增速、影响”。页面中的增量/增速来自原始因子本身，影响来自本文算法，两者不可互相替代。</p>
+      </section>
+
+      <section id="implementation">
+        <h2>11. 完整可执行 JavaScript 参考实现</h2>
+        <p>以下代码无第三方依赖，可直接复制到浏览器或 Node.js。它覆盖本文八类指标，默认原始精度计算、严格勾稽，并在重定价缺口率中启用跨期混合有效性检查。</p>
+        <div class="code-shell">
+          <div class="code-toolbar"><span>risk-attribution-reference.js</span><span><button type="button" id="copy-code">复制全部代码</button> <button type="button" id="self-test">运行内置自测</button></span></div>
+          <div class="code-scroll"><pre><code id="source-code">代码正在载入……</code></pre></div>
+        </div>
+        <div id="test-output" class="callout">打开本文档后可点击“运行内置自测”；页面载入时也会自动执行一次。</div>
+        <script id="calculation-implementation">
+(function (global) {
+  "use strict";
+
+  const EPS = 1e-10;
+  const FACTORIAL = [1];
+
+  function factorial(n) {
+    for (let i = FACTORIAL.length; i <= n; i += 1) {
+      FACTORIAL[i] = FACTORIAL[i - 1] * i;
+    }
+    return FACTORIAL[n];
+  }
+
+  function popcount(value) {
+    let n = value;
+    let count = 0;
+    while (n) {
+      n &= n - 1;
+      count += 1;
+    }
+    return count;
+  }
+
+  function permutations(items) {
+    if (items.length < 2) return [items.slice()];
+    return items.flatMap((item, index) => {
+      const rest = items.slice(0, index).concat(items.slice(index + 1));
+      return permutations(rest).map((tail) => [item].concat(tail));
+    });
+  }
+
+  function cartesianProduct(arrays) {
+    return arrays.reduce((products, choices) => products.flatMap((product) =>
+      choices.map((choice) => product.concat([choice]))
+    ), [[]]);
+  }
+
+  function calculateTwoLevelOwen({ base, current, groups, evaluate }) {
+    if (typeof evaluate !== "function") throw new TypeError("evaluate 必须是函数");
+    if (!Array.isArray(groups) || groups.length === 0
+      || groups.some((group) => !Array.isArray(group) || group.length === 0)) {
+      throw new TypeError("groups 必须是由非空因素组构成的数组");
+    }
+    const baseKeys = keysOf(base, "base");
+    const currentKeys = keysOf(current, "current");
+    if (baseKeys.join("|") !== currentKeys.join("|")) {
+      throw new RangeError("base 与 current 的因素必须完全一致");
+    }
+    const factorKeys = groups.flat();
+    const uniqueKeys = Array.from(new Set(factorKeys)).sort();
+    if (factorKeys.length !== uniqueKeys.length || uniqueKeys.join("|") !== baseKeys.join("|")) {
+      throw new RangeError("groups 必须无重复、无遗漏地覆盖全部因素");
+    }
+    factorKeys.forEach((key) => {
+      assertFiniteNumber(base[key], "base." + key);
+      assertFiniteNumber(current[key], "current." + key);
+    });
+
+    const baseValue = assertFiniteNumber(evaluate({ ...base }), "Owen基期指标");
+    const currentValue = assertFiniteNumber(evaluate({ ...current }), "Owen本期指标");
+    const impacts = Object.fromEntries(factorKeys.map((key) => [key, 0]));
+    let pathCount = 0;
+
+    permutations(groups.map((group) => group.slice())).forEach((groupOrder) => {
+      const withinGroupOrders = groupOrder.map((group) => permutations(group));
+      cartesianProduct(withinGroupOrders).forEach((memberOrders) => {
+        const state = { ...base };
+        let before = baseValue;
+        memberOrders.flat().forEach((key) => {
+          state[key] = current[key];
+          const after = assertFiniteNumber(evaluate({ ...state }), "Owen混合状态指标");
+          impacts[key] += after - before;
+          before = after;
+        });
+        pathCount += 1;
+      });
+    });
+
+    factorKeys.forEach((key) => { impacts[key] /= pathCount; });
+    const impactSum = factorKeys.reduce((sum, key) => sum + impacts[key], 0);
+    return {
+      baseValue,
+      currentValue,
+      impacts,
+      pathCount,
+      impactSum,
+      residual: impactSum - (currentValue - baseValue),
+    };
+  }
+
+  function assertFiniteNumber(value, name) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new TypeError(name + " 必须是number类型的有限数值；不接受null、NaN、Infinity、布尔值或数值字符串");
+    }
+    return value;
+  }
+
+  function assertPositive(value, name) {
+    const number = assertFiniteNumber(value, name);
+    if (number <= 0) throw new RangeError(name + " 必须大于0");
+    return number;
+  }
+
+  function keysOf(object, name) {
+    if (!object || typeof object !== "object" || Array.isArray(object)) {
+      throw new TypeError(name + " 必须是键值对象");
+    }
+    return Object.keys(object).sort();
+  }
+
+  function assertSameKeys(base, current, name) {
+    const baseKeys = keysOf(base, name + ".base");
+    const currentKeys = keysOf(current, name + ".current");
+    if (baseKeys.join("|") !== currentKeys.join("|")) {
+      throw new RangeError(name + " 的基期、本期业务编码必须完全一致；新增/退出业务请用0补齐");
+    }
+    return baseKeys;
+  }
+
+  function assertExactKeys(object, expectedKeys, name) {
+    const actualKeys = keysOf(object, name);
+    const expected = expectedKeys.slice().sort();
+    if (actualKeys.join("|") !== expected.join("|")) {
+      throw new RangeError(name + " 必须且只能包含字段：" + expected.join("、"));
+    }
+    return actualKeys;
+  }
+
+  function sumObject(object, name) {
+    const objectName = name || "键值对象";
+    return keysOf(object, objectName).reduce((sum, key) => (
+      sum + assertFiniteNumber(object[key], objectName + "." + key)
+    ), 0);
+  }
+
+  function sumImpacts(items, name) {
+    const itemsName = name || "影响列表";
+    if (!Array.isArray(items)) throw new TypeError(itemsName + " 必须是数组");
+    return items.reduce((sum, item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw new TypeError(itemsName + "[" + index + "]必须是影响对象");
+      }
+      return sum + assertFiniteNumber(item.impact, itemsName + "[" + index + "].impact");
+    }, 0);
+  }
+
+  function normalizeTolerance(tolerance) {
+    if (tolerance === undefined) return 1e-9;
+    const value = assertFiniteNumber(tolerance, "options.tolerance");
+    if (value <= 0) throw new RangeError("options.tolerance 必须大于0");
+    return value;
+  }
+
+  function validateGroupTree(groups, relativeTolerance, path) {
+    if (!Array.isArray(groups)) throw new TypeError(path + " 必须是数组");
+    groups.forEach((group, index) => {
+      const groupPath = path + "[" + index + "]";
+      if (!group || typeof group !== "object" || Array.isArray(group)) {
+        throw new TypeError(groupPath + " 必须是影响对象");
+      }
+      const impact = assertFiniteNumber(group.impact, groupPath + ".impact");
+      if (group.children === undefined) return;
+      if (!Array.isArray(group.children) || group.children.length === 0) {
+        throw new TypeError(groupPath + ".children 必须是非空数组");
+      }
+      validateGroupTree(group.children, relativeTolerance, groupPath + ".children");
+      const childSum = sumImpacts(group.children, groupPath + ".children");
+      const childLimit = relativeTolerance * Math.max(1, Math.abs(impact));
+      if (Math.abs(impact - childSum) > childLimit) {
+        throw new RangeError(groupPath + "的分组影响与子项影响之和不一致");
+      }
+    });
+  }
+
+  function makeResult(metric, unit, baseValue, currentValue, method, groups, metadata, tolerance) {
+    const validatedBaseValue = assertFiniteNumber(baseValue, metric + ".baseValue");
+    const validatedCurrentValue = assertFiniteNumber(currentValue, metric + ".currentValue");
+    const relativeTolerance = normalizeTolerance(tolerance);
+    validateGroupTree(groups, relativeTolerance, metric + ".groups");
+    const change = assertFiniteNumber(validatedCurrentValue - validatedBaseValue, metric + ".change");
+    const impactSum = assertFiniteNumber(sumImpacts(groups, metric + ".groups"), metric + ".reconciliation.impactSum");
+    const residual = change - impactSum;
+    assertFiniteNumber(residual, metric + ".reconciliation.residual");
+    const limit = relativeTolerance * Math.max(1, Math.abs(change));
+    return {
+      metric,
+      unit,
+      baseValue: validatedBaseValue,
+      currentValue: validatedCurrentValue,
+      change,
+      method,
+      groups,
+      reconciliation: {
+        impactSum,
+        residual,
+        passed: Math.abs(residual) <= limit,
+        tolerance: limit,
+      },
+      metadata: Object.assign({
+        precision: "raw",
+        displayRounding: "frontend-only",
+        numericValidation: "strict-number-and-finite",
+      }, metadata || {}),
+    };
+  }
+
+  function ratioValue(numerator, denominator, complement) {
+    const d = assertPositive(denominator, "比例分母");
+    return 100 * (complement ? 1 - numerator / d : numerator / d);
+  }
+
+  function decomposeTwoFactorRatio(n0, n1, d0, d1, complement) {
+    const f = (n, d) => ratioValue(n, d, complement);
+    return {
+      numerator: 0.5 * ((f(n1, d0) - f(n0, d0)) + (f(n1, d1) - f(n0, d1))),
+      denominator: 0.5 * ((f(n0, d1) - f(n0, d0)) + (f(n1, d1) - f(n1, d0))),
+    };
+  }
+
+  function shapleyBySubsets(factors, evaluate) {
+    const n = factors.length;
+    if (!n) return {};
+    if (n > 20) throw new RangeError("单层因素超过20个，请先按业务含义分组");
+    const result = Object.fromEntries(factors.map((factor) => [factor.key, 0]));
+    const denominator = factorial(n);
+    const totalMasks = 2 ** n;
+    for (let target = 0; target < n; target += 1) {
+      const targetBit = 2 ** target;
+      for (let mask = 0; mask < totalMasks; mask += 1) {
+        if (mask & targetBit) continue;
+        const subsetSize = popcount(mask);
+        const weight = factorial(subsetSize) * factorial(n - subsetSize - 1) / denominator;
+        const values = {};
+        factors.forEach((factor, index) => {
+          values[factor.key] = mask & (2 ** index) ? factor.current : factor.baseline;
+        });
+        const before = evaluate(values);
+        values[factors[target].key] = factors[target].current;
+        const after = evaluate(values);
+        result[factors[target].key] += weight * (after - before);
+      }
+    }
+    return result;
+  }
+
+  function eveScenarioLoss(value, name) {
+    return -assertFiniteNumber(value, name);
+  }
+
+  function chooseMaxLossScenario(scenarios, order, preferredKey) {
+    let maxLoss = -Infinity;
+    const candidates = [];
+    order.forEach((key) => {
+      const loss = eveScenarioLoss(scenarios[key], "情景 " + key);
+      if (loss > maxLoss + EPS) {
+        maxLoss = loss;
+        candidates.length = 0;
+        candidates.push(key);
+      } else if (Math.abs(loss - maxLoss) <= EPS) {
+        candidates.push(key);
+      }
+    });
+    if (maxLoss < -EPS) throw new RangeError("六情景最大损失不得小于0");
+    const key = preferredKey && candidates.includes(preferredKey) ? preferredKey : candidates[0];
+    return { key, lossValue: eveScenarioLoss(scenarios[key], "情景 " + key) };
+  }
+
+  function eveCapitalSnapshot(period, name) {
+    if (Object.prototype.hasOwnProperty.call(period, "capital")) {
+      return { kind: "legal", capital: assertPositive(period.capital, name + ".capital") };
+    }
+    const O = assertPositive(period.overseasRwa, name + ".overseasRwa");
+    const L = assertPositive(period.legalRwa, name + ".legalRwa");
+    const T = assertPositive(period.legalTier1Capital, name + ".legalTier1Capital");
+    return { kind: "overseas", O, L, T, capital: O / L * T };
+  }
+
+  function decomposeEve(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const scenarioKeys = assertSameKeys(input.base.scenarios, input.current.scenarios, "scenarios");
+    const order = input.scenarioOrder || scenarioKeys;
+    if (Array.from(new Set(order)).sort().join("|") !== scenarioKeys.join("|")) {
+      throw new RangeError("scenarioOrder 必须且只能包含全部情景编码");
+    }
+    const baseWorst = chooseMaxLossScenario(input.base.scenarios, order, "");
+    const currentWorst = chooseMaxLossScenario(input.current.scenarios, order, baseWorst.key);
+    const M0 = baseWorst.lossValue;
+    const M1 = currentWorst.lossValue;
+    const baseCapital = eveCapitalSnapshot(input.base, "base");
+    const currentCapital = eveCapitalSnapshot(input.current, "current");
+    if (baseCapital.kind !== currentCapital.kind) throw new RangeError("基期、本期资本口径必须一致");
+    const C0 = baseCapital.capital;
+    const C1 = currentCapital.capital;
+    const kM = 0.5 * (100 / C0 + 100 / C1);
+    const scenarioFactors = order.map((key) => ({
+      key,
+      baseline: assertFiniteNumber(input.base.scenarios[key], "base.scenarios." + key),
+      current: assertFiniteNumber(input.current.scenarios[key], "current.scenarios." + key),
+    }));
+    const evaluateMaximumLoss = (state) => {
+      const maximumLoss = Math.max(...order.map((key) => eveScenarioLoss(state[key], "混合情景 " + key)));
+      if (maximumLoss < -EPS) throw new RangeError("△EVE归因混合状态的六情景最大损失不得小于0");
+      return maximumLoss;
+    };
+    const scenarioAmountImpacts = shapleyBySubsets(scenarioFactors, evaluateMaximumLoss);
+    const scenarioChildren = order.map((key) => ({
+      key,
+      label: key,
+      amountChange: scenarioAmountImpacts[key],
+      impact: scenarioAmountImpacts[key] * kM,
+    }));
+    const scenarioAmountTotal = Object.values(scenarioAmountImpacts).reduce((sum, value) => sum + value, 0);
+    if (Math.abs(scenarioAmountTotal - (M1 - M0)) > EPS) {
+      throw new Error("六情景Shapley金额影响未与最大损失额变化勾稽");
+    }
+    let capitalChildren;
+    let method;
+    if (baseCapital.kind === "legal") {
+      const top = decomposeTwoFactorRatio(M0, M1, C0, C1, false);
+      capitalChildren = [{ key: "legalTier1Capital", label: "法人本外币合计一级资本净额", impact: top.denominator }];
+      method = "six-scenario-shapley-and-two-group-owen";
+    } else {
+      const capitalImpact = { O: 0, L: 0, T: 0 };
+      const topOrders = [["M", "C"], ["C", "M"]];
+      const internalOrders = permutations(["O", "L", "T"]);
+      const pathWeight = 1 / (topOrders.length * internalOrders.length);
+      const evaluate = (state) => 100 * state.M / (state.O / state.L * state.T);
+      topOrders.forEach((topOrder) => internalOrders.forEach((internalOrder) => {
+        const state = { M: M0, O: baseCapital.O, L: baseCapital.L, T: baseCapital.T };
+        topOrder.forEach((group) => {
+          if (group === "M") {
+            state.M = M1;
+            return;
+          }
+          internalOrder.forEach((key) => {
+            const before = evaluate(state);
+            state[key] = currentCapital[key];
+            capitalImpact[key] += pathWeight * (evaluate(state) - before);
+          });
+        });
+      }));
+      capitalChildren = [
+        { key: "overseasRwa", label: "境外分行RWA", impact: capitalImpact.O },
+        { key: "legalRwa", label: "法人RWA", impact: capitalImpact.L },
+        { key: "legalTier1Capital", label: "法人本外币合计一级资本净额", impact: capitalImpact.T },
+      ];
+      method = "six-scenario-shapley-and-capital-grouped-owen";
+    }
+    const groups = [
+      { key: "numerator", label: "六情景最大经济价值损失", impact: sumImpacts(scenarioChildren), children: scenarioChildren },
+      { key: "capital", label: "资本净额", impact: sumImpacts(capitalChildren), children: capitalChildren },
+    ];
+    return makeResult("eveRate", "pct", 100 * M0 / C0, 100 * M1 / C1, method, groups, {
+      baseWorstScenario: baseWorst.key,
+      currentWorstScenario: currentWorst.key,
+      scenarioSelection: "maximumLoss",
+      scenarioStateCount: 2 ** order.length,
+      structuralPathCount: 2 * factorial(order.length) * (baseCapital.kind === "overseas" ? factorial(3) : 1),
+      optimizedCapitalPathCount: baseCapital.kind === "overseas" ? 12 : 2,
+    }, tolerance);
+  }
+
+  function lcrSnapshot(period, preferredBranch, name) {
+    const cashOutflow = assertPositive(period.cashOutflow, name + ".cashOutflow");
+    const cashInflow = assertFiniteNumber(period.cashInflow, name + ".cashInflow");
+    const raw = cashOutflow - cashInflow;
+    const floor = 0.25 * cashOutflow;
+    const tied = Math.abs(raw - floor) <= EPS;
+    const branch = tied && preferredBranch ? preferredBranch : (raw >= floor ? "raw" : "floor");
+    return { cashOutflow, cashInflow, raw, floor, branch, denominator: Math.max(raw, floor) };
+  }
+
+  function decomposeLcr(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const requiredHqlaKeys = ["level1", "level2A", "level2B"];
+    const baseHqlaKeys = assertExactKeys(input.base.hqlaComponents, requiredHqlaKeys, "base.hqlaComponents");
+    const currentHqlaKeys = assertExactKeys(input.current.hqlaComponents, requiredHqlaKeys, "current.hqlaComponents");
+    if (baseHqlaKeys.join("|") !== currentHqlaKeys.join("|")) {
+      throw new RangeError("hqlaComponents 的基期、本期字段必须完全一致");
+    }
+    const keys = requiredHqlaKeys;
+    const H0 = sumObject(input.base.hqlaComponents, "base.hqlaComponents");
+    const H1 = sumObject(input.current.hqlaComponents, "current.hqlaComponents");
+    const base = lcrSnapshot(input.base, "", "base");
+    const current = lcrSnapshot(input.current, base.branch, "current");
+    assertPositive(base.denominator, "base LCR分母");
+    assertPositive(current.denominator, "current LCR分母");
+    const denominatorImpact = { cashOutflow: 0, cashInflow: 0 };
+    const internalOrders = permutations(["cashOutflow", "cashInflow"]);
+    const topOrders = [["H", "D"], ["D", "H"]];
+    const weight = 1 / (topOrders.length * internalOrders.length);
+    topOrders.forEach((topOrder) => internalOrders.forEach((internalOrder) => {
+      let H = H0;
+      let cashOutflow = base.cashOutflow;
+      let cashInflow = base.cashInflow;
+      const evaluate = () => {
+        const denominator = Math.max(cashOutflow - cashInflow, 0.25 * cashOutflow);
+        return 100 * H / assertPositive(denominator, "LCR反事实分母");
+      };
+      topOrder.forEach((group) => {
+        if (group === "H") {
+          H = H1;
+          return;
+        }
+        internalOrder.forEach((key) => {
+          const before = evaluate();
+          if (key === "cashOutflow") cashOutflow = current.cashOutflow;
+          if (key === "cashInflow") cashInflow = current.cashInflow;
+          denominatorImpact[key] += weight * (evaluate() - before);
+        });
+      });
+    }));
+    const kH = 0.5 * (100 / base.denominator + 100 / current.denominator);
+    const hqlaChildren = keys.map((key) => {
+      const amountChange = input.current.hqlaComponents[key] - input.base.hqlaComponents[key];
+      return { key, label: key, amountChange, impact: amountChange * kH };
+    });
+    const denominatorChildren = [
+      { key: "cashOutflow", label: "现金流出", amountChange: current.cashOutflow - base.cashOutflow, impact: denominatorImpact.cashOutflow },
+      { key: "cashInflow", label: "现金流入", amountChange: current.cashInflow - base.cashInflow, impact: denominatorImpact.cashInflow },
+    ];
+    const groups = [
+      { key: "hqla", label: "合格优质流动性资产HQLA", impact: sumImpacts(hqlaChildren), children: hqlaChildren },
+      { key: "netCashOutflow", label: "经调整后净现金流出", impact: sumImpacts(denominatorChildren), children: denominatorChildren },
+    ];
+    return makeResult("lcr", "pct", 100 * H0 / base.denominator, 100 * H1 / current.denominator,
+      "direct-max-grouped-owen-4-paths", groups, {
+        baseBranch: base.branch,
+        currentBranch: current.branch,
+        branchSwitched: base.branch !== current.branch,
+        pathCount: 4,
+      }, tolerance);
+  }
+
+  function decomposeNsfr(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const asf0 = assertFiniteNumber(input.base.asf, "base.asf");
+    const asf1 = assertFiniteNumber(input.current.asf, "current.asf");
+    const rsf0 = assertPositive(input.base.rsf, "base.rsf");
+    const rsf1 = assertPositive(input.current.rsf, "current.rsf");
+    const impact = decomposeTwoFactorRatio(asf0, asf1, rsf0, rsf1, false);
+    return makeResult("nsfr", "pct", 100 * asf0 / rsf0, 100 * asf1 / rsf1, "two-factor-shapley", [
+      { key: "asf", label: "可用稳定资金ASF", impact: impact.numerator },
+      { key: "rsf", label: "所需稳定资金RSF", impact: impact.denominator },
+    ], {}, tolerance);
+  }
+
+  function decomposeLiquidityRatio(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const assetKeys = assertSameKeys(input.base.assets, input.current.assets, "assets");
+    const liabilityKeys = assertSameKeys(input.base.liabilities, input.current.liabilities, "liabilities");
+    const N0 = assertFiniteNumber(input.base.interbankNetPosition, "base.interbankNetPosition");
+    const N1 = assertFiniteNumber(input.current.interbankNetPosition, "current.interbankNetPosition");
+    const assetFactors = assetKeys.map((key) => ({
+      key,
+      baseline: assertFiniteNumber(input.base.assets[key], "base.assets." + key),
+      current: assertFiniteNumber(input.current.assets[key], "current.assets." + key),
+    }));
+    const liabilityFactors = liabilityKeys.map((key) => ({
+      key,
+      baseline: assertFiniteNumber(input.base.liabilities[key], "base.liabilities." + key),
+      current: assertFiniteNumber(input.current.liabilities[key], "current.liabilities." + key),
+    }));
+
+    const value = (assets, liabilities, netPosition) => {
+      const assetTotal = sumObject(assets, "流动性资产联盟");
+      const liabilityTotal = sumObject(liabilities, "流动性负债联盟");
+      const denominator = assertPositive(
+        liabilityTotal + Math.max(-netPosition, 0),
+        "流动性负债联盟合计"
+      );
+      return 100 * (assetTotal + Math.max(netPosition, 0)) / denominator;
+    };
+    const bridge = (assets, liabilities) => {
+      const before = value(assets, liabilities, N0);
+      const atZero = value(assets, liabilities, 0);
+      const after = value(assets, liabilities, N1);
+      if (N0 >= 0 && N1 >= 0) {
+        return { assetSide: after - before, liabilitySide: 0 };
+      }
+      if (N0 <= 0 && N1 <= 0) {
+        return { assetSide: 0, liabilitySide: after - before };
+      }
+      if (N0 > 0) {
+        return { assetSide: atZero - before, liabilitySide: after - atZero };
+      }
+      return { assetSide: after - atZero, liabilitySide: atZero - before };
+    };
+
+    const groupOrders = [
+      ["assets", "liabilities", "interbank"],
+      ["assets", "interbank", "liabilities"],
+      ["liabilities", "assets", "interbank"],
+      ["liabilities", "interbank", "assets"],
+      ["interbank", "assets", "liabilities"],
+      ["interbank", "liabilities", "assets"],
+    ];
+    const assetTotals = Object.fromEntries(assetKeys.map((key) => [key, 0]));
+    const liabilityTotals = Object.fromEntries(liabilityKeys.map((key) => [key, 0]));
+    let interbankAssetSideTotal = 0;
+    let interbankLiabilitySideTotal = 0;
+
+    groupOrders.forEach((order) => {
+      const state = {
+        assets: Object.assign({}, input.base.assets),
+        liabilities: Object.assign({}, input.base.liabilities),
+        interbankNetPosition: N0,
+      };
+      order.forEach((groupKey) => {
+        if (groupKey === "assets") {
+          const denominator = assertPositive(
+            sumObject(state.liabilities, "路径流动性负债") + Math.max(-state.interbankNetPosition, 0),
+            "路径流动性负债合计"
+          );
+          assetFactors.forEach((factor) => {
+            assetTotals[factor.key] += 100 * (factor.current - factor.baseline) / denominator;
+            state.assets[factor.key] = factor.current;
+          });
+          return;
+        }
+        if (groupKey === "liabilities") {
+          const impacts = shapleyBySubsets(liabilityFactors, (liabilities) => (
+            value(state.assets, liabilities, state.interbankNetPosition)
+          ));
+          liabilityKeys.forEach((key) => { liabilityTotals[key] += impacts[key]; });
+          state.liabilities = Object.assign({}, input.current.liabilities);
+          return;
+        }
+        const split = bridge(state.assets, state.liabilities);
+        interbankAssetSideTotal += split.assetSide;
+        interbankLiabilitySideTotal += split.liabilitySide;
+        state.interbankNetPosition = N1;
+      });
+    });
+    Object.keys(assetTotals).forEach((key) => { assetTotals[key] /= groupOrders.length; });
+    Object.keys(liabilityTotals).forEach((key) => { liabilityTotals[key] /= groupOrders.length; });
+    interbankAssetSideTotal /= groupOrders.length;
+    interbankLiabilitySideTotal /= groupOrders.length;
+
+    const assetChildren = assetKeys.map((key) => ({ key, label: key, impact: assetTotals[key] }));
+    const liabilityChildren = liabilityKeys.map((key) => ({ key, label: key, impact: liabilityTotals[key] }));
+    const interbankChildren = [
+      { key: "interbankAssetSide", label: "一个月内到期同业往来轧差后资产净额", impact: interbankAssetSideTotal },
+      { key: "interbankLiabilitySide", label: "一个月内到期同业往来轧差后负债净额", impact: interbankLiabilitySideTotal },
+    ];
+    const groups = [
+      { key: "otherAssets", label: "其他流动性资产", impact: sumImpacts(assetChildren), children: assetChildren },
+      { key: "otherLiabilities", label: "其他流动性负债", impact: sumImpacts(liabilityChildren), children: liabilityChildren },
+      {
+        key: "interbankNetPosition",
+        label: "一个月内到期同业往来轧差净头寸",
+        impact: sumImpacts(interbankChildren),
+        children: interbankChildren,
+      },
+    ];
+    const baseValue = value(input.base.assets, input.base.liabilities, N0);
+    const currentValue = value(input.current.assets, input.current.liabilities, N1);
+    return makeResult("liquidityRatio", "pct", baseValue, currentValue,
+      "three-group-owen-with-interbank-zero-bridge-6-paths", groups, {
+        pathCount: groupOrders.length,
+        jointFactor: true,
+        splitAtZero: true,
+        interbankNetPosition: {
+          baseline: N0,
+          current: N1,
+          baselineDirection: N0 > 0 ? "asset" : N0 < 0 ? "liability" : "zero",
+          currentDirection: N1 > 0 ? "asset" : N1 < 0 ? "liability" : "zero",
+        },
+        regulatoryPresentation: {
+          baseline: { assetNet: Math.max(N0, 0), liabilityNet: Math.max(-N0, 0) },
+          current: { assetNet: Math.max(N1, 0), liabilityNet: Math.max(-N1, 0) },
+        },
+      }, tolerance);
+  }
+
+  const LIQUIDITY_GAP_SIGNS = {
+    assetTotal: 1,
+    offBalanceIncome: 1,
+    internalTransactionAssets: 1,
+    liabilityTotal: -1,
+    offBalanceExpense: -1,
+    internalTransactionLiabilities: -1,
+    demandDeposits: 1,
+    noteDemandDeposits: -1,
+    demandPlacements: 1,
+    noteDemandPlacements: -1,
+  };
+
+  function liquidityGapSnapshot(period, name) {
+    Object.keys(LIQUIDITY_GAP_SIGNS).forEach((key) => assertFiniteNumber(period[key], name + "." + key));
+    const assets = period.assetTotal + period.offBalanceIncome + period.internalTransactionAssets;
+    const liabilities = period.liabilityTotal + period.offBalanceExpense + period.internalTransactionLiabilities;
+    const depositAdjustment = period.demandDeposits - period.noteDemandDeposits;
+    const placementAdjustment = period.demandPlacements - period.noteDemandPlacements;
+    const adjustedLiabilities = liabilities - depositAdjustment - placementAdjustment;
+    const gap = assets - adjustedLiabilities;
+    assertPositive(assets, name + "到期表内外资产（含内部交易）");
+    return { assets, liabilities, depositAdjustment, placementAdjustment, adjustedLiabilities, gap, rate: 100 * gap / assets };
+  }
+
+  function decomposeLiquidityGap(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const base = liquidityGapSnapshot(input.base, "base");
+    const current = liquidityGapSnapshot(input.current, "current");
+    const amountImpact = Object.fromEntries(Object.keys(LIQUIDITY_GAP_SIGNS).map((key) => [
+      key,
+      LIQUIDITY_GAP_SIGNS[key] * (input.current[key] - input.base[key]),
+    ]));
+    const makeAmountChildren = (keys) => keys.map((key) => ({ key, label: key, impact: amountImpact[key] }));
+    const amountGroups = [
+      { key: "assets", label: "到期表内外资产（含内部交易）", children: makeAmountChildren(["assetTotal", "offBalanceIncome", "internalTransactionAssets"]) },
+      { key: "liabilities", label: "到期表内外负债（含内部交易）", children: makeAmountChildren(["liabilityTotal", "offBalanceExpense", "internalTransactionLiabilities"]) },
+      { key: "depositAdjustment", label: "活期存款调整", children: makeAmountChildren(["demandDeposits", "noteDemandDeposits"]) },
+      { key: "placementAdjustment", label: "活期存放调整", children: makeAmountChildren(["demandPlacements", "noteDemandPlacements"]) },
+    ].map((group) => Object.assign(group, { impact: sumImpacts(group.children) }));
+    const amount = makeResult("liquidityGap", "amount", base.gap, current.gap, "direct-signed-linear-decomposition", [
+      ...amountGroups,
+    ], {}, tolerance);
+
+    const adjustedSigns = {
+      liabilityTotal: 1,
+      offBalanceExpense: 1,
+      internalTransactionLiabilities: 1,
+      demandDeposits: -1,
+      noteDemandDeposits: 1,
+      demandPlacements: -1,
+      noteDemandPlacements: 1,
+    };
+    const kN = -0.5 * (100 / base.assets + 100 / current.assets);
+    const adjustedLeafImpact = Object.fromEntries(Object.keys(adjustedSigns).map((key) => [key,
+      adjustedSigns[key] * (input.current[key] - input.base[key]) * kN,
+    ]));
+    const makeAdjustedChildren = (keys) => keys.map((key) => ({
+      key,
+      label: key,
+      impact: adjustedLeafImpact[key],
+    }));
+    const adjustedChildren = [
+      { key: "liabilities", label: "到期表内外负债（含内部交易）", children: makeAdjustedChildren(["liabilityTotal", "offBalanceExpense", "internalTransactionLiabilities"]) },
+      { key: "depositAdjustment", label: "减：活期存款调整", children: makeAdjustedChildren(["demandDeposits", "noteDemandDeposits"]) },
+      { key: "placementAdjustment", label: "减：活期存放调整", children: makeAdjustedChildren(["demandPlacements", "noteDemandPlacements"]) },
+    ].map((group) => Object.assign(group, { impact: sumImpacts(group.children) }));
+    const assetKeys = ["assetTotal", "offBalanceIncome", "internalTransactionAssets"];
+    const assetFactors = assetKeys.map((key) => ({ key, baseline: input.base[key], current: input.current[key] }));
+    const assetRaw = shapleyBySubsets(assetFactors, (values) => {
+      const assets = assertPositive(sumObject(values), "资产联盟合计");
+      return 0.5 * (100 * (1 - base.adjustedLiabilities / assets) + 100 * (1 - current.adjustedLiabilities / assets));
+    });
+    const assetChildren = assetKeys.map((key) => ({ key, label: key, impact: assetRaw[key] }));
+    const top = decomposeTwoFactorRatio(base.adjustedLiabilities, current.adjustedLiabilities, base.assets, current.assets, true);
+    const rate = makeResult("liquidityGapRate", "pct", base.rate, current.rate, "two-group-owen-with-linear-liability-and-asset-internal-shapley", [
+      { key: "adjustedLiabilities", label: "到期表内外负债（含内部交易，调整活期）", impact: sumImpacts(adjustedChildren), children: adjustedChildren },
+      { key: "assets", label: "到期表内外资产（含内部交易）", impact: sumImpacts(assetChildren), children: assetChildren },
+    ], {
+      topLevelImpact: top,
+      groupOrderCount: 2,
+      assetInternalOrderCount: 6,
+      effectiveAssetPathCount: 12,
+      linearLiabilityOrderCollapsed: true,
+    }, tolerance);
+    return { amount, rate };
+  }
+
+  function normalizeRepricingPeriod(period, name) {
+    const assetKeys = keysOf(period.assets, name + ".assets");
+    const assets = {};
+    assetKeys.forEach((key) => {
+      const item = period.assets[key];
+      assets[key] = {
+        repricingScale: assertFiniteNumber(item.repricingScale, name + ".assets." + key + ".repricingScale"),
+        totalScale: assertFiniteNumber(item.totalScale, name + ".assets." + key + ".totalScale"),
+      };
+    });
+    const liabilities = {};
+    keysOf(period.liabilities, name + ".liabilities").forEach((key) => {
+      liabilities[key] = assertFiniteNumber(period.liabilities[key], name + ".liabilities." + key);
+    });
+    const normalizeBook = (book, label) => ({
+      receivable: assertFiniteNumber(book.receivable, name + "." + label + ".receivable"),
+      payable: assertFiniteNumber(book.payable, name + "." + label + ".payable"),
+    });
+    return { assets, liabilities, bankBook: normalizeBook(period.bankBook, "bankBook"), tradingBook: normalizeBook(period.tradingBook, "tradingBook") };
+  }
+
+  function repricingRate(state) {
+    const denominator = Object.values(state.assets).reduce((sum, item) => sum + item.totalScale, 0);
+    assertPositive(denominator, "总生息资产规模");
+    const assetRepricing = Object.values(state.assets).reduce((sum, item) => sum + item.repricingScale, 0);
+    const liabilityRepricing = sumObject(state.liabilities);
+    const bankGap = state.bankBook.receivable - state.bankBook.payable;
+    const tradingGap = state.tradingBook.receivable - state.tradingBook.payable;
+    return 100 * (assetRepricing - liabilityRepricing + bankGap + tradingGap) / denominator;
+  }
+
+  function validateRepricingHybrids(base, current, strictHybrid) {
+    const assetKeys = assertSameKeys(base.assets, current.assets, "repricing.assets");
+    assertSameKeys(base.liabilities, current.liabilities, "repricing.liabilities");
+    assetKeys.forEach((key) => {
+      const b = base.assets[key];
+      const c = current.assets[key];
+      [b, c].forEach((item, index) => {
+        if (item.repricingScale < -EPS || item.totalScale < -EPS || item.repricingScale > item.totalScale + EPS) {
+          throw new RangeError(key + " 在" + (index ? "本期" : "基期") + "不满足 0≤重定价规模≤总规模");
+        }
+      });
+      if (strictHybrid && (b.repricingScale > c.totalScale + EPS || c.repricingScale > b.totalScale + EPS)) {
+        throw new RangeError(key + " 的跨期混合状态不满足 0≤重定价规模≤总规模；不能独立拆分双字段");
+      }
+    });
+    return assetKeys;
+  }
+
+  function decomposeRepricingGapRate(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const strictHybrid = !input.options || input.options.strictHybrid !== false;
+    const base = normalizeRepricingPeriod(input.base, "base");
+    const current = normalizeRepricingPeriod(input.current, "current");
+    const assetKeys = validateRepricingHybrids(base, current, strictHybrid);
+    const liabilityKeys = assertSameKeys(base.liabilities, current.liabilities, "repricing.liabilities");
+    const n = assetKeys.length;
+    if (n > 15) throw new RangeError("资产业务类别过多，请先按正式业务分类归组");
+    const assetLeafImpact = {};
+    const topFactorial = factorial(4);
+    const businessFactorial = factorial(n);
+    const topMasks = 2 ** 3;
+    const businessMasks = 2 ** n;
+    const otherTopKeys = ["liabilities", "bankBook", "tradingBook"];
+
+    assetKeys.forEach((targetKey, targetIndex) => {
+      ["repricingScale", "totalScale"].forEach((targetField) => {
+        const leafKey = targetKey + "." + targetField;
+        assetLeafImpact[leafKey] = 0;
+        const otherField = targetField === "repricingScale" ? "totalScale" : "repricingScale";
+        for (let topMask = 0; topMask < topMasks; topMask += 1) {
+          const topSize = popcount(topMask);
+          const topWeight = factorial(topSize) * factorial(3 - topSize) / topFactorial;
+          for (let businessMask = 0; businessMask < businessMasks; businessMask += 1) {
+            if (businessMask & (2 ** targetIndex)) continue;
+            const businessSize = popcount(businessMask);
+            const businessWeight = factorial(businessSize) * factorial(n - businessSize - 1) / businessFactorial;
+            for (let otherFieldCurrent = 0; otherFieldCurrent <= 1; otherFieldCurrent += 1) {
+              const buildState = (targetCurrent) => {
+                const state = { assets: {}, liabilities: null, bankBook: null, tradingBook: null };
+                otherTopKeys.forEach((key, index) => {
+                  state[key] = topMask & (2 ** index) ? current[key] : base[key];
+                });
+                assetKeys.forEach((key, index) => {
+                  if (key !== targetKey) {
+                    state.assets[key] = businessMask & (2 ** index) ? current.assets[key] : base.assets[key];
+                    return;
+                  }
+                  state.assets[key] = Object.assign({}, base.assets[key]);
+                  state.assets[key][otherField] = otherFieldCurrent ? current.assets[key][otherField] : base.assets[key][otherField];
+                  state.assets[key][targetField] = targetCurrent ? current.assets[key][targetField] : base.assets[key][targetField];
+                });
+                return state;
+              };
+              const before = repricingRate(buildState(false));
+              const after = repricingRate(buildState(true));
+              assetLeafImpact[leafKey] += topWeight * businessWeight * 0.5 * (after - before);
+            }
+          }
+        }
+      });
+    });
+
+    const D0 = Object.values(base.assets).reduce((sum, item) => sum + item.totalScale, 0);
+    const D1 = Object.values(current.assets).reduce((sum, item) => sum + item.totalScale, 0);
+    const kLinear = 0.5 * (100 / D0 + 100 / D1);
+    const assetChildren = assetKeys.map((key) => {
+      const children = [
+        { key: key + ".repricingScale", label: "重定价规模", impact: assetLeafImpact[key + ".repricingScale"] },
+        { key: key + ".totalScale", label: "总规模", impact: assetLeafImpact[key + ".totalScale"] },
+      ];
+      return { key, label: key, impact: sumImpacts(children), children };
+    });
+    const liabilityChildren = liabilityKeys.map((key) => ({
+      key,
+      label: key,
+      impact: -(current.liabilities[key] - base.liabilities[key]) * kLinear,
+    }));
+    const bookChildren = (bookKey) => [
+      { key: bookKey + ".receivable", label: "应收", impact: (current[bookKey].receivable - base[bookKey].receivable) * kLinear },
+      { key: bookKey + ".payable", label: "应付", impact: -(current[bookKey].payable - base[bookKey].payable) * kLinear },
+    ];
+    const bankChildren = bookChildren("bankBook");
+    const tradingChildren = bookChildren("tradingBook");
+    const groups = [
+      { key: "assets", label: "资产端业务", impact: sumImpacts(assetChildren), children: assetChildren },
+      { key: "liabilities", label: "负债端业务", impact: sumImpacts(liabilityChildren), children: liabilityChildren },
+      { key: "bankBook", label: "银行账簿表外衍生品", impact: sumImpacts(bankChildren), children: bankChildren },
+      { key: "tradingBook", label: "交易账簿表外衍生品", impact: sumImpacts(tradingChildren), children: tradingChildren },
+    ];
+    return makeResult("repricingGapRate", "pct", repricingRate(base), repricingRate(current),
+      "three-level-nested-owen", groups, {
+        effectiveAssetBusinessCount: n,
+        marginalDifferenceCount: 16 * n * (2 ** n),
+        uncachedEvaluationCount: 32 * n * (2 ** n),
+        strictHybrid,
+      }, tolerance);
+  }
+
+  function normalizeDurationSide(side, name) {
+    const normalized = {};
+    keysOf(side, name).forEach((key) => {
+      normalized[key] = {
+        scale: assertFiniteNumber(side[key].scale, name + "." + key + ".scale"),
+        duration: assertFiniteNumber(side[key].duration, name + "." + key + ".duration"),
+      };
+      if (normalized[key].scale < -EPS) throw new RangeError(name + "." + key + ".scale 不能为负");
+    });
+    return normalized;
+  }
+
+  function weightedDuration(side) {
+    const totalScale = Object.values(side).reduce((sum, item) => sum + item.scale, 0);
+    assertPositive(totalScale, "久期侧总规模");
+    return Object.values(side).reduce((sum, item) => sum + item.scale * item.duration, 0) / totalScale;
+  }
+
+  function decomposeDurationGap(input) {
+    const tolerance = input.options && input.options.tolerance;
+    const baseAssets = normalizeDurationSide(input.base.assets, "base.assets");
+    const currentAssets = normalizeDurationSide(input.current.assets, "current.assets");
+    const baseLiabilities = normalizeDurationSide(input.base.liabilities, "base.liabilities");
+    const currentLiabilities = normalizeDurationSide(input.current.liabilities, "current.liabilities");
+    const assetKeys = assertSameKeys(baseAssets, currentAssets, "duration.assets");
+    const liabilityKeys = assertSameKeys(baseLiabilities, currentLiabilities, "duration.liabilities");
+    const sideImpact = (keys, baseSide, currentSide, sign) => {
+      const factors = keys.map((key) => ({ key, baseline: baseSide[key], current: currentSide[key] }));
+      const raw = shapleyBySubsets(factors, weightedDuration);
+      return keys.map((key) => ({ key, label: key, impact: sign * raw[key] }));
+    };
+    const assetChildren = sideImpact(assetKeys, baseAssets, currentAssets, 1);
+    const liabilityChildren = sideImpact(liabilityKeys, baseLiabilities, currentLiabilities, -1);
+    const baseAssetDuration = weightedDuration(baseAssets);
+    const currentAssetDuration = weightedDuration(currentAssets);
+    const baseLiabilityDuration = weightedDuration(baseLiabilities);
+    const currentLiabilityDuration = weightedDuration(currentLiabilities);
+    return makeResult("repricingDurationGap", "year",
+      baseAssetDuration - baseLiabilityDuration,
+      currentAssetDuration - currentLiabilityDuration,
+      "business-joint-factor-shapley", [
+        { key: "assets", label: "资产端业务", impact: sumImpacts(assetChildren), children: assetChildren },
+        { key: "liabilities", label: "负债端业务", impact: sumImpacts(liabilityChildren), children: liabilityChildren },
+      ], {
+        assetBusinessCount: assetKeys.length,
+        liabilityBusinessCount: liabilityKeys.length,
+        marginalDifferenceCount: assetKeys.length * (2 ** Math.max(0, assetKeys.length - 1))
+          + liabilityKeys.length * (2 ** Math.max(0, liabilityKeys.length - 1)),
+      }, tolerance);
+  }
+
+  function runSelfTests() {
+    const results = [];
+    const check = (name, result) => {
+      if (!result.reconciliation.passed) {
+        throw new Error(name + " 勾稽失败，残差=" + result.reconciliation.residual);
+      }
+      results.push("PASS  " + name + "  residual=" + result.reconciliation.residual.toExponential(3));
+    };
+    const expectReject = (name, callback) => {
+      let rejected = false;
+      try {
+        callback();
+      } catch (error) {
+        rejected = error instanceof TypeError || error instanceof RangeError;
+      }
+      if (!rejected) throw new Error(name + " 未拒绝非法输入或非有限计算结果");
+      results.push("PASS  " + name + "  rejected");
+    };
+
+    const generalOwen = calculateTwoLevelOwen({
+      base: { A: 60, B: 40, C: 50, D: 50 },
+      current: { A: 66, B: 44, C: 55, D: 52 },
+      groups: [["A", "B"], ["C", "D"]],
+      evaluate: (state) => 100 * (state.A + state.B) / (state.C + state.D),
+    });
+    const generalOwenExpected = {
+      A: 5.803738317757009,
+      B: 3.8691588785046704,
+      C: -4.905167674546455,
+      D: -1.9639912039582157,
+    };
+    if (generalOwen.pathCount !== 8 || Math.abs(generalOwen.residual) > 1e-9
+      || Object.keys(generalOwenExpected).some((key) =>
+        Math.abs(generalOwen.impacts[key] - generalOwenExpected[key]) > 1e-9)) {
+      throw new Error("通用两层Owen数值例子未通过8路径勾稽");
+    }
+    results.push("PASS  通用两层Owen（8条结构化路径）  residual="
+      + generalOwen.residual.toExponential(3));
+
+    const eveOverseas = decomposeEve({
+      scenarioOrder: ["parallelUp", "parallelDown", "steepener", "flattener", "shortUp", "shortDown"],
+      base: { scenarios: { parallelUp: -120, parallelDown: 90, steepener: -100, flattener: 80, shortUp: -70, shortDown: 60 }, overseasRwa: 100, legalRwa: 1000, legalTier1Capital: 500 },
+      current: { scenarios: { parallelUp: -130, parallelDown: 95, steepener: -140, flattener: 84, shortUp: -75, shortDown: 62 }, overseasRwa: 110, legalRwa: 1100, legalTier1Capital: 520 },
+    });
+    check("△EVE（境外资本）", eveOverseas);
+    const eveScenarioChildren = eveOverseas.groups.find((group) => group.key === "numerator").children;
+    if (eveOverseas.method !== "six-scenario-shapley-and-capital-grouped-owen"
+      || eveOverseas.metadata.scenarioStateCount !== 64
+      || eveOverseas.metadata.structuralPathCount !== 8640
+      || eveScenarioChildren.length !== 6
+      || Math.abs(eveScenarioChildren.find((item) => item.key === "parallelUp").amountChange - 5) > 1e-9
+      || Math.abs(eveScenarioChildren.find((item) => item.key === "steepener").amountChange - 15) > 1e-9) {
+      throw new Error("△EVE未采用六情景Shapley及资本分组Owen正式口径");
+    }
+    const eveMaxLossSelection = decomposeEve({
+      scenarioOrder: ["largeGain", "actualLoss", "s3", "s4", "s5", "s6"],
+      base: { scenarios: { largeGain: 200, actualLoss: -120, s3: 40, s4: 20, s5: 0, s6: 10 }, capital: 100 },
+      current: { scenarios: { largeGain: 250, actualLoss: -130, s3: 50, s4: 30, s5: 0, s6: 20 }, capital: 100 },
+    });
+    check("△EVE选择最大损失而非最大绝对值", eveMaxLossSelection);
+    if (eveMaxLossSelection.baseValue !== 120 || eveMaxLossSelection.currentValue !== 130
+      || eveMaxLossSelection.metadata.baseWorstScenario !== "actualLoss"
+      || eveMaxLossSelection.metadata.currentWorstScenario !== "actualLoss") {
+      throw new Error("△EVE错误选中了EVE正向增加情景");
+    }
+    check("LCR", decomposeLcr({
+      base: { hqlaComponents: { level1: 250, level2A: 100, level2B: 50 }, cashOutflow: 600, cashInflow: 470 },
+      current: { hqlaComponents: { level1: 260, level2A: 105, level2B: 55 }, cashOutflow: 640, cashInflow: 450 },
+    }));
+    const lcrMaxEdge = decomposeLcr({
+      base: { hqlaComponents: { level1: 100, level2A: 0, level2B: 0 }, cashOutflow: 200, cashInflow: 100 },
+      current: { hqlaComponents: { level1: 100, level2A: 0, level2B: 0 }, cashOutflow: 300, cashInflow: 200 },
+    });
+    check("LCR逐步重算max边界", lcrMaxEdge);
+    const lcrEdgeChildren = lcrMaxEdge.groups.find((group) => group.key === "netCashOutflow").children;
+    if (!lcrEdgeChildren.every((item) => Number.isFinite(item.impact))) {
+      throw new Error("LCR逐步重算max边界产生非有限影响");
+    }
+    if (Math.abs(lcrEdgeChildren.find((item) => item.key === "cashOutflow").impact + 75) > 1e-9
+      || Math.abs(lcrEdgeChildren.find((item) => item.key === "cashInflow").impact - 75) > 1e-9) {
+      throw new Error("LCR逐步重算max边界因素值不符合预期");
+    }
+    check("NSFR", decomposeNsfr({ base: { asf: 120, rsf: 100 }, current: { asf: 126, rsf: 105 } }));
+    const liquidityRatioCrossing = decomposeLiquidityRatio({
+      base: { assets: { otherAssets: 100 }, liabilities: { otherLiabilities: 80 }, interbankNetPosition: 20 },
+      current: { assets: { otherAssets: 110 }, liabilities: { otherLiabilities: 90 }, interbankNetPosition: -10 },
+    });
+    check("流动性比例", liquidityRatioCrossing);
+    const interbankGroup = liquidityRatioCrossing.groups.find((group) => group.key === "interbankNetPosition");
+    const interbankAssetSide = interbankGroup.children.find((item) => item.key === "interbankAssetSide").impact;
+    const interbankLiabilitySide = interbankGroup.children.find((item) => item.key === "interbankLiabilitySide").impact;
+    if (liquidityRatioCrossing.method !== "three-group-owen-with-interbank-zero-bridge-6-paths"
+      || liquidityRatioCrossing.metadata.pathCount !== 6
+      || Math.abs(interbankAssetSide + 23.61111111111111) > 1e-9
+      || Math.abs(interbankLiabilitySide + 13.10185185185185) > 1e-9) {
+      throw new Error("流动性比例同业净头寸跨零桥接结果不符合预期");
+    }
+    const gap = decomposeLiquidityGap({
+      base: { assetTotal: 300, offBalanceIncome: 20, internalTransactionAssets: 10, liabilityTotal: 280, offBalanceExpense: 15, internalTransactionLiabilities: 5, demandDeposits: 30, noteDemandDeposits: 6, demandPlacements: 10, noteDemandPlacements: 4 },
+      current: { assetTotal: 310, offBalanceIncome: 22, internalTransactionAssets: 11, liabilityTotal: 290, offBalanceExpense: 16, internalTransactionLiabilities: 6, demandDeposits: 33, noteDemandDeposits: 7, demandPlacements: 12, noteDemandPlacements: 5 },
+    });
+    check("流动性缺口金额", gap.amount);
+    check("流动性缺口率", gap.rate);
+    if (gap.rate.method !== "two-group-owen-with-linear-liability-and-asset-internal-shapley"
+      || gap.rate.metadata.groupOrderCount !== 2
+      || gap.rate.metadata.assetInternalOrderCount !== 6
+      || gap.rate.metadata.effectiveAssetPathCount !== 12
+      || gap.rate.metadata.linearLiabilityOrderCollapsed !== true) {
+      throw new Error("流动性缺口率未声明正式两组Owen及资产组内路径口径");
+    }
+    const repricingGapRate = decomposeRepricingGapRate({
+      base: {
+        assets: { loan: { repricingScale: 100, totalScale: 200 }, investment: { repricingScale: 80, totalScale: 150 } },
+        liabilities: { deposits: 150 }, bankBook: { receivable: 8, payable: 3 }, tradingBook: { receivable: 2, payable: 4 },
+      },
+      current: {
+        assets: { loan: { repricingScale: 110, totalScale: 210 }, investment: { repricingScale: 75, totalScale: 160 } },
+        liabilities: { deposits: 155 }, bankBook: { receivable: 8, payable: 4 }, tradingBook: { receivable: 4, payable: 4 },
+      },
+    });
+    check("重定价缺口率（三层嵌套）", repricingGapRate);
+    if (repricingGapRate.method !== "three-level-nested-owen"
+      || repricingGapRate.metadata.effectiveAssetBusinessCount !== 2
+      || repricingGapRate.metadata.marginalDifferenceCount !== 128) {
+      throw new Error("重定价缺口率未声明三层嵌套Owen及正确计算量");
+    }
+    const durationGap = decomposeDurationGap({
+      base: { assets: { A: { scale: 100, duration: 2 }, B: { scale: 100, duration: 4 } }, liabilities: { C: { scale: 120, duration: 1.5 }, D: { scale: 80, duration: 3 } } },
+      current: { assets: { A: { scale: 120, duration: 2.2 }, B: { scale: 80, duration: 4.1 } }, liabilities: { C: { scale: 110, duration: 1.6 }, D: { scale: 90, duration: 2.8 } } },
+    });
+    check("重定价久期缺口", durationGap);
+    const durationAssetGroup = durationGap.groups.find((item) => item.key === "assets");
+    const durationLiabilityGroup = durationGap.groups.find((item) => item.key === "liabilities");
+    const durationExpected = { A: 0.022424242424242458, B: -0.06242424242424249, C: -0.08616541353383478, D: 0.04616541353383474 };
+    const durationActual = Object.fromEntries([...durationAssetGroup.children, ...durationLiabilityGroup.children].map((item) => [item.key, item.impact]));
+    if (durationGap.method !== "business-joint-factor-shapley"
+      || durationGap.metadata.marginalDifferenceCount !== 8
+      || Object.keys(durationExpected).some((key) => Math.abs(durationActual[key] - durationExpected[key]) > 1e-12)) {
+      throw new Error("重定价久期缺口未按顶层线性、两侧联合业务Shapley计算");
+    }
+    [
+      ["null", null],
+      ["NaN", NaN],
+      ["Infinity", Infinity],
+      ["空字符串", ""],
+      ["数值字符串", "120"],
+      ["布尔值", true],
+      ["缺失值", undefined],
+    ].forEach(([label, invalidValue]) => expectReject("严格数值校验：" + label, () => decomposeNsfr({
+      base: { asf: invalidValue, rsf: 100 },
+      current: { asf: 126, rsf: 105 },
+    })));
+    expectReject("严格数值校验：计算结果Infinity", () => decomposeNsfr({
+      base: { asf: Number.MAX_VALUE, rsf: Number.MIN_VALUE },
+      current: { asf: Number.MAX_VALUE, rsf: Number.MIN_VALUE },
+    }));
+    expectReject("严格数值校验：null容差", () => decomposeNsfr({
+      base: { asf: 120, rsf: 100 },
+      current: { asf: 126, rsf: 105 },
+      options: { tolerance: null },
+    }));
+    expectReject("LCR必须提供三个HQLA直接输入字段", () => decomposeLcr({
+      base: { hqlaComponents: { level1: 250, level2A: 100 }, cashOutflow: 600, cashInflow: 470 },
+      current: { hqlaComponents: { level1: 260, level2A: 105 }, cashOutflow: 640, cashInflow: 450 },
+    }));
+    return results;
+  }
+
+  const api = {
+    calculateTwoLevelOwen,
+    decomposeEve,
+    decomposeLcr,
+    decomposeNsfr,
+    decomposeLiquidityRatio,
+    decomposeLiquidityGap,
+    decomposeRepricingGapRate,
+    decomposeDurationGap,
+    runSelfTests,
+  };
+  global.RiskAttribution = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+}(typeof globalThis !== "undefined" ? globalThis : window));
+        </script>
+        <script>
+          (function () {
+            const implementation = document.getElementById("calculation-implementation").textContent.trim();
+            const source = document.getElementById("source-code");
+            const output = document.getElementById("test-output");
+            source.textContent = implementation;
+            function runTests() {
+              try {
+                const lines = window.RiskAttribution.runSelfTests();
+                output.className = "callout callout--ok";
+                output.textContent = "内置自测全部通过（" + lines.length + "项）\n" + lines.join("\n");
+              } catch (error) {
+                output.className = "callout callout--warn";
+                output.textContent = "自测失败：" + error.stack;
+              }
+            }
+            document.getElementById("self-test").addEventListener("click", runTests);
+            document.getElementById("copy-code").addEventListener("click", async function () {
+              await navigator.clipboard.writeText(implementation);
+              this.textContent = "已复制";
+              setTimeout(() => { this.textContent = "复制全部代码"; }, 1300);
+            });
+            runTests();
+          }());
+        </script>
+      </section>
+
+      <section id="acceptance">
+        <h2>12. 验收、异常与上线控制</h2>
+        <h3>12.1 每次计算的强制验收</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>检查</th><th>通过条件</th><th>失败处理</th></tr></thead>
+          <tbody>
+            <tr><td>总量复算</td><td>函数用原始因子复算的基期、本期指标与指标服务一致</td><td>中止归因，核查取数范围和舍入口径</td></tr>
+            <tr><td>完全勾稽</td><td>|Σ影响-(本期-基期)|≤容差</td><td>中止展示；不得按比例缩放末级影响</td></tr>
+            <tr><td>分层勾稽</td><td>子项之和=父项影响；父项之和=总变化</td><td>定位到具体层级和因素编码</td></tr>
+            <tr><td>集合一致</td><td>基期、本期业务编码完全一致</td><td>新增/退出业务补0后重算</td></tr>
+            <tr><td>分母有效</td><td>全部真实和反事实状态分母&gt;0</td><td>报数据质量错误</td></tr>
+            <tr><td>资产双字段有效</td><td>重定价规模在基期、本期和混合状态均不超过总规模</td><td>停止双字段拆分，回到业务合计或修正数据</td></tr>
+          </tbody>
+        </table></div>
+        <h3>12.2 max 与并列规则</h3>
+        <ul>
+          <li>△EVE 直接计算 <code>max(-x₁,…,-x₆)</code>；归因前必须校验固定基期—当前期形成的全部64个混合状态最大损失均不小于0；</li>
+          <li>△EVE 六情景最大损失并列：本期辅助标签优先沿用基期最大损失情景，否则按固定情景顺序；并列规则不改变max结果，也不产生独立贡献；</li>
+          <li>LCR 两分母分支并列：本期优先沿用基期生效分支；该规则只确定辅助展示的分支标签，不改变max结果，也不产生独立贡献；</li>
+          <li>上述规则必须由后端和前端共用，确保最不利情景标签和LCR分支辅助信息一致。</li>
+        </ul>
+        <h3>12.3 舍入与展示</h3>
+        <p>服务端返回至少双精度原始结果和 <code>residual</code>。前端可以按指标显示一位或两位小数，但不应要求“显示后每张卡片仍逐位相加完全相等”。如需展示层勾稽，可在最后一张卡片做明确标识的显示尾差，不得改写原始归因值。</p>
+        <h3>12.4 性能建议</h3>
+        <ul>
+          <li>普通比例、流动性缺口和 LCR/EVE 单次计算均为常数级或很小的子集枚举；</li>
+          <li>久期缺口按当前6类资产、7类负债共640次边际差；法人内部交易资产、负债均为零且业务允许过滤时可降至272次，保留零因素不改变归因结果；</li>
+          <li>重定价缺口率最重，法人约2,560次、境外约6,144次边际差。建议服务端按机构/币种/日期缓存结果，不在卡片渲染循环中重复计算；</li>
+          <li>先过滤基期、本期均为零且业务口径允许剔除的因素，可显著减少指数项。</li>
+        </ul>
+        <h3>12.5 IT交付清单</h3>
+        <div class="grid">
+          <div class="card"><h4>计算服务</h4><p>实现本文七个函数入口（流动性缺口函数同时返回金额和缺口率），保留方法版本号。</p></div>
+          <div class="card"><h4>数据字典</h4><p>锁定因素编码、中文名称、符号、单位、内部交易规则和期限范围。</p></div>
+          <div class="card"><h4>回归样本</h4><p>至少覆盖普通变化、零增量、分支切换、并列、业务新增/退出、无效分母和混合状态异常。</p></div>
+          <div class="card"><h4>审计留痕</h4><p>保存基期、本期原始因子、方法版本、因素影响、残差和执行时间，支持结果复现。</p></div>
+        </div>
+        <div class="callout callout--ok"><strong>最终使用建议：</strong>业务人员用第1—9章讲清公式、分组和解释；IT人员用第10—12章对接接口、复制代码并执行验收。两部分使用同一套因素树和方法名称，避免“业务文档一套、程序实现另一套”。</div>
+      </section>
+
+    </main>
+  </div>
+  <footer class="footer">风险分析视图 · 风险指标分解归因计算逻辑完整说明</footer>
+</body>
+</html>

@@ -221,7 +221,7 @@ function calculateRepricingGapMatrixMetrics(matrix = {}, options = {}) {
   const repricingGap = adjustedInterestAssets - adjustedInterestLiabilities
     + bankBookDerivativeGap + tradingBookDerivativeGap;
   const ratio = totalInterestAssets
-    ? Number(((repricingGap / totalInterestAssets) * 100).toFixed(2))
+    ? (repricingGap / totalInterestAssets) * 100
     : 0;
   return {
     totalInterestAssets: Number(totalInterestAssets.toFixed(1)),

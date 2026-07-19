@@ -7,6 +7,7 @@ const AREA_FILTER_OPTION_OVERRIDES = config.filters?.areaOverrides || {};
 const DEFAULT_FILTER_VALUES = config.filters?.defaults || config.defaultFilters || {};
 const PAGE_SHARED_FILTER_LABELS = ["机构", "币种"];
 const PAGE_SHARED_FILTER_NAMES = new Set(["机构", "币种"]);
+const SINGLE_SELECT_FILTER_NAMES = new Set(config.filters?.singleSelect || ["机构", "币种"]);
 const PAGE_BEHAVIOR_CONFIG = config.pageBehavior || {};
 const LAYOUT_RULE_CONFIG = config.layoutRules || {};
 const WIDGET_BEHAVIOR_CONFIG = config.widgetBehavior || {};
@@ -254,8 +255,13 @@ function ensurePageFilterState(page = getCurrentPage()) {
   if (!appState.pageFilters[page.id]) appState.pageFilters[page.id] = {};
   PAGE_SHARED_FILTER_LABELS.forEach((filterLabel) => {
     const name = normalizeFilterName(filterLabel);
-    if (Array.isArray(appState.pageFilters[page.id][name]) && appState.pageFilters[page.id][name].length) return;
-    appState.pageFilters[page.id][name] = getDefaultFilterValues(name, FILTER_OPTIONS[name] || ["默认口径"]);
+    const optionValues = FILTER_OPTIONS[name] || ["默认口径"];
+    const currentValues = (appState.pageFilters[page.id][name] || []).filter((value) => optionValues.includes(value));
+    if (currentValues.length) {
+      appState.pageFilters[page.id][name] = isSingleSelectFilter(name) ? currentValues.slice(0, 1) : currentValues;
+      return;
+    }
+    appState.pageFilters[page.id][name] = getDefaultFilterValues(name, optionValues);
   });
   return appState.pageFilters[page.id];
 }
@@ -394,7 +400,7 @@ function renderFilterGroup(ownerType, ownerId, filterLabel, selectedValues, opti
   const isOpen = appState.openFilterKey === openKey;
   const serializedOptions = (optionValues || FILTER_OPTIONS[name] || ["默认口径"]).join("||");
   return `
-    <div class="filter-group filter-group--dropdown ${isOpen ? "is-open" : ""}">
+    <div class="filter-group filter-group--dropdown ${isSingleSelectFilter(name) ? "filter-group--single" : ""} ${isOpen ? "is-open" : ""}">
       <div class="filter-group__row">
         <div class="filter-group__label">${displayLabel}</div>
         <button
@@ -437,6 +443,7 @@ function renderFilterPopover() {
     ? anchorEl.dataset.filterOptions.split("||").filter(Boolean)
     : FILTER_OPTIONS[filterName] || ["默认口径"];
   const selectedValues = getFilterStateBucket(ownerType, ownerId)?.[filterName] || [];
+  const isSingleSelect = isSingleSelectFilter(filterName);
 
   filterPopoverEl.innerHTML = `
     <div class="filter-popover__scrim" data-filter-modal-close="true"></div>
@@ -455,7 +462,7 @@ function renderFilterPopover() {
         <button class="filter-popover__close" type="button" data-filter-modal-close="true">关闭</button>
       </div>
       <div class="filter-popover__summary">已选：${summarizeFilterSelection(filterName, selectedValues)}</div>
-      <div class="filter-popover__options">
+      <div class="filter-popover__options" ${isSingleSelect ? 'role="radiogroup"' : ""}>
         ${options
           .map(
             (option) => `
@@ -467,8 +474,9 @@ function renderFilterPopover() {
                 data-filter-name="${filterName}"
                 data-filter-value="${option}"
                 data-filter-option="true"
+                ${isSingleSelect ? `role="radio" aria-checked="${selectedValues.includes(option)}"` : ""}
               >
-                <span class="filter-option__check">${selectedValues.includes(option) ? "✓" : ""}</span>
+                <span class="filter-option__check">${selectedValues.includes(option) ? (isSingleSelect ? "●" : "✓") : ""}</span>
                 <span class="filter-option__text">${option}</span>
               </button>
             `
@@ -1889,9 +1897,13 @@ function getDefaultFilterValues(filterName, optionValues = null) {
   const options = optionValues || FILTER_OPTIONS[filterName] || ["默认口径"];
   const configuredDefaults = (DEFAULT_FILTER_VALUES[filterName] || []).filter((value) => options.includes(value));
   if (Array.isArray(configuredDefaults) && configuredDefaults.length) {
-    return [...configuredDefaults];
+    return isSingleSelectFilter(filterName) ? configuredDefaults.slice(0, 1) : [...configuredDefaults];
   }
   return options.slice(0, 1);
+}
+
+function isSingleSelectFilter(filterName) {
+  return SINGLE_SELECT_FILTER_NAMES.has(normalizeFilterName(filterName));
 }
 
 function getAreaFilterPreset(area) {

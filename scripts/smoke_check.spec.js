@@ -202,9 +202,13 @@ async function setPageFilters(page, pageName, filters) {
 }
 
 async function expectAllProcessNodesHaveImpact(modal) {
-  const nodeCount = await modal.locator(".eve-process-node").count();
-  expect(nodeCount).toBeGreaterThan(0);
-  await expect(modal.locator(".eve-process-node__impact")).toHaveCount(nodeCount);
+  const resultNodes = modal.locator(".eve-process-node--result");
+  const factorNodes = modal.locator(".eve-process-node:not(.eve-process-node--result):not(.eve-process-node--intermediate)");
+  expect(await factorNodes.count()).toBeGreaterThan(0);
+  await expect(resultNodes.locator(".eve-process-node__impact")).toHaveCount(0);
+  await expect(factorNodes.locator(".eve-process-node__impact")).toHaveCount(await factorNodes.count());
+  const factorTexts = await factorNodes.allTextContents();
+  expect(factorTexts.every((text) => text.includes("增量") && text.includes("增速") && text.includes("影响"))).toBeTruthy();
   await expect(modal).not.toContainText("\u5f71\u54cd --");
 }
 
@@ -291,7 +295,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     });
     return { legal, overseas };
   });
-  expect(eveScopeModels.legal.numerator[0]).toBe(Math.max(...eveScopeModels.legal.scenarios.map((item) => Math.abs(item.values[0]))));
+  expect(eveScopeModels.legal.numerator[0]).toBe(Math.max(...eveScopeModels.legal.scenarios.map((item) => -item.values[0])));
   expect(eveScopeModels.legal.capital).toEqual(eveScopeModels.legal.legalTierOne);
   expect(eveScopeModels.legal.denominatorTitle).toBe("\u672c\u5916\u5e01\u5408\u8ba1\u4e00\u7ea7\u8d44\u672c\u51c0\u989d");
   expect(eveScopeModels.overseas.capital).toEqual(eveScopeModels.overseas.overseasAllocatedCapital);
@@ -311,32 +315,83 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await eveWidget.locator(".eve-point-popover__action").click();
   await expect(eveWidget.locator(".eve-point-popover")).toHaveCount(0);
   const eveProcessModal = page.locator("#eveProcessModal");
-  const eveComparisonSelect = eveProcessModal.locator("[data-eve-process-comparison]");
-  await expect(eveComparisonSelect).toHaveValue("");
-  await expect(eveComparisonSelect.locator("option").first()).toContainText("\u4e0a\u4e00\u671f\uff08\u9ed8\u8ba4\uff1a");
-  await expect(eveComparisonSelect.locator("option")).toHaveCount(4);
-  const defaultComparisonLabel = await eveComparisonSelect.locator("option").first().textContent();
+  const eveComparisonSlider = eveProcessModal.locator('[data-process-date-slider="comparison"]');
+  const eveCurrentSlider = eveProcessModal.locator('[data-process-date-slider="current"]');
+  await expect(eveProcessModal.locator("[data-process-date-slider]")).toHaveCount(2);
+  await expect(eveProcessModal.locator("select")).toHaveCount(0);
+  await expect(eveComparisonSlider).toHaveAttribute("min", "0");
+  await expect(eveCurrentSlider).toHaveAttribute("min", "0");
+  expect(await eveComparisonSlider.getAttribute("max")).toBe(await eveCurrentSlider.getAttribute("max"));
+  expect(Number(await eveCurrentSlider.inputValue())).toBe(Number(await eveCurrentSlider.getAttribute("max")));
+  expect(Number(await eveComparisonSlider.inputValue())).toBe(Number(await eveCurrentSlider.inputValue()) - 1);
+  const eveTimelineAlignment = await eveProcessModal.locator("[data-process-date-range]").evaluate((range) => {
+    const comparison = range.querySelector('[data-process-date-slider="comparison"]');
+    const current = range.querySelector('[data-process-date-slider="current"]');
+    const maximum = Math.max(1, Number(current.max));
+    const axisTicks = [...range.parentElement.querySelectorAll(".eve-process-slider__axis span")];
+    return {
+      comparisonPosition: parseFloat(range.style.getPropertyValue("--comparison-position")),
+      expectedComparisonPosition: (Number(comparison.value) / maximum) * 100,
+      currentPosition: parseFloat(range.style.getPropertyValue("--current-position")),
+      expectedCurrentPosition: (Number(current.value) / maximum) * 100,
+      tickCount: axisTicks.length,
+      firstTickLeft: axisTicks[0]?.style.left,
+      lastTickLeft: axisTicks.at(-1)?.style.left,
+      tickLineHeight: axisTicks[0] ? getComputedStyle(axisTicks[0], "::before").height : "",
+    };
+  });
+  expect(eveTimelineAlignment.comparisonPosition).toBeCloseTo(eveTimelineAlignment.expectedComparisonPosition, 3);
+  expect(eveTimelineAlignment.currentPosition).toBeCloseTo(eveTimelineAlignment.expectedCurrentPosition, 3);
+  expect(eveTimelineAlignment.tickCount).toBe(Number(await eveCurrentSlider.getAttribute("max")) + 1);
+  expect(eveTimelineAlignment.firstTickLeft).toBe("0%");
+  expect(eveTimelineAlignment.lastTickLeft).toBe("100%");
+  expect(eveTimelineAlignment.tickLineHeight).toBe("7px");
+  await expect(eveProcessModal).toContainText("\u6bd4\u8f83\u57fa\u671f");
+  await expect(eveProcessModal).toContainText("\u5f53\u524d\u65e5\u671f");
+  await expect(eveProcessModal).toContainText("△EVE = 六情景最大经济价值损失 ÷ 本外币合计一级资本净额");
   await expect(eveProcessModal.locator(".eve-process-node__change").first()).toContainText("\u8f83\u57fa\u671f");
-  await expect(eveProcessModal.locator(".eve-process-node__impact").first()).toContainText("\u5f71\u54cd");
+  await expect(eveProcessModal.locator('[data-eve-process-node="eve"] .eve-process-node__impact')).toHaveCount(0);
+  await expect(eveProcessModal.locator('[data-eve-process-node="numerator"]')).toContainText("\u589e\u91cf");
+  await expect(eveProcessModal.locator('[data-eve-process-node="numerator"]')).toContainText("\u589e\u901f");
+  await expect(eveProcessModal.locator('[data-eve-process-node="numerator"]')).toContainText("\u5f71\u54cd");
   await expect(eveProcessModal).not.toContainText("\u8f83\u4e0a\u671f");
-  expect(await page.evaluate(() => getProcessComparisonIndex(
-    appState.eveProcessModal,
-    appState.eveProcessModal.dateIndex,
-    appState.eveProcessModal.labels.length
-  ))).toBe(2);
-  await eveComparisonSelect.selectOption("0");
+  const earlierCurrentIndex = Math.max(1, Number(await eveCurrentSlider.inputValue()) - 2);
+  await eveCurrentSlider.evaluate((node, value) => {
+    node.value = String(value);
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+  }, earlierCurrentIndex);
+  expect(await page.evaluate(() => appState.eveProcessModal.dateIndex)).toBe(earlierCurrentIndex);
+  expect(await page.evaluate(() => appState.eveProcessModal.comparisonIndex)).toBe(earlierCurrentIndex - 1);
+  await eveComparisonSlider.evaluate((node) => {
+    node.value = "0";
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   expect(await page.evaluate(() => appState.eveProcessModal.comparisonIndex)).toBe(0);
-  await expect(eveComparisonSelect.locator("option").first()).toHaveText(defaultComparisonLabel);
-  await eveComparisonSelect.selectOption("");
-  expect(await page.evaluate(() => appState.eveProcessModal.comparisonIndex)).toBeNull();
   const eveNumeratorNode = eveProcessModal.locator('[data-eve-process-node="numerator"]');
+  await expect(eveNumeratorNode.locator('[data-process-marker="comparison"]')).toHaveCount(1);
+  await expect(eveNumeratorNode.locator('[data-process-marker="current"]')).toHaveCount(1);
+  await expect(eveNumeratorNode.locator('[data-process-period-line="true"]')).toHaveCount(1);
   await expect(eveProcessModal).toContainText("\u672c\u5916\u5e01\u5408\u8ba1\u4e00\u7ea7\u8d44\u672c\u51c0\u989d");
   await expect(eveProcessModal.locator('[data-eve-process-node="denominator"] .eve-process-node__action')).toHaveCount(0);
   await expect(eveNumeratorNode.locator(".eve-process-node__action")).toContainText("\u70b9\u51fb\u5c55\u5f00");
-  await eveNumeratorNode.locator(".eve-process-node__action").click();
-  await expect(eveNumeratorNode.locator(".eve-process-node__action")).toContainText("\u70b9\u51fb\u6536\u56de");
-  await expect(eveProcessModal).toContainText("\u5e73\u884c\u4e0a\u79fb");
-  await expectAllProcessNodesHaveImpact(eveProcessModal);
+    await eveNumeratorNode.locator(".eve-process-node__action").click();
+    await expect(eveNumeratorNode.locator(".eve-process-node__action")).toContainText("\u70b9\u51fb\u6536\u56de");
+    await expect(eveProcessModal).toContainText("六情景最大经济价值损失 = MAX");
+    await expect(eveProcessModal).toContainText("= -MIN（六情景经济价值变动）");
+    await expect(eveProcessModal).not.toContainText("正式归因");
+    await expect(eveProcessModal).not.toContainText("混合状态执行Shapley");
+    await expect(eveProcessModal).not.toContainText("情景切换仅作辅助状态");
+    await expect(eveProcessModal.locator('[data-eve-process-node="same-worst-scenario"]')).toHaveCount(0);
+    await expect(eveProcessModal.locator('[data-eve-process-node="worst-scenario-switch"]')).toHaveCount(0);
+    await expect(eveProcessModal).toContainText("\u5e73\u884c\u4e0a\u79fb");
+    const eveScenarioCards = eveProcessModal.locator('[data-eve-process-node^="scenario:"]');
+    await expect(eveScenarioCards).toHaveCount(6);
+    await expect(eveScenarioCards.locator(".eve-process-node__impact")).toHaveCount(6);
+    await expectAllProcessNodesHaveImpact(eveProcessModal);
+  const eveScenarioWidths = await eveProcessModal.locator(".eve-process-scenario-strip .eve-process-node").evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
+  );
+  expect(new Set(eveScenarioWidths)).toEqual(new Set([276]));
   await eveNumeratorNode.locator(".eve-process-node__action").click();
   await expect(eveNumeratorNode.locator(".eve-process-node__action")).toContainText("\u70b9\u51fb\u5c55\u5f00");
   await page.evaluate(() => {
@@ -349,6 +404,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(eveProcessModal).toContainText("\u5883\u5916\u5206\u884cRWA");
   await expect(eveProcessModal).toContainText("\u6cd5\u4ebaRWA");
   await expect(eveProcessModal).toContainText("\u6cd5\u4eba\u672c\u5916\u5e01\u5408\u8ba1\u4e00\u7ea7\u8d44\u672c\u51c0\u989d");
+  await expect(eveProcessModal).toContainText("本外币合计一级资本净额 = 境外分行RWA ÷ 法人RWA × 法人本外币合计一级资本净额");
   await expectAllProcessNodesHaveImpact(eveProcessModal);
   await expect(overseasDenominatorAction).toContainText("\u70b9\u51fb\u6536\u56de");
   await page.evaluate(() => {
@@ -404,29 +460,56 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(durationGapWidget.locator(".eve-point-popover__grid > div")).toHaveCount(2);
   await expect(durationGapWidget.locator(".eve-point-popover")).not.toContainText("\u8d44\u4ea7\u4e45\u671f");
   await durationGapWidget.locator(".eve-point-popover__action").click();
-  await expect(page.locator("#repricingDurationGapProcessModal [data-repricing-duration-gap-process-comparison]")).toHaveValue("");
+  await expect(page.locator("#repricingDurationGapProcessModal [data-process-date-slider]")).toHaveCount(2);
+  await expect(page.locator("#repricingDurationGapProcessModal select")).toHaveCount(0);
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8f83\u57fa\u671f");
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d44\u4ea7\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f\u7f3a\u53e3 = \u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f - \u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f");
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
   await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
+  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("资产端重定价久期 = Σ（各业务规模 × 各业务重定价久期）÷ Σ各业务规模");
   await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u81ea\u8425\u8d37\u6b3e");
   const durationBusinessCards = page.locator("#repricingDurationGapProcessModal [data-repricing-duration-business-card]");
-  await expect(durationBusinessCards).toHaveCount(7);
-  for (const businessType of ["自营贷款", "投资类资产", "同业资产", "自营非标投资", "存放央行", "内部交易资产", "表外衍生品应收"]) {
+  await expect(durationBusinessCards).toHaveCount(6);
+  for (const businessType of ["自营贷款", "投资类资产", "同业资产", "自营非标投资", "存放央行", "内部交易资产"]) {
     await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:${businessType}"]`)).toHaveCount(1);
   }
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:表外衍生品应收"]')).toHaveCount(0);
   const loanDurationBusinessCard = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:\u81ea\u8425\u8d37\u6b3e"]');
-  await expect(loanDurationBusinessCard.locator(".repricing-duration-business-card__value")).toHaveCount(3);
+  await expect(loanDurationBusinessCard).toHaveClass(/repricing-gap-attribution-card/);
+  const durationMetrics = loanDurationBusinessCard.locator(".repricing-gap-attribution-card__metric");
+  await expect(durationMetrics).toHaveCount(2);
+  await expect(durationMetrics.nth(0)).toContainText("规模");
+  await expect(durationMetrics.nth(1)).toContainText("久期");
+  await expect(loanDurationBusinessCard.locator(".repricing-gap-attribution-card__impact")).toContainText("合计影响");
   await expect(loanDurationBusinessCard.locator(".eve-process-sparkline")).toHaveCount(1);
   await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toHaveCount(1);
   await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("规模(亿)");
   await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("久期(年)");
-  await expect(loanDurationBusinessCard).toContainText("\u89c4\u6a21\u8f83\u57fa\u671f");
-  await expect(loanDurationBusinessCard).toContainText("\u4e45\u671f\u8f83\u57fa\u671f");
+  await expect(loanDurationBusinessCard.locator('[data-process-marker="comparison"]')).toHaveCount(1);
+  await expect(loanDurationBusinessCard.locator('[data-process-marker="current"]')).toHaveCount(1);
+  await expect(loanDurationBusinessCard.locator("[data-process-period-line]")).toHaveCount(2);
+  await expect(loanDurationBusinessCard).toContainText("\u589e\u91cf");
+  await expect(loanDurationBusinessCard).toContainText("\u589e\u901f");
   await expect(loanDurationBusinessCard).toContainText("\u5f71\u54cd");
   await expect(loanDurationBusinessCard).not.toContainText("\u89c4\u6a21\u5f71\u54cd");
   await expect(loanDurationBusinessCard).not.toContainText("\u4e45\u671f\u5f71\u54cd");
+  const durationCardLayout = await loanDurationBusinessCard.evaluate((card) => {
+    const metrics = [...card.querySelectorAll(".repricing-gap-attribution-card__metric")]
+      .map((node) => node.getBoundingClientRect());
+    const impact = card.querySelector(".repricing-gap-attribution-card__impact")?.getBoundingClientRect();
+    return {
+      metricCount: metrics.length,
+      sameRow: metrics.length === 2 && Math.abs(metrics[0].top - metrics[1].top) < 3,
+      similarWidth: metrics.length === 2 && Math.abs(metrics[0].width - metrics[1].width) < 3,
+      impactBelow: Boolean(impact) && impact.top > Math.max(...metrics.map((rect) => rect.bottom)),
+    };
+  });
+  expect(durationCardLayout).toEqual({ metricCount: 2, sameRow: true, similarWidth: true, impactBelow: true });
+  const durationBusinessWidths = await durationBusinessCards.evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
+  );
+  expect(new Set(durationBusinessWidths)).toEqual(new Set([276]));
   await loanDurationBusinessCard.locator(".eve-process-sparkline").click();
   await expect(page.locator("#processSparklinePreview")).toContainText("自营贷款规模及久期趋势");
   await expect(page.locator("#processSparklinePreview")).toContainText("主轴 · 规模");
@@ -435,13 +518,16 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(loanDurationBusinessCard.locator("[data-process-sparkline]")).toHaveAttribute("type", "button");
   await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
   await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
+  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("负债端重定价久期 = Σ（各业务规模 × 各业务重定价久期）÷ Σ各业务规模");
   const liabilityDurationBusinessCards = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card^="liability:"]');
-  await expect(liabilityDurationBusinessCards).toHaveCount(8);
-  for (const businessType of ["活期存款", "定期存款", "同业负债", "发行债券", "向央行借款", "租赁负债", "内部交易负债", "表外衍生品应付"]) {
+  await expect(liabilityDurationBusinessCards).toHaveCount(7);
+  for (const businessType of ["活期存款", "定期存款", "同业负债", "发行债券", "向央行借款", "租赁负债", "内部交易负债"]) {
     await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:${businessType}"]`)).toHaveCount(1);
   }
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:内部交易资产"]')).toContainText("规模较基期 0.0亿");
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:内部交易负债"]')).toContainText("规模较基期 0.0亿");
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:表外衍生品应付"]')).toHaveCount(0);
+  await expect(page.locator("#repricingDurationGapProcessModal")).not.toContainText("表外衍生品");
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:内部交易资产"]')).toContainText("增量 0.0亿");
+  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:内部交易负债"]')).toContainText("增量 0.0亿");
   await expectAllProcessNodesHaveImpact(page.locator("#repricingDurationGapProcessModal"));
   await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
   await expect(page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
@@ -482,21 +568,42 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await repricingGapWidget.scrollIntoViewIfNeeded();
   await repricingGapWidget.locator('[data-repricing-gap-point="true"]').nth(3).click({ force: true });
   await page.getByRole("button", { name: "\u67e5\u770b\u8ba1\u7b97\u8fc7\u7a0b", exact: true }).click();
-  await expect(page.locator("#repricingGapProcessModal [data-repricing-gap-process-comparison]")).toHaveValue("");
+  await expect(page.locator("#repricingGapProcessModal [data-process-date-slider]")).toHaveCount(2);
+  await expect(page.locator("#repricingGapProcessModal select")).toHaveCount(0);
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u8f83\u57fa\u671f");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="ratio"] [data-process-marker]')).toHaveCount(2);
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="ratio"] [data-process-period-line="true"]')).toHaveCount(1);
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="ratio"] .eve-process-node__impact')).toHaveCount(0);
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387 = \u91cd\u5b9a\u4ef7\u7f3a\u53e3 \u00f7 \u603b\u751f\u606f\u8d44\u4ea7\u89c4\u6a21\uff08\u5254\u9664\u5185\u90e8\u4ea4\u6613\uff09");
-  await expect(page.locator("#repricingGapProcessModal")).toContainText("\u56db\u7c7b\u4e1a\u52a1\u5f71\u54cd\u4e4b\u548c = \u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\u8f83\u57fa\u671f\u53d8\u5316");
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("重定价缺口 = 资产端业务重定价规模 - 负债端业务重定价规模 + 银行账簿表外衍生品缺口 + 交易账簿表外衍生品缺口");
+  await expect(page.locator("#repricingGapProcessModal")).not.toContainText("\u56db\u7c7b\u4e1a\u52a1\u5f71\u54cd\u4e4b\u548c");
+  await expect(page.locator("#repricingGapProcessModal")).not.toContainText("\u5f71\u54cd\u5f52\u56e0");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"] .eve-process-node__impact')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="denominator"] .eve-process-node__impact')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal .repricing-gap-attribution-card--branch')).toHaveCount(4);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u8d44\u4ea7\u7aef\u4e1a\u52a1");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
-  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u603b\u751f\u606f\u8d44\u4ea7");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u603b\u89c4\u6a21");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u5f71\u54cd");
+  const assetBranchMetrics = page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"] .repricing-gap-attribution-card__metric');
+  await expect(assetBranchMetrics).toHaveCount(2);
+  await expect(assetBranchMetrics.nth(0)).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(assetBranchMetrics.nth(0).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
+  await expect(assetBranchMetrics.nth(1)).toContainText("\u603b\u89c4\u6a21");
+  await expect(assetBranchMetrics.nth(1).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"] > .repricing-gap-attribution-card__select .repricing-gap-attribution-card__impact')).toContainText("\u5408\u8ba1\u5f71\u54cd");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).not.toContainText("\u5f53\u524d\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).not.toContainText("\u5f53\u524d\u603b\u751f\u606f\u8d44\u4ea7");
+  for (const derivativeGapKey of ["bank-book-derivative-gap", "trading-book-derivative-gap"]) {
+    const derivativeGapCard = page.locator(`#repricingGapProcessModal [data-repricing-gap-process-node="${derivativeGapKey}"]`);
+    await expect(derivativeGapCard).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3");
+    await expect(derivativeGapCard).not.toContainText("\u5f53\u524d\u51c0\u7f3a\u53e3");
+  }
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="adjusted-assets"] .eve-process-node__action').click();
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(1);
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("资产端业务重定价规模 = 各资产业务重定价规模合计；总规模 = 各资产业务总规模合计");
   const numeratorNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"]').boundingBox();
   const assetNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]').boundingBox();
   const assetLeafBox = await page.locator("#repricingGapProcessModal .repricing-gap-business-expansion").boundingBox();
@@ -509,10 +616,39 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     await expect(page.locator(`#repricingGapProcessModal [data-repricing-gap-process-node="${key}"]`)).toHaveCount(1);
   }
   const loanRepricingCard = page.locator('#repricingGapProcessModal [data-repricing-gap-business-card="self-operated-loans"]');
+  const repricingLeafWidths = await page.locator("#repricingGapProcessModal .repricing-gap-business-strip .repricing-gap-attribution-card").evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
+  );
+  expect(new Set(repricingLeafWidths)).toEqual(new Set([276]));
   await expect(loanRepricingCard).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
-  await expect(loanRepricingCard).toContainText("\u603b\u751f\u606f\u8d44\u4ea7");
-  await expect(loanRepricingCard).toContainText("\u8f83\u57fa\u671f");
+  await expect(loanRepricingCard).toContainText("\u603b\u89c4\u6a21");
+  await expect(loanRepricingCard).not.toContainText("\u5f53\u524d\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(loanRepricingCard).not.toContainText("\u5f53\u524d\u603b\u751f\u606f\u8d44\u4ea7");
+  await expect(loanRepricingCard).toContainText("\u589e\u91cf");
+  await expect(loanRepricingCard).toContainText("\u589e\u901f");
   await expect(loanRepricingCard).toContainText("\u5f71\u54cd");
+  const loanRepricingMetrics = loanRepricingCard.locator(".repricing-gap-attribution-card__metric");
+  await expect(loanRepricingMetrics).toHaveCount(2);
+  await expect(loanRepricingMetrics.nth(0).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
+  await expect(loanRepricingMetrics.nth(1).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
+  await expect(loanRepricingCard.locator(".repricing-gap-attribution-card__impact")).toContainText("\u5408\u8ba1\u5f71\u54cd");
+  const [loanRepricingScaleBox, loanTotalScaleBox] = await Promise.all([
+    loanRepricingMetrics.nth(0).boundingBox(),
+    loanRepricingMetrics.nth(1).boundingBox(),
+  ]);
+  const loanCombinedImpactBox = await loanRepricingCard.locator(".repricing-gap-attribution-card__impact").boundingBox();
+  expect(loanRepricingScaleBox).not.toBeNull();
+  expect(loanTotalScaleBox).not.toBeNull();
+  expect(loanCombinedImpactBox).not.toBeNull();
+  expect(Math.abs(loanRepricingScaleBox.y - loanTotalScaleBox.y)).toBeLessThan(2);
+  expect(Math.abs(loanRepricingScaleBox.width - loanTotalScaleBox.width)).toBeLessThan(2);
+  expect(loanTotalScaleBox.x).toBeGreaterThan(loanRepricingScaleBox.x + loanRepricingScaleBox.width - 2);
+  expect(loanCombinedImpactBox.y).toBeGreaterThan(
+    Math.max(
+      loanRepricingScaleBox.y + loanRepricingScaleBox.height,
+      loanTotalScaleBox.y + loanTotalScaleBox.height
+    ) - 2
+  );
   await expect(loanRepricingCard.locator(".eve-process-sparkline")).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="bank-book-receivable"]')).toHaveCount(0);
@@ -523,10 +659,13 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="bank-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="trading-book-derivative-gap"] .eve-process-node__action').click();
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(3);
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("交易账簿表外衍生品缺口 = 交易账簿表外衍生品应收 - 交易账簿表外衍生品应付");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="self-operated-loans"]')).toHaveCount(1);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="term-deposits"]')).toHaveCount(1);
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u4ea4\u6613\u8d26\u7c3f\u8868\u5916\u884d\u751f\u54c1\u5e94\u6536");
   await expect(page.locator("#repricingGapProcessModal")).toContainText("\u4ea4\u6613\u8d26\u7c3f\u8868\u5916\u884d\u751f\u54c1\u5e94\u4ed8");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).not.toContainText("\u5f53\u524d\u89c4\u6a21");
   const repricingAttributionCards = page.locator("#repricingGapProcessModal .repricing-gap-attribution-card");
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-attribution-card .eve-process-node__impact")).toHaveCount(await repricingAttributionCards.count());
   await expect(page.locator("#repricingGapProcessModal")).not.toContainText("\u5f71\u54cd --");
@@ -582,26 +721,40 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(lcrWidget.getByRole("heading", { name: "\u6d41\u52a8\u6027\u8986\u76d6\u7387LCR", exact: true })).toBeVisible();
   await lcrWidget.locator('[data-liquidity-point="true"]').nth(3).dispatchEvent("click");
   await lcrWidget.locator(".eve-point-popover__action").click();
-  const liquidityComparisonSelect = page.locator("#liquidityProcessModal [data-liquidity-process-comparison]");
-  await expect(liquidityComparisonSelect).toHaveValue("");
-  await expect(liquidityComparisonSelect.locator("option").first()).toContainText("\u4e0a\u4e00\u671f\uff08\u9ed8\u8ba4\uff1a");
-  await liquidityComparisonSelect.selectOption("0");
+  const liquidityComparisonSlider = page.locator('#liquidityProcessModal [data-process-date-slider="comparison"]');
+  const liquidityCurrentSlider = page.locator('#liquidityProcessModal [data-process-date-slider="current"]');
+  await expect(page.locator("#liquidityProcessModal [data-process-date-slider]")).toHaveCount(2);
+  await expect(page.locator("#liquidityProcessModal select")).toHaveCount(0);
+  expect(Number(await liquidityCurrentSlider.inputValue())).toBe(Number(await liquidityCurrentSlider.getAttribute("max")));
+  expect(Number(await liquidityComparisonSlider.inputValue())).toBe(Number(await liquidityCurrentSlider.inputValue()) - 1);
+  await liquidityComparisonSlider.evaluate((node) => {
+    node.value = "0";
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   expect(await page.evaluate(() => appState.liquidityProcessModal.comparisonIndex)).toBe(0);
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u8f83\u57fa\u671f");
+  await expect(page.locator('#liquidityProcessModal [data-liquidity-process-node="ratio"] [data-process-marker]')).toHaveCount(2);
+  await expect(page.locator('#liquidityProcessModal [data-liquidity-process-node="ratio"] [data-process-period-line="true"]')).toHaveCount(1);
   const lcrModel = await page.evaluate(() => buildLiquidityDiagnosticModel({ seq: 42 }, { labels: ["2026-01"], signature: 7, kind: "lcr" }));
-  expect(lcrModel.components.hqla[0]).toBe(Number((
-    lcrModel.components.level1Assets[0] + lcrModel.components.level2AAssets[0] + lcrModel.components.level2BAssets[0]
-  ).toFixed(1)));
-  expect(lcrModel.components.rawNetOutflows[0]).toBe(Number((
-    lcrModel.components.cashOutflows[0] - lcrModel.components.cashInflows[0]
-  ).toFixed(1)));
+  expect(lcrModel.components.hqla[0]).toBeCloseTo(
+    lcrModel.components.level1Assets[0] + lcrModel.components.level2AAssets[0] + lcrModel.components.level2BAssets[0],
+    12
+  );
+  expect(lcrModel.components.rawNetOutflows[0]).toBeCloseTo(
+    lcrModel.components.cashOutflows[0] - lcrModel.components.cashInflows[0],
+    12
+  );
   expect(lcrModel.components.adjustedNetOutflows[0]).toBe(Math.max(
     lcrModel.components.rawNetOutflows[0],
     lcrModel.components.minimumNetOutflows[0]
   ));
-  expect(lcrModel.ratios[0]).toBe(Number(((lcrModel.components.hqla[0] / lcrModel.components.adjustedNetOutflows[0]) * 100).toFixed(1)));
+  expect(lcrModel.ratios[0]).toBeCloseTo(
+    (lcrModel.components.hqla[0] / lcrModel.components.adjustedNetOutflows[0]) * 100,
+    12
+  );
   await expect(page.locator("#liquidityProcessModal")).toContainText("LCR = \u5408\u683c\u4f18\u8d28\u6d41\u52a8\u6027\u8d44\u4ea7HQLA \u00f7 \u7ecf\u8c03\u6574\u540e\u51c0\u73b0\u91d1\u6d41\u51fa");
   await page.locator('[data-liquidity-process-node="numerator"] .eve-process-node__action').click();
+  await expect(page.locator("#liquidityProcessModal")).toContainText("合格优质流动性资产HQLA = 一级资产 + 2A资产 + 2B资产");
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u4e00\u7ea7\u8d44\u4ea7");
   await expect(page.locator("#liquidityProcessModal")).toContainText("2A\u8d44\u4ea7");
   await expect(page.locator("#liquidityProcessModal")).toContainText("2B\u8d44\u4ea7");
@@ -613,7 +766,33 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await page.locator('[data-liquidity-process-node="raw-net-outflow"] .eve-process-node__action').click();
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u672a\u676530\u5929\u73b0\u91d1\u6d41\u51fa\u91cf");
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u672a\u676530\u5929\u73b0\u91d1\u6d41\u5165\u91cf");
+  await expect(page.locator("#liquidityProcessModal")).not.toContainText("正式归因因素为现金流出和现金流入");
+  await expect(page.locator("#liquidityProcessModal")).not.toContainText("分支切换是内生计算状态");
+  await expect(page.locator('[data-liquidity-process-node="constraint-branch-switch"]')).toHaveCount(0);
+  await expect(page.locator('[data-liquidity-process-node="raw-net-outflow"] .eve-process-node__impact')).toHaveCount(0);
+  await expect(page.locator('[data-liquidity-process-node="minimum-net-outflow"] .eve-process-node__impact')).toHaveCount(0);
+  const rawNetOutflowBox = await page.locator('#liquidityProcessModal [data-liquidity-process-node="raw-net-outflow"]').boundingBox();
+  const cashOutflowBox = await page.locator('#liquidityProcessModal [data-liquidity-process-node="cash-outflow"]').boundingBox();
+  expect(rawNetOutflowBox).not.toBeNull();
+  expect(cashOutflowBox).not.toBeNull();
+  expect(cashOutflowBox.x).toBeGreaterThan(rawNetOutflowBox.x + rawNetOutflowBox.width);
+  expect(Math.abs(cashOutflowBox.y - rawNetOutflowBox.y)).toBeLessThan(90);
   await expectAllProcessNodesHaveImpact(page.locator("#liquidityProcessModal"));
+  const lcrFactorWidths = await page.locator("#liquidityProcessModal .liquidity-process-component-strip--ratio > .eve-process-node").evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
+  );
+  expect(new Set(lcrFactorWidths)).toEqual(new Set([270]));
+  const lcrFactorLayout = await page.locator('#liquidityProcessModal [data-liquidity-process-node="level-1-assets"]').evaluate((node) => {
+    const title = node.querySelector(".eve-process-node__title strong").getBoundingClientRect();
+    const value = node.querySelector(".eve-process-node__value").getBoundingClientRect();
+    const comparisons = node.querySelector(".eve-process-node__comparisons").getBoundingClientRect();
+    return {
+      titleAndValueShareTopRow: Math.abs(title.top - value.top) < 10 && value.left > title.left,
+      comparisonsBelowValue: comparisons.top >= value.bottom - 1,
+    };
+  });
+  expect(lcrFactorLayout.titleAndValueShareTopRow).toBeTruthy();
+  expect(lcrFactorLayout.comparisonsBelowValue).toBeTruthy();
   await expect(page.locator('[data-liquidity-process-node="raw-net-outflow"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
   await expect(page.locator('[data-liquidity-process-node="numerator"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
   await page.locator('[data-liquidity-process-node="numerator"] .eve-process-node__action').click();
@@ -624,6 +803,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(nsfrWidget.getByRole("heading", { name: "\u51c0\u7a33\u5b9a\u8d44\u91d1\u6bd4\u4f8bNSFR", exact: true })).toBeVisible();
   await nsfrWidget.locator('[data-liquidity-point="true"]').nth(3).dispatchEvent("click");
   await nsfrWidget.locator(".eve-point-popover__action").click();
+  await expect(page.locator("#liquidityProcessModal")).toContainText("NSFR = 可用的稳定资金 ÷ 所需的稳定资金");
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u53ef\u7528\u7684\u7a33\u5b9a\u8d44\u91d1");
   await expect(page.locator("#liquidityProcessModal")).toContainText("\u6240\u9700\u7684\u7a33\u5b9a\u8d44\u91d1");
   await expectAllProcessNodesHaveImpact(page.locator("#liquidityProcessModal"));
@@ -639,6 +819,16 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   ));
   expect(liquidityRatioModel.components.liquidityAssetItems).toHaveLength(9);
   expect(liquidityRatioModel.components.liquidityLiabilityItems).toHaveLength(7);
+  const interbankAssetItem = liquidityRatioModel.components.liquidityAssetItems.find(
+    (item) => item.key === "liquidity-interbank-net-assets"
+  );
+  const interbankLiabilityItem = liquidityRatioModel.components.liquidityLiabilityItems.find(
+    (item) => item.key === "liquidity-interbank-net-liabilities"
+  );
+  expect(interbankAssetItem.values[0] * interbankLiabilityItem.values[0]).toBe(0);
+  expect(interbankAssetItem.values[0] - interbankLiabilityItem.values[0]).toBe(
+    liquidityRatioModel.components.interbankNetPosition[0]
+  );
   expect(liquidityRatioModel.numerator[0]).toBe(Number(liquidityRatioModel.components.liquidityAssetItems.reduce(
     (sum, item) => sum + item.values[0], 0
   ).toFixed(1)));
@@ -690,10 +880,10 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
       - components.adjustedDueOnOffBalanceLiabilities[0]
     ).toFixed(1)));
     expect(model.denominator[0]).toBe(components.dueOnOffBalanceAssets[0]);
-    expect(model.ratios[0]).toBe(Number((
+    expect(model.ratios[0]).toBeCloseTo((
       100 - (components.adjustedDueOnOffBalanceLiabilities[0] / components.dueOnOffBalanceAssets[0]) * 100
-    ).toFixed(1)));
-    expect(model.ratios[0]).toBe(Number(((model.numerator[0] / model.denominator[0]) * 100).toFixed(1)));
+    ), 12);
+    expect(model.ratios[0]).toBeCloseTo((model.numerator[0] / model.denominator[0]) * 100, 12);
   }
   const liquidityGapAmountBar = liquidityGapWidget.locator('[data-liquidity-point="true"][data-liquidity-metric="amount"]').nth(3);
   await liquidityGapAmountBar.dispatchEvent("click");
@@ -702,6 +892,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await liquidityGapWidget.locator(".eve-point-popover__action").click();
   const liquidityGapAmountProcessModal = page.locator("#liquidityProcessModal");
   await expect(liquidityGapAmountProcessModal).toContainText("30D\u6d41\u52a8\u6027\u7f3a\u53e3 = 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff09- 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d1f\u503a\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff09+ 30D\u6d3b\u671f\u5b58\u6b3e\u8c03\u6574 + 30D\u6d3b\u671f\u5b58\u653e\u8c03\u6574");
+  await expect(liquidityGapAmountProcessModal.locator(".liquidity-gap-amount-expression > .eve-process-expansion__formula")).toHaveCount(0);
   await expect(liquidityGapAmountProcessModal).not.toContainText("\u5254\u9664\u5185\u90e8\u4ea4\u6613");
   await expect(liquidityGapAmountProcessModal.locator('[data-liquidity-process-node="gap"]')).toHaveCount(1);
   await expect(liquidityGapAmountProcessModal.locator('[data-liquidity-gap-constant="true"]')).toHaveCount(0);
@@ -709,8 +900,33 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     await expect(liquidityGapAmountProcessModal.locator(`[data-liquidity-process-node="${key}"]`)).toHaveCount(1);
   }
   await liquidityGapAmountProcessModal.locator('[data-liquidity-process-node="due-on-off-balance-assets"] .eve-process-node__action').click();
-  await expect(liquidityGapAmountProcessModal).toContainText("30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff09 = 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7 + \u8868\u5916\u6536\u5165 + \u5185\u90e8\u4ea4\u6613\u8d44\u4ea7");
+  await expect(liquidityGapAmountProcessModal).toContainText("30D累计到期表内外资产（含内部交易） = 30D累计到期表内资产 + 表外收入 + 内部交易资产");
+  await expect(liquidityGapAmountProcessModal.locator('[data-liquidity-process-node="asset-total"]')).toContainText("30D累计到期表内资产");
+  await expect(liquidityGapAmountProcessModal.locator('[data-liquidity-process-node="asset-total"]')).not.toContainText("表内外资产");
   await expect(liquidityGapAmountProcessModal.locator('[data-liquidity-process-node="internal-transaction-assets"]')).toHaveCount(1);
+  const liquidityGapLeafWidths = await liquidityGapAmountProcessModal.locator(".liquidity-gap-process-strip .eve-process-node").evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
+  );
+  expect(new Set(liquidityGapLeafWidths)).toEqual(new Set([270]));
+  const firstLiquidityGapLeafLayout = await liquidityGapAmountProcessModal.locator(".liquidity-gap-process-strip .eve-process-node").first().evaluate((node) => {
+    const title = node.querySelector(".eve-process-node__title").getBoundingClientRect();
+    const metric = node.querySelector(".eve-process-node__metric").getBoundingClientRect();
+    const value = node.querySelector(".eve-process-node__value").getBoundingClientRect();
+    const comparisons = node.querySelector(".eve-process-node__comparisons").getBoundingClientRect();
+    return {
+      titleTop: Math.round(title.top),
+      metricTop: Math.round(metric.top),
+      titleRight: Math.round(title.right),
+      metricLeft: Math.round(metric.left),
+      valueRight: Math.round(value.right),
+      comparisonsTop: Math.round(comparisons.top),
+      cardRight: Math.round(node.getBoundingClientRect().right),
+    };
+  });
+  expect(Math.abs(firstLiquidityGapLeafLayout.titleTop - firstLiquidityGapLeafLayout.metricTop)).toBeLessThanOrEqual(2);
+  expect(firstLiquidityGapLeafLayout.metricLeft).toBeGreaterThanOrEqual(firstLiquidityGapLeafLayout.titleRight);
+  expect(firstLiquidityGapLeafLayout.comparisonsTop).toBeGreaterThan(firstLiquidityGapLeafLayout.metricTop);
+  expect(firstLiquidityGapLeafLayout.valueRight).toBeLessThan(firstLiquidityGapLeafLayout.cardRight);
   await expectAllProcessNodesHaveImpact(liquidityGapAmountProcessModal);
   await page.keyboard.press("Escape");
 
@@ -718,6 +934,12 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(liquidityGapWidget.locator(".eve-point-popover__grid > div")).toHaveCount(2);
   await liquidityGapWidget.locator(".eve-point-popover__action").click();
   const liquidityGapProcessModal = page.locator("#liquidityProcessModal");
+  const liquidityGapFormulaSteps = liquidityGapProcessModal.locator(".eve-process-formula__step");
+  await expect(liquidityGapFormulaSteps).toHaveCount(2);
+  await expect(liquidityGapFormulaSteps.nth(0)).toContainText("监管公式：30D流动性缺口率 = [30D累计到期表内外资产（含内部交易）- 30D累计到期表内外负债（含内部交易，调整活期）] ÷ 30D累计到期表内外资产（含内部交易）");
+  await expect(liquidityGapFormulaSteps.nth(1)).toContainText("等价变形：30D流动性缺口率 = 100% - 30D累计到期表内外负债（含内部交易，调整活期）÷ 30D累计到期表内外资产（含内部交易");
+  await expect(liquidityGapProcessModal.locator("[data-liquidity-gap-formula-stage]")).toHaveCount(0);
+  await expect(liquidityGapProcessModal.locator("[data-liquidity-regulatory-node]")).toHaveCount(0);
   await expect(liquidityGapProcessModal).toContainText("30D\u6d41\u52a8\u6027\u7f3a\u53e3\u7387 = 100% - 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d1f\u503a\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff0c\u8c03\u6574\u6d3b\u671f\uff09\u00f7 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7\uff08\u542b\u5185\u90e8\u4ea4\u6613");
   await expect(liquidityGapProcessModal).not.toContainText("\u5254\u9664\u5185\u90e8\u4ea4\u6613");
   await expect(liquidityGapProcessModal).not.toContainText("\u7ecf\u6d3b\u671f\u8c03\u6574\u540e\u7684\u5230\u671f\u51c0\u8d1f\u503a");
@@ -736,8 +958,16 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   }
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="internal-transaction-assets"]')).toHaveCount(0);
   await liquidityGapProcessModal.locator('[data-liquidity-process-node="due-on-off-balance-liabilities"] .eve-process-node__action').click();
-  await expect(liquidityGapProcessModal).toContainText("30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d1f\u503a\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff09 = 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d1f\u503a + \u8868\u5916\u652f\u51fa + \u5185\u90e8\u4ea4\u6613\u8d1f\u503a");
+  await expect(liquidityGapProcessModal).toContainText("30D累计到期表内外负债（含内部交易） = 30D累计到期表内负债 + 表外支出 + 内部交易负债");
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="liability-total"]')).toHaveCount(1);
+  await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="liability-total"]')).toContainText("30D累计到期表内负债");
+  await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="liability-total"]')).not.toContainText("表内外负债");
+  const dueLiabilityBox = await liquidityGapProcessModal.locator('[data-liquidity-process-node="due-on-off-balance-liabilities"]').boundingBox();
+  const liabilityTotalBox = await liquidityGapProcessModal.locator('[data-liquidity-process-node="liability-total"]').boundingBox();
+  expect(dueLiabilityBox).not.toBeNull();
+  expect(liabilityTotalBox).not.toBeNull();
+  expect(liabilityTotalBox.x).toBeGreaterThan(dueLiabilityBox.x + dueLiabilityBox.width);
+  expect(Math.abs(liabilityTotalBox.y - dueLiabilityBox.y)).toBeLessThan(90);
   await liquidityGapProcessModal.locator('[data-liquidity-process-node="demand-deposit-adjustment"] .eve-process-node__action').click();
   await expect(liquidityGapProcessModal).toContainText("30D\u6d3b\u671f\u5b58\u6b3e\u8c03\u6574 = 3.5.2\u6d3b\u671f\u5b58\u6b3e - \u9644\u6ce8\u6d3b\u671f\u5b58\u6b3e");
   await expect(liquidityGapProcessModal).toContainText("3.5.2 \u6d3b\u671f\u5b58\u6b3e");
@@ -745,8 +975,10 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(liquidityGapProcessModal).toContainText("30D\u6d3b\u671f\u5b58\u653e\u8c03\u6574 = 3.2\u6d3b\u671f\u5b58\u653e - \u9644\u6ce8\u6d3b\u671f\u5b58\u653e");
   await expect(liquidityGapProcessModal).toContainText("3.2 \u6d3b\u671f\u5b58\u653e");
   await liquidityGapProcessModal.locator('[data-liquidity-process-node="due-on-off-balance-assets"] .eve-process-node__action').click();
-  await expect(liquidityGapProcessModal).toContainText("30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7\uff08\u542b\u5185\u90e8\u4ea4\u6613\uff09 = 30D\u7d2f\u8ba1\u5230\u671f\u8868\u5185\u5916\u8d44\u4ea7 + \u8868\u5916\u6536\u5165 + \u5185\u90e8\u4ea4\u6613\u8d44\u4ea7");
+  await expect(liquidityGapProcessModal).toContainText("30D累计到期表内外资产（含内部交易） = 30D累计到期表内资产 + 表外收入 + 内部交易资产");
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="asset-total"]')).toHaveCount(1);
+  await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="asset-total"]')).toContainText("30D累计到期表内资产");
+  await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="asset-total"]')).not.toContainText("表内外资产");
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="liability-total"]')).toHaveCount(1);
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="demand-deposits"]')).toHaveCount(1);
   await expect(liquidityGapProcessModal.locator('[data-liquidity-process-node="demand-placements"]')).toHaveCount(1);
@@ -762,6 +994,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(liquidityRatioProcessModal).toContainText("\u6d41\u52a8\u6027\u8d1f\u503a");
   const liquidityAssetNodeAction = liquidityRatioProcessModal.locator('[data-liquidity-process-node="numerator"] .eve-process-node__action');
   await liquidityAssetNodeAction.click();
+  await expect(liquidityRatioProcessModal).toContainText("流动性资产 = 1.1 现金 + 1.2 黄金");
   await expect(liquidityRatioProcessModal).toContainText("1.1 \u73b0\u91d1");
   await expect(liquidityRatioProcessModal).toContainText("1.9 \u5176\u4ed6\u4e00\u4e2a\u6708\u5185\u5230\u671f\u53ef\u53d8\u73b0\u7684\u8d44\u4ea7");
   await expectAllProcessNodesHaveImpact(liquidityRatioProcessModal);
@@ -771,6 +1004,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(liquidityRatioProcessModal.locator('[data-liquidity-process-node="liquidity-cash"]')).toHaveCount(0);
   const liquidityLiabilityNodeAction = liquidityRatioProcessModal.locator('[data-liquidity-process-node="denominator"] .eve-process-node__action');
   await liquidityLiabilityNodeAction.click();
+  await expect(liquidityRatioProcessModal).toContainText("流动性负债 = 2.1 活期存款（不含财政性存款） + 2.2 一个月内到期的定期存款");
   await expect(liquidityRatioProcessModal).toContainText("\u6d3b\u671f\u5b58\u6b3e");
   await expectAllProcessNodesHaveImpact(liquidityRatioProcessModal);
   await expect(liquidityLiabilityNodeAction).toContainText("\u70b9\u51fb\u6536\u56de");
@@ -835,25 +1069,166 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     });
     const eveImpacts = buildEveProcessImpactMap(eveModel, selectedIndex, comparisonIndex);
     add("EVE顶层", eveImpacts.eve, eveImpacts.numerator + eveImpacts.denominator);
-    add("EVE六情景", eveImpacts.numerator, sum(eveImpacts, eveModel.scenarios.map((scenario) => `scenario:${scenario.key}`)));
+    const eveScenarioKeys = eveModel.scenarios.map((scenario) => `scenario:${scenario.key}`);
+    add("EVE六情景", eveImpacts.numerator, sum(eveImpacts, eveScenarioKeys));
     add("EVE境外资本", eveImpacts.denominator, sum(eveImpacts, ["overseas-rwa", "legal-rwa", "legal-tier-one"]));
+    if (eveImpacts.attributionMethod !== "six-scenario-shapley-and-capital-grouped-owen"
+      || eveImpacts.scenarioAttribution?.scenarioSelection !== "maximumLoss"
+      || eveImpacts.scenarioAttribution?.stateCount !== 64
+      || eveImpacts["same-worst-scenario"] !== undefined
+      || eveImpacts["worst-scenario-switch"] !== undefined) {
+      throw new Error("△EVE未采用六情景Shapley及资本分组Owen正式口径");
+    }
+    const maxLossModel = {
+      scenarios: [
+        { key: "largeGain", name: "大幅正向增加", values: [200, 250] },
+        { key: "actualLoss", name: "实际损失", values: [-120, -130] },
+      ],
+    };
+    if (getEveWorstScenarioSnapshot(maxLossModel, 1).key !== "actualLoss") {
+      throw new Error("△EVE错误采用绝对值最大而非最大损失情景");
+    }
+    const tieModel = {
+      scenarios: [
+        { key: "a", name: "情景A", values: [-80, -90] },
+        { key: "b", name: "情景B", values: [-70, -90] },
+      ],
+      numerator: [80, 90],
+      capital: [100, 100],
+      ratios: [80, 90],
+      usesOverseasAllocatedCapital: false,
+    };
+    const tieImpacts = buildEveProcessImpactMap(tieModel, 1, 0);
+    if (tieImpacts.scenarioAttribution.currentWorstKey !== "a" || tieImpacts.scenarioAttribution.switched) {
+      throw new Error("当期最不利情景并列时应优先沿用基期情景");
+    }
+    const switchingModel = {
+      scenarios: [
+        { key: "up", name: "上移", values: [-120, -130] },
+        { key: "down", name: "下移", values: [-100, -140] },
+      ],
+    };
+    const switching = calculateEveScenarioShapleyImpacts(switchingModel, 1, 0);
+    if (Math.abs(switching.amountImpacts.up - 5) > 1e-9
+      || Math.abs(switching.amountImpacts.down - 15) > 1e-9
+      || Math.abs(switching.amountImpactTotal - 20) > 1e-9) {
+      throw new Error("△EVE情景切换未内生分配到六情景Shapley影响");
+    }
 
     const lcrModel = buildLiquidityDiagnosticModel({ seq: 42 }, { labels, signature: 37, kind: "lcr" });
     const lcrImpacts = buildLiquidityProcessImpactMap(lcrModel, selectedIndex, comparisonIndex, "ratio");
     add("LCR顶层", lcrImpacts.ratio, lcrImpacts.numerator + lcrImpacts.denominator);
     add("LCR分子", lcrImpacts.numerator, sum(lcrImpacts, ["level-1-assets", "level-2a-assets", "level-2b-assets"]));
-    add("LCR分母", lcrImpacts.denominator, sum(lcrImpacts, ["cash-outflow", "cash-inflow", "constraint-branch-switch"]));
-    add("LCR分母展示层", lcrImpacts.denominator, lcrImpacts["raw-net-outflow"] + lcrImpacts["minimum-net-outflow"]);
+    add("LCR分母", lcrImpacts.denominator, sum(lcrImpacts, ["cash-outflow", "cash-inflow"]));
+    if (lcrImpacts.attributionMethod !== "direct-max-grouped-owen-4-paths"
+      || lcrImpacts.lcrBridge?.pathCount !== 4
+      || lcrImpacts["constraint-branch-switch"] !== undefined) {
+      throw new Error("LCR未采用逐步重算max的4条正式分组Owen路径");
+    }
+    const switchModel = {
+      kind: "lcr",
+      labels,
+      numerator: [40, 40],
+      denominator: [40, 25],
+      ratios: [100, 160],
+      components: {
+        hqla: [40, 40],
+        level1Assets: [40, 40],
+        level2AAssets: [0, 0],
+        level2BAssets: [0, 0],
+        cashOutflows: [100, 100],
+        cashInflows: [60, 90],
+        rawNetOutflows: [40, 10],
+        minimumNetOutflows: [25, 25],
+        adjustedNetOutflows: [40, 25],
+      },
+    };
+    const switchImpacts = buildLiquidityProcessImpactMap(switchModel, selectedIndex, comparisonIndex, "ratio");
+    add("LCR分支切换顶层", switchImpacts.ratio, switchImpacts.numerator + switchImpacts.denominator);
+    add("LCR分支切换分母", switchImpacts.denominator, sum(switchImpacts, ["cash-outflow", "cash-inflow"]));
+    if (!switchImpacts.lcrBridge.switched
+      || switchImpacts.lcrBridge.baseBranch !== "raw"
+      || switchImpacts.lcrBridge.currentBranch !== "minimum") {
+      throw new Error("LCR约束分支辅助状态识别错误");
+    }
+    const lcrMaxEdgeModel = {
+      kind: "lcr",
+      labels,
+      numerator: [100, 100],
+      denominator: [100, 100],
+      ratios: [100, 100],
+      components: {
+        hqla: [100, 100],
+        level1Assets: [100, 100],
+        level2AAssets: [0, 0],
+        level2BAssets: [0, 0],
+        cashOutflows: [200, 300],
+        cashInflows: [100, 200],
+        rawNetOutflows: [100, 100],
+        minimumNetOutflows: [50, 75],
+        adjustedNetOutflows: [100, 100],
+      },
+    };
+    const lcrMaxEdgeImpacts = buildLiquidityProcessImpactMap(lcrMaxEdgeModel, selectedIndex, comparisonIndex, "ratio");
+    add("LCR逐步重算max边界", 0, lcrMaxEdgeImpacts["cash-outflow"] + lcrMaxEdgeImpacts["cash-inflow"]);
+    if (Math.abs(lcrMaxEdgeImpacts["cash-outflow"] + 75) > 1e-10
+      || Math.abs(lcrMaxEdgeImpacts["cash-inflow"] - 75) > 1e-10) {
+      throw new Error("LCR现金流出、现金流入未按4条路径逐步重算max");
+    }
 
     const nsfrModel = buildLiquidityDiagnosticModel({ seq: 46 }, { labels, signature: 41, kind: "nsfr" });
     const nsfrImpacts = buildLiquidityProcessImpactMap(nsfrModel, selectedIndex, comparisonIndex, "ratio");
     add("NSFR顶层", nsfrImpacts.ratio, nsfrImpacts.numerator + nsfrImpacts.denominator);
+    const offsettingNsfr = {
+      kind: "nsfr",
+      numerator: [120, 126],
+      denominator: [100, 105],
+      ratios: [120, 120],
+    };
+    const offsettingNsfrImpacts = buildLiquidityProcessImpactMap(offsettingNsfr, selectedIndex, comparisonIndex, "ratio");
+    add("NSFR总变化为零仍保留正负影响", 0, offsettingNsfrImpacts.numerator + offsettingNsfrImpacts.denominator);
+    if (Math.abs(offsettingNsfrImpacts.numerator) < 1e-10 || Math.abs(offsettingNsfrImpacts.denominator) < 1e-10) {
+      throw new Error("NSFR不应在总变化为零时清零两个因素的抵销贡献");
+    }
 
     const liquidityRatioModel = buildLiquidityDiagnosticModel({ seq: 53 }, { labels, signature: 43, kind: "liquidityRatio" });
     const liquidityRatioImpacts = buildLiquidityProcessImpactMap(liquidityRatioModel, selectedIndex, comparisonIndex, "ratio");
     add("流动性比例顶层", liquidityRatioImpacts.ratio, liquidityRatioImpacts.numerator + liquidityRatioImpacts.denominator);
     add("流动性比例资产端", liquidityRatioImpacts.numerator, sum(liquidityRatioImpacts, liquidityRatioModel.components.liquidityAssetItems.map((item) => item.key)));
     add("流动性比例负债端", liquidityRatioImpacts.denominator, sum(liquidityRatioImpacts, liquidityRatioModel.components.liquidityLiabilityItems.map((item) => item.key)));
+    add("流动性比例同业联合因素", liquidityRatioImpacts["interbank-net-position"], sum(liquidityRatioImpacts, ["liquidity-interbank-net-assets", "liquidity-interbank-net-liabilities"]));
+    if (liquidityRatioImpacts.attributionMethod !== "three-group-owen-with-interbank-zero-bridge-6-paths"
+      || liquidityRatioImpacts.liquidityRatioBridge?.jointFactor !== true
+      || liquidityRatioImpacts.liquidityRatioBridge?.pathCount !== 6) {
+      throw new Error("流动性比例未采用三组Owen及同业净头寸零点桥接正式口径");
+    }
+    const crossingLiquidityRatioModel = {
+      kind: "liquidityRatio",
+      ratios: [150, 110],
+      numerator: [120, 110],
+      denominator: [80, 100],
+      components: {
+        interbankNetPosition: [20, -10],
+        liquidityOtherAssetItems: [{ key: "other-assets", title: "其他流动性资产", values: [100, 110] }],
+        liquidityOtherLiabilityItems: [{ key: "other-liabilities", title: "其他流动性负债", values: [80, 90] }],
+        liquidityAssetItems: [
+          { key: "other-assets", title: "其他流动性资产", values: [100, 110] },
+          { key: "liquidity-interbank-net-assets", title: "同业资产方净额", values: [20, 0] },
+        ],
+        liquidityLiabilityItems: [
+          { key: "other-liabilities", title: "其他流动性负债", values: [80, 90] },
+          { key: "liquidity-interbank-net-liabilities", title: "同业负债方净额", values: [0, 10] },
+        ],
+      },
+    };
+    const crossingImpacts = buildLiquidityProcessImpactMap(crossingLiquidityRatioModel, selectedIndex, comparisonIndex, "ratio");
+    add("流动性比例跨零桥接顶层", -40, crossingImpacts.numerator + crossingImpacts.denominator);
+    add("流动性比例跨零桥接同业", crossingImpacts["interbank-net-position"], sum(crossingImpacts, ["liquidity-interbank-net-assets", "liquidity-interbank-net-liabilities"]));
+    if (!crossingImpacts.liquidityRatioBridge?.switched
+      || Math.abs(crossingImpacts["liquidity-interbank-net-assets"] + 23.61111111111111) > 1e-9
+      || Math.abs(crossingImpacts["liquidity-interbank-net-liabilities"] + 13.10185185185185) > 1e-9) {
+      throw new Error("流动性比例同业净头寸跨零时未按每条Owen路径分别计算资产端和负债端影响");
+    }
 
     const liquidityGapModel = buildLiquidityGapDiagnosticModel({ seq: 49 }, {
       labels,
@@ -866,6 +1241,21 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     add("流动性缺口负债端", gapAmountImpacts["due-on-off-balance-liabilities"], sum(gapAmountImpacts, ["liability-total", "off-balance-expense", "internal-transaction-liabilities"]));
     add("流动性缺口活期存款", gapAmountImpacts["demand-deposit-adjustment"], sum(gapAmountImpacts, ["demand-deposits", "note-demand-deposits"]));
     add("流动性缺口活期存放", gapAmountImpacts["demand-placement-adjustment"], sum(gapAmountImpacts, ["demand-placements", "note-demand-placements"]));
+    const offsetGapModel = {
+      components: {
+        assetTotal: [60, 70], offBalanceIncome: [20, 10], internalTransactionAssets: [20, 20],
+        liabilityTotal: [70, 70], offBalanceExpense: [10, 10], internalTransactionLiabilities: [10, 10],
+        demandDeposits: [5, 5], noteDemandDeposits: [1, 1], demandPlacements: [3, 3], noteDemandPlacements: [1, 1],
+        dueOnOffBalanceAssets: [100, 100], dueOnOffBalanceLiabilities: [90, 90],
+        demandDepositAdjustment: [4, 4], demandPlacementAdjustment: [2, 2],
+        adjustedDueOnOffBalanceLiabilities: [84, 84], liquidityGap: [16, 16],
+      },
+    };
+    const offsetGapImpacts = buildLiquidityGapAmountProcessImpactMap(offsetGapModel, selectedIndex, comparisonIndex);
+    add("流动性缺口资产合计不变仍保留末级抵销", 0, sum(offsetGapImpacts, ["asset-total", "off-balance-income", "internal-transaction-assets"]));
+    if (Math.abs(offsetGapImpacts["asset-total"]) < 1e-10 || Math.abs(offsetGapImpacts["off-balance-income"]) < 1e-10) {
+      throw new Error("流动性缺口不应在父节点变化为零时清零末级抵销贡献");
+    }
 
     const gapRatioImpacts = buildLiquidityProcessImpactMap(liquidityGapModel, selectedIndex, comparisonIndex, "ratio");
     add("流动性缺口率顶层", gapRatioImpacts.ratio, gapRatioImpacts["adjusted-due-on-off-balance-liabilities"] + gapRatioImpacts["due-on-off-balance-assets"]);
@@ -881,9 +1271,19 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     const repricingImpacts = buildRepricingGapProcessImpactMap(repricingModel, selectedIndex, comparisonIndex);
     add("重定价缺口率顶层", repricingImpacts.ratio, sum(repricingImpacts, ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"]));
     add("重定价缺口率资产端", repricingImpacts["adjusted-assets"], sum(repricingImpacts, repricingModel.assetItems.map((item) => item.key)));
+    add("重定价缺口率资产端重定价规模", repricingImpacts["adjusted-assets:repricingScale"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:repricingScale`)));
+    add("重定价缺口率资产端总规模", repricingImpacts["adjusted-assets:totalScale"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:totalScale`)));
     add("重定价缺口率负债端", repricingImpacts["adjusted-liabilities"], sum(repricingImpacts, repricingModel.liabilityItems.map((item) => item.key)));
     add("重定价缺口率银行账簿衍生品", repricingImpacts["bank-book-derivative-gap"], sum(repricingImpacts, ["bank-book-receivable", "bank-book-payable"]));
     add("重定价缺口率交易账簿衍生品", repricingImpacts["trading-book-derivative-gap"], sum(repricingImpacts, ["trading-book-receivable", "trading-book-payable"]));
+    repricingModel.assetItems.forEach((item) => {
+      add(`重定价缺口率${item.title}双字段`, repricingImpacts[item.key], sum(repricingImpacts, [
+        `${item.key}:repricingScale`, `${item.key}:totalScale`,
+      ]));
+    });
+    if (repricingImpacts.attributionMethod !== "three-level-nested-owen") {
+      throw new Error("重定价缺口率未采用正式三层嵌套Owen口径");
+    }
     if (repricingImpacts.numerator !== undefined || repricingImpacts.denominator !== undefined) {
       throw new Error("重定价缺口率不应再把分子和分母作为独立归因因素");
     }
@@ -906,6 +1306,13 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     add("重定价久期缺口顶层", durationImpacts["duration-gap"], durationImpacts["asset-duration"] + durationImpacts["liability-duration"]);
     add("重定价久期缺口资产端", durationImpacts["asset-duration"], sum(durationImpacts, Object.keys(durationImpacts).filter((key) => key.startsWith("asset:"))));
     add("重定价久期缺口负债端", durationImpacts["liability-duration"], sum(durationImpacts, Object.keys(durationImpacts).filter((key) => key.startsWith("liability:"))));
+    let strictRejected = false;
+    try {
+      getProcessSeriesValue([null], 0);
+    } catch (error) {
+      strictRejected = error instanceof TypeError;
+    }
+    if (!strictRejected) throw new Error("页面归因实现未拒绝null或隐式类型转换");
     return results;
   });
 
@@ -1036,15 +1443,17 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
   expect(audit.repricing.includesInternalTransactions).toBeFalsy();
   expect(audit.repricing.hasInternalAssetLeaf).toBeFalsy();
   expect(audit.repricing.hasInternalLiabilityLeaf).toBeFalsy();
-  expect(audit.repricing.branches).toEqual(expect.objectContaining({
-    totalInterestAssets: audit.repricing.metrics.totalInterestAssets,
-    adjustedInterestAssets: audit.repricing.metrics.adjustedInterestAssets,
-    adjustedInterestLiabilities: audit.repricing.metrics.adjustedInterestLiabilities,
-    bankBookDerivativeGap: audit.repricing.metrics.bankBookDerivativeGap,
-    tradingBookDerivativeGap: audit.repricing.metrics.tradingBookDerivativeGap,
-  }));
-  expect(audit.repricing.numerator).toBe(audit.repricing.metrics.repricingGap);
-  expect(audit.repricing.ratio).toBe(audit.repricing.metrics.ratio);
+  [
+    "totalInterestAssets",
+    "adjustedInterestAssets",
+    "adjustedInterestLiabilities",
+    "bankBookDerivativeGap",
+    "tradingBookDerivativeGap",
+  ].forEach((key) => {
+    expect(audit.repricing.branches[key]).toBeCloseTo(audit.repricing.metrics[key], 10);
+  });
+  expect(audit.repricing.numerator).toBeCloseTo(audit.repricing.metrics.repricingGap, 10);
+  expect(audit.repricing.ratio).toBeCloseTo(audit.repricing.metrics.ratio, 10);
   expect(audit.repricing.legalScopeMetrics).toMatchObject({
     totalInterestAssets: 100,
     adjustedInterestAssets: 100,
@@ -1124,29 +1533,27 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   const methodologyModal = page.locator("#businessMethodologyModal");
   await page.locator('[data-widget-seq="83"] [data-open-business-methodology]').click();
   await expect(methodologyModal).toContainText("新发生业务月末轧差计算逻辑");
-  await expect(methodologyModal).toContainText("独立于利率风险和流动性风险的月末结束时间");
-  await expect(methodologyModal).toContainText("开始时间继续按系统默认规则自动确定，不提供用户修改");
-  await expect(methodologyModal).toContainText("\u672c\u6708\u672b\u4e0e\u4e0a\u6708\u672b");
+  await expect(methodologyModal).toContainText("基于本月末与上月末两个时点的业务编号明细数据进行轧差，计算当月新发生业务");
+  await expect(methodologyModal).not.toContainText("独立于利率风险和流动性风险");
+  await expect(methodologyModal).not.toContainText("计算公式为");
   await expect(methodologyModal).not.toContainText("\u8fde\u7eed\u4e24\u5929");
   await methodologyModal.getByRole("button", { name: "\u5173\u95ed", exact: true }).click();
 
   await page.locator('[data-widget-seq="85"] [data-open-business-methodology]').click();
   await expect(methodologyModal).toContainText("新发生业务月末轧差计算逻辑");
-  await expect(methodologyModal).toContainText("每一个统计月独立的月度新发生业务明细表");
-  await expect(methodologyModal).toContainText("不使用所选区间首尾时点重新轧差");
+  await expect(methodologyModal).toContainText("计算当月新发生业务");
   await expect(methodologyModal).not.toContainText("\u8fde\u7eed\u4e24\u5929");
   await methodologyModal.getByRole("button", { name: "\u5173\u95ed", exact: true }).click();
 
   await page.locator('[data-widget-seq="90"] [data-open-business-methodology]').click();
   await expect(methodologyModal).toContainText("到期业务月末轧差计算逻辑");
-  await expect(methodologyModal).toContainText("\u4f59\u989d\u51cf\u5c11\u90e8\u5206");
+  await expect(methodologyModal).toContainText("基于本月末与上月末两个时点的业务编号明细数据进行轧差，计算当月到期业务");
+  await expect(methodologyModal).not.toContainText("未来合同到期的区间");
   await methodologyModal.getByRole("button", { name: "\u5173\u95ed", exact: true }).click();
 
   await page.locator('[data-widget-seq="97"] [data-open-business-methodology]').click();
   await expect(methodologyModal).toContainText("到期业务月末轧差计算逻辑");
-  await expect(methodologyModal).toContainText("每一个统计月独立的月度到期业务明细表");
-  await expect(methodologyModal).toContainText("未来合同到期的区间同样仅允许选择月末日期");
-  await expect(methodologyModal).toContainText("基于业务变动分析所选结束月末的存量业务");
+  await expect(methodologyModal).toContainText("计算当月到期业务");
   await expect(methodologyModal).not.toContainText("\u8fde\u7eed\u4e24\u5929");
   await page.keyboard.press("Escape");
   await expect(methodologyModal).toHaveAttribute("aria-hidden", "true");
@@ -1404,20 +1811,24 @@ test("EVE\u548cNII\u5e01\u79cd\u77e9\u9635\u8868\u5df2\u79fb\u9664", async ({ pa
   await expect(page.locator("#dashboardView article.widget-card h4").nth(1)).toHaveText("\u51c0\u5229\u606f\u6536\u5165\u6ce2\u52a8");
 });
 
-test("\u673a\u6784\u591a\u9009\u540e\u77e9\u9635\u8868\u6309\u673a\u6784\u5206\u7ec4\u5c55\u793a", async ({ page }) => {
+test("\u673a\u6784\u548c\u5e01\u79cd\u53ea\u652f\u6301\u5355\u9009", async ({ page }) => {
   await openPage(page);
   await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
-  await page.evaluate(() => {
-    const businessPage = data.pages.find((item) => item.name === "业务变动分析") || getCurrentPage();
-    appState.pageFilters[businessPage.id] = {
-      ...(appState.pageFilters[businessPage.id] || {}),
-      机构: ["法人汇总", "境内汇总"],
-    };
-    render();
-  });
+  const organizationFilter = page.locator('#globalFilterBar [data-filter-name="机构"]');
+  await organizationFilter.click();
+  await expect(page.locator('#filterModal [role="radiogroup"]')).toBeVisible();
+  await page.locator('#filterModal [data-filter-name="机构"][data-filter-value="境内汇总"]').click();
+  expect(await page.evaluate(() => appState.pageFilters["business-change"].机构)).toEqual(["境内汇总"]);
+  await expect(organizationFilter).toContainText("境内汇总");
   const businessStructureHeader = page.locator('[data-widget-seq="79"] thead').first();
-  await expect(businessStructureHeader).toContainText("法人汇总");
   await expect(businessStructureHeader).toContainText("境内汇总");
+  await expect(businessStructureHeader).not.toContainText("法人汇总");
+
+  const currencyFilter = page.locator('#globalFilterBar [data-filter-name="币种"]');
+  await currencyFilter.click();
+  await page.locator('#filterModal [data-filter-name="币种"][data-filter-value="美元"]').click();
+  expect(await page.evaluate(() => appState.pageFilters["business-change"].币种)).toEqual(["美元"]);
+  await expect(currencyFilter).toContainText("美元");
 });
 
 test("\u9875\u9762\u7ea7\u65f6\u95f4\u7b5b\u9009\u53ea\u5141\u8bb8\u4fee\u6539\u7ed3\u675f\u65f6\u95f4", async ({ page }) => {
@@ -1642,19 +2053,19 @@ test("管理限额按单机构及所选币种和附加口径匹配显示", async
     机构: ["香港分行"],
     币种: ["外币折美元", "人民币"],
   });
-  await expect(bondDurationWidget.locator(".chart-legend--limits .chart-legend__item--limit")).toHaveCount(2);
+  await expect(bondDurationWidget.locator(".chart-legend--limits .chart-legend__item--limit")).toHaveCount(1);
   await expect(bondDurationWidget).toContainText("香港 / 外币折美元 限额 <=4年");
-  await expect(bondDurationWidget).toContainText("香港 / 人民币 限额 <=4年");
+  await expect(bondDurationWidget).not.toContainText("香港 / 人民币 限额 <=4年");
 
   await setPageFilters(page, "利率风险", { 机构: ["香港分行"], 币种: ["港币", "美元"] });
-  await expect(repricingGapWidget.locator(".chart-legend--limits .chart-legend__item--limit")).toHaveCount(2);
+  await expect(repricingGapWidget.locator(".chart-legend--limits .chart-legend__item--limit")).toHaveCount(1);
   await expect(repricingGapWidget).toContainText("香港 / 港币 限额 <=50%");
-  await expect(repricingGapWidget).toContainText("香港 / 美元 限额 <=16%");
+  await expect(repricingGapWidget).not.toContainText("香港 / 美元 限额 <=16%");
   await expect(repricingDurationGapWidget.locator(".chart-legend--limits")).toHaveCount(0);
   await expect(repricingDurationGapWidget.locator("svg line[stroke-dasharray]")).toHaveCount(0);
 
   await setPageFilters(page, "利率风险", { 机构: ["香港分行", "纽约分行"], 币种: ["外币折美元"] });
-  await expect(bondDurationWidget).not.toContainText("限额");
+  await expect(bondDurationWidget).toContainText("香港 / 外币折美元 限额 <=4年");
 
   await page.getByRole("button", { name: "流动性风险", exact: true }).click();
   await setPageFilters(page, "流动性风险", { 机构: ["新加坡分行"], 币种: ["全折美元"] });

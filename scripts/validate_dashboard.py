@@ -1059,6 +1059,15 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
     if business_options != expected_business_options:
         errors.append("dashboardDomainConfig.businessDurationOptions should match the approved interest-risk category order")
 
+    repricing_duration_gap_business_types = domain.get("repricingDurationGapBusinessTypes")
+    expected_repricing_duration_gap_business_types = [
+        item for item in expected_business_options if item not in {"表外衍生品应付", "表外衍生品应收"}
+    ]
+    if repricing_duration_gap_business_types != expected_repricing_duration_gap_business_types:
+        errors.append(
+            "dashboardDomainConfig.repricingDurationGapBusinessTypes should exclude off-balance-sheet derivatives"
+        )
+
     business_default_values = domain.get("businessTypeDefaultValues")
     if not isinstance(business_default_values, list) or not business_default_values:
         errors.append("dashboardDomainConfig.businessTypeDefaultValues should be a non-empty list")
