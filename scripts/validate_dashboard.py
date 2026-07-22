@@ -74,6 +74,7 @@ REMOVED_WIDGET_SEQS = {5, 8, 10, 11, 16, 17, 57, 58}
 REMOVED_STRUCTURE_LAYER_NAMES = {"核心风险指标", "缺口风险", "现金流错配"}
 ALLOWED_COMPONENT_TYPES = {
     "折线图",
+    "柱线组合图",
     "双轴柱线组合图",
     "穿透折线图",
     "期限分布图",
@@ -344,7 +345,7 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         errors.append("pageBehavior should be an object")
     else:
         allowed_modes = {"interest", "liquidity", "generic"}
-        allowed_date_range_modes = {"independentMonthEnd"}
+        allowed_date_range_modes = {"sharedGlobal"}
         allowed_analysis_perspectives = {"interestBalanceStructure", "liquidityBalanceStructure"}
         for page_name, behavior in page_behavior.items():
             if page_name not in page_names:
@@ -373,8 +374,8 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
         elif business_behavior.get("analysisPerspective") != "interestBalanceStructure":
             errors.append("pageBehavior.业务变动分析.analysisPerspective should be interestBalanceStructure")
         else:
-            if business_behavior.get("dateRangeMode") != "independentMonthEnd":
-                errors.append("pageBehavior.业务变动分析.dateRangeMode should be independentMonthEnd")
+            if business_behavior.get("dateRangeMode") != "sharedGlobal":
+                errors.append("pageBehavior.业务变动分析.dateRangeMode should be sharedGlobal")
             perspective_options = business_behavior.get("analysisPerspectiveOptions")
             if not isinstance(perspective_options, list):
                 errors.append("pageBehavior.业务变动分析.analysisPerspectiveOptions should be a list")
@@ -481,6 +482,18 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
             if not isinstance(behavior, dict) or behavior.get("methodologyKey") != expected_key:
                 errors.append(f"widgetBehavior.{seq}.methodologyKey should be {expected_key}")
+
+        for seq in (72, 73):
+            behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
+            if not isinstance(behavior, dict) or behavior.get("frequencyToggle") is not True:
+                errors.append(f"widgetBehavior.{seq}.frequencyToggle should be true for stock monthly/daily analysis")
+
+        for seq in (89, 96):
+            behavior = widget_behavior.get(str(seq), widget_behavior.get(seq, {}))
+            if not isinstance(behavior, dict) or behavior.get("showDateFilter") is not True:
+                errors.append(f"widgetBehavior.{seq}.showDateFilter should be true for local month-end range selection")
+            elif "时间区间（起止）" not in behavior.get("inlineFilters", []):
+                errors.append(f"widgetBehavior.{seq}.inlineFilters should include 时间区间（起止）")
 
         for seq in sorted(ALLOWED_SIMULATION_WIDGET_SEQS):
             context = widget_context.get(seq)
@@ -951,7 +964,6 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
         "function renderEveProcessModal",
         "function renderLiquidityProcessModal",
         "function renderRepricingGapProcessModal",
-        "function renderRepricingDurationGapProcessModal",
     ):
         if process_function in text:
             errors.append(f"app.js should not define diagnostic process modal implementations: {process_function}")
@@ -1058,15 +1070,6 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
         errors.append("dashboardDomainConfig.businessDurationOptions contains duplicate values")
     if business_options != expected_business_options:
         errors.append("dashboardDomainConfig.businessDurationOptions should match the approved interest-risk category order")
-
-    repricing_duration_gap_business_types = domain.get("repricingDurationGapBusinessTypes")
-    expected_repricing_duration_gap_business_types = [
-        item for item in expected_business_options if item not in {"表外衍生品应付", "表外衍生品应收"}
-    ]
-    if repricing_duration_gap_business_types != expected_repricing_duration_gap_business_types:
-        errors.append(
-            "dashboardDomainConfig.repricingDurationGapBusinessTypes should exclude off-balance-sheet derivatives"
-        )
 
     business_default_values = domain.get("businessTypeDefaultValues")
     if not isinstance(business_default_values, list) or not business_default_values:

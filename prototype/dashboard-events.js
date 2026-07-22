@@ -61,13 +61,6 @@ if (globalEndInputEl) {
   });
 }
 
-if (businessEndInputEl) {
-  businessEndInputEl.addEventListener("change", (event) => {
-    updateBusinessAnalysisDateRange(1, event.target.value);
-    render();
-  });
-}
-
 dashboardViewEl.addEventListener("click", (event) => {
   const methodologyButton = event.target.closest("[data-open-business-methodology]");
   if (methodologyButton) {
@@ -192,29 +185,7 @@ dashboardViewEl.addEventListener("click", (event) => {
     appState.repricingDurationGapPointPopover = {
       widgetSeq: Number(repricingDurationGapPoint.dataset.widgetSeq || 15),
       dateIndex: Number(repricingDurationGapPoint.dataset.dateIndex || 0),
-      labels: String(repricingDurationGapPoint.dataset.repricingDurationGapLabels || "").split("||").filter(Boolean),
-      signature: Number(repricingDurationGapPoint.dataset.repricingDurationGapSignature || 0),
     };
-    render();
-    return;
-  }
-
-  const openRepricingDurationGapProcessButton = event.target.closest("[data-open-repricing-duration-gap-process]");
-  if (openRepricingDurationGapProcessButton) {
-    const sourceState = appState.repricingDurationGapPointPopover || {};
-    const labels = String(openRepricingDurationGapProcessButton.dataset.repricingDurationGapLabels || sourceState.labels?.join("||") || "").split("||").filter(Boolean);
-    const latestIndex = Math.max(0, labels.length - 1);
-    appState.repricingDurationGapProcessModal = {
-      widgetSeq: Number(openRepricingDurationGapProcessButton.dataset.widgetSeq || sourceState.widgetSeq || 15),
-      dateIndex: latestIndex,
-      labels,
-      signature: Number(openRepricingDurationGapProcessButton.dataset.repricingDurationGapSignature || sourceState.signature || 0),
-      comparisonIndex: latestIndex > 0 ? latestIndex - 1 : null,
-      activeNode: "duration-gap",
-      assetExpanded: false,
-      liabilityExpanded: false,
-    };
-    appState.repricingDurationGapPointPopover = null;
     render();
     return;
   }
@@ -990,48 +961,6 @@ repricingGapProcessModalEl.addEventListener("click", (event) => {
   renderRepricingGapProcessModal();
 });
 
-repricingDurationGapProcessModalEl.addEventListener("change", (event) => {
-  const slider = event.target.closest("[data-process-date-slider]");
-  if (!slider || !appState.repricingDurationGapProcessModal) return;
-  appState.repricingDurationGapProcessModal = updateProcessDateRangeState(appState.repricingDurationGapProcessModal, slider);
-  renderRepricingDurationGapProcessModal();
-});
-
-repricingDurationGapProcessModalEl.addEventListener("click", (event) => {
-  const sparkline = event.target.closest("[data-process-sparkline]");
-  if (sparkline) {
-    const payload = decodeProcessPreviewPayload(sparkline.dataset.processPreview);
-    if (payload) {
-      appState.processSparklinePreview = payload;
-      renderProcessSparklinePreview();
-    }
-    return;
-  }
-
-  const closeButton = event.target.closest("[data-close-overlay='repricingDurationGapProcessModal']");
-  if (closeButton) {
-    appState.repricingDurationGapProcessModal = null;
-    render();
-    return;
-  }
-  const nodeButton = event.target.closest("[data-repricing-duration-gap-process-node]");
-  if (!nodeButton || !appState.repricingDurationGapProcessModal) return;
-  const nodeKey = nodeButton.dataset.repricingDurationGapProcessNode;
-  const collapseAsset = nodeKey === "asset-duration" && appState.repricingDurationGapProcessModal.assetExpanded;
-  const collapseLiability = nodeKey === "liability-duration" && appState.repricingDurationGapProcessModal.liabilityExpanded;
-  appState.repricingDurationGapProcessModal = {
-    ...appState.repricingDurationGapProcessModal,
-    activeNode: collapseAsset || collapseLiability ? "duration-gap" : nodeKey,
-    assetExpanded: nodeKey === "asset-duration"
-      ? !appState.repricingDurationGapProcessModal.assetExpanded
-      : appState.repricingDurationGapProcessModal.assetExpanded,
-    liabilityExpanded: nodeKey === "liability-duration"
-      ? !appState.repricingDurationGapProcessModal.liabilityExpanded
-      : appState.repricingDurationGapProcessModal.liabilityExpanded,
-  };
-  renderRepricingDurationGapProcessModal();
-});
-
 processSparklinePreviewEl.addEventListener("click", (event) => {
   const closeButton = event.target.closest("[data-close-process-sparkline]");
   if (!closeButton) return;
@@ -1098,11 +1027,6 @@ document.addEventListener("keydown", (event) => {
     }
     if (appState.repricingGapProcessModal) {
       appState.repricingGapProcessModal = null;
-      render();
-      return;
-    }
-    if (appState.repricingDurationGapProcessModal) {
-      appState.repricingDurationGapProcessModal = null;
       render();
       return;
     }

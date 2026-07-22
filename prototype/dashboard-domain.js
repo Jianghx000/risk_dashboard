@@ -16,21 +16,6 @@ window.dashboardDomainConfig = {
     "表外衍生品应付",
     "表外衍生品应收"
   ],
-  "repricingDurationGapBusinessTypes": [
-    "自营贷款",
-    "投资类资产",
-    "同业资产",
-    "自营非标投资",
-    "内部交易资产",
-    "活期存款",
-    "定期存款",
-    "同业负债",
-    "存放央行",
-    "发行债券",
-    "向央行借款",
-    "租赁负债",
-    "内部交易负债"
-  ],
   "businessTypeDefaultValues": [
     "自营贷款",
     "投资类资产"

@@ -55,6 +55,46 @@ function renderWidgetDateRangeInlineControl(widgetSeq, filterName, filterLabel, 
     ? getMaturityStructureRangeMode(filterName, selectedValues)
     : "historical";
   const [startDate, endDate] = normalizeWidgetBusinessStructureDateRange(widgetSeq, selectedValues, null, filterName);
+  if (rangeMode === "future") {
+    const [minimumDate, maximumDate] = getFutureBusinessStructureDateBounds();
+    return `
+      <div class="chart-inline-control chart-inline-control--daterange">
+        <span class="chart-inline-control__label">${filterLabel}</span>
+        <div class="inline-date-range" data-daily-date-range="true">
+          <label class="inline-date-range__field">
+            <span>开始日期</span>
+            <input
+              class="inline-date-range__input"
+              type="date"
+              min="${minimumDate}"
+              max="${maximumDate}"
+              value="${startDate}"
+              data-inline-date-filter="true"
+              data-date-granularity="day"
+              data-widget-seq="${widgetSeq}"
+              data-filter-name="${filterName}"
+              data-range-index="0"
+            >
+          </label>
+          <label class="inline-date-range__field">
+            <span>结束日期</span>
+            <input
+              class="inline-date-range__input"
+              type="date"
+              min="${minimumDate}"
+              max="${maximumDate}"
+              value="${endDate}"
+              data-inline-date-filter="true"
+              data-date-granularity="day"
+              data-widget-seq="${widgetSeq}"
+              data-filter-name="${filterName}"
+              data-range-index="1"
+            >
+          </label>
+        </div>
+      </div>
+    `;
+  }
   const monthEndOptions = getBusinessMonthEndSelectionOptions(rangeMode);
   const renderOptions = (selectedDate) => monthEndOptions
     .map((dateValue) => `<option value="${dateValue}" ${dateValue === selectedDate ? "selected" : ""}>${dateValue}</option>`)
@@ -306,7 +346,8 @@ function buildMonthlyBusinessChangeFacts(scope, monthKey, chartContext, options 
 }
 
 function buildFutureContractMaturityFacts(monthKey, chartContext, options = {}) {
-  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  const referenceDateValue = options.referenceDateValue || getBusinessStructureReferenceEndDate();
+  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(referenceDateValue));
   return buildBusinessMonthEndSnapshotRows(referenceMonthKey, chartContext, options)
     .filter((row) => getBusinessMonthKeyFromDateValue(row.contractMaturityDate) === monthKey)
     .map((row) => ({
@@ -324,7 +365,8 @@ function buildFutureContractMaturityFacts(monthKey, chartContext, options = {}) 
 }
 
 function buildBusinessChangeFactsForMonth(scope, monthKey, chartContext, options = {}) {
-  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  const referenceDateValue = options.referenceDateValue || getBusinessStructureReferenceEndDate();
+  const referenceMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(referenceDateValue));
   if (scope === "maturity" && getBusinessMonthSerial(monthKey) > getBusinessMonthSerial(referenceMonthKey)) {
     return buildFutureContractMaturityFacts(monthKey, chartContext, options);
   }
@@ -333,10 +375,20 @@ function buildBusinessChangeFactsForMonth(scope, monthKey, chartContext, options
 
 function buildBusinessChangeFactsForDateRange(scope, chartContext, dateRange = [], options = {}) {
   const monthKeys = getBusinessMonthKeysForDateRange(dateRange);
-  return monthKeys.flatMap((monthKey) => options.future
-    ? buildFutureContractMaturityFacts(monthKey, chartContext, options)
+  const facts = monthKeys.flatMap((monthKey) => options.future
+    ? buildFutureContractMaturityFacts(monthKey, chartContext, {
+        ...options,
+        referenceDateValue: options.referenceDateValue || getDefaultGlobalEndDate(),
+      })
     : buildMonthlyBusinessChangeFacts(scope, monthKey, chartContext, options)
   );
+  if (!options.future) return facts;
+  const startDate = dateRange?.[0] || "";
+  const endDate = dateRange?.[1] || "";
+  return facts.filter((row) => {
+    const maturityDate = row.contractMaturityDate || row.maturityDate || "";
+    return (!startDate || maturityDate >= startDate) && (!endDate || maturityDate <= endDate);
+  });
 }
 
 function calculateBusinessChangeGrowthValues(scaleValues = [], previousValue = null) {
@@ -696,11 +748,15 @@ function renderBusinessStructureTable(widget, chartContext) {
     return renderMaturityBusinessStructureTables(widget, chartContext);
   }
   const widgetState = appState.widgetFilters[widget.seq] || {};
-  const timeRangeValues = normalizeWidgetBusinessStructureDateRange(widget.seq, widgetState["时间区间（起止）"], null, "时间区间（起止）");
+  const behavior = getConfiguredWidgetBehavior(widget);
+  const showDateFilter = Boolean(behavior.showDateFilter);
+  const timeRangeValues = showDateFilter
+    ? normalizeWidgetBusinessStructureDateRange(widget.seq, widgetState["时间区间（起止）"], null, "时间区间（起止）")
+    : [getBusinessStructureReferenceStartDate(), getBusinessStructureReferenceEndDate()];
   return renderBusinessStructureTableSection(widget, chartContext, {
     timeRangeValues,
     filterName: "时间区间（起止）",
-    showDateFilter: Boolean(getConfiguredWidgetBehavior(widget).showDateFilter),
+    showDateFilter,
   });
 }
 
@@ -734,7 +790,12 @@ function renderBusinessStructureTableSection(widget, chartContext, options = {})
   const localFilter = options.showDateFilter
     ? `
       <div class="chart-inline-controls">
-        ${renderWidgetDateRangeInlineControl(widget.seq, options.filterName || "时间区间（起止）", "统计月末区间", timeRangeValues)}
+        ${renderWidgetDateRangeInlineControl(
+          widget.seq,
+          options.filterName || "时间区间（起止）",
+          options.scope === "future" ? "合同到期日期区间" : "统计月末区间",
+          timeRangeValues
+        )}
       </div>
     `
     : "";
@@ -996,13 +1057,15 @@ function getBusinessDetailColumns(widget, drilldown = null, chartContext = null)
 }
 
 function getBusinessDrilldownDateRange(drilldown) {
+  const sourceWidgetSeq = Number(drilldown?.sourceWidgetSeq);
+  const sourceBehavior = getConfiguredWidgetBehaviorBySeq(sourceWidgetSeq);
+  if (!sourceBehavior.showDateFilter) return null;
   const sourceWidgetState = appState.widgetFilters?.[drilldown?.sourceWidgetSeq] || {};
-  const filterName = isMaturityStructureWidgetSeq(drilldown?.sourceWidgetSeq)
+  const filterName = isMaturityStructureWidgetSeq(sourceWidgetSeq)
     ? getMaturityStructureRangeFilterName(drilldown?.maturityTableScope)
     : "时间区间（起止）";
   const rawDateRange = sourceWidgetState[filterName];
-  if (!Array.isArray(rawDateRange) || !rawDateRange.some(Boolean)) return null;
-  return normalizeWidgetBusinessStructureDateRange(drilldown?.sourceWidgetSeq, rawDateRange, null, filterName);
+  return normalizeWidgetBusinessStructureDateRange(sourceWidgetSeq, rawDateRange || [], null, filterName);
 }
 
 function getMaturityStructureRangeFilterName(scope) {
@@ -1031,7 +1094,10 @@ function buildBusinessDetailRows(widget, chartContext, drilldown) {
   const behavior = getConfiguredWidgetBehavior(widget);
   const detailScope = behavior.detailScope || "stock";
   const scopeMeta = BUSINESS_DETAIL_SCOPE_META[detailScope] || BUSINESS_DETAIL_SCOPE_META.stock;
-  const dateRange = getBusinessDrilldownDateRange(drilldown);
+  const selectedDateRange = getBusinessDrilldownDateRange(drilldown);
+  const dateRange = selectedDateRange || (detailScope === "stock"
+    ? [getBusinessStructureReferenceStartDate(), getBusinessStructureReferenceEndDate()]
+    : null);
   if (["new", "maturity"].includes(detailScope)) {
     const future = detailScope === "maturity" && drilldown?.maturityTableScope === "future";
     return buildBusinessChangeFactsForDateRange(detailScope, chartContext, dateRange || [], {
@@ -1213,12 +1279,22 @@ function buildFutureMaturityMonthlyLabels(monthCount = FUTURE_MATURITY_MONTH_COU
 }
 
 function applyMaturityTrendDateRangeToLabels(widget, labels, filterState = {}) {
-  const [rangeStart, rangeEnd] = getBusinessAnalysisDateRange();
+  const rangeStart = getBusinessStructureReferenceStartDate();
+  const rangeEnd = getLatestCompletedBusinessMonthEnd(getBusinessStructureReferenceEndDate());
   const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   const historicalLabels = datedEntries
     .filter((entry) => isTimelineEntryWithinRange(entry, rangeStart, rangeEnd))
     .map((entry) => entry.label);
   return uniqueList([...(historicalLabels.length ? historicalLabels : [datedEntries[0]?.label].filter(Boolean)), ...buildFutureMaturityMonthlyLabels()]);
+}
+
+function getBusinessWidgetEffectiveDateRange(widget, filterState = {}) {
+  if (typeof appState === "undefined" || appState.currentPageId !== "business-change") return null;
+  const rangeStart = getBusinessStructureReferenceStartDate();
+  const rangeEnd = supportsFrequencyToggle(widget) && getWidgetFrequency(widget, filterState) === "日频"
+    ? getBusinessStructureReferenceEndDate()
+    : getLatestCompletedBusinessMonthEnd(getBusinessStructureReferenceEndDate());
+  return [rangeStart, rangeEnd];
 }
 
 function getMaturityFutureStartIndex(widget, labels = []) {
@@ -1247,22 +1323,21 @@ function renderMaturityFutureOverlay(widget, chartContext, frame) {
 
 function renderFutureAwareLine(points, color, strokeWidth, futureStartIndex) {
   if (!points.length) return "";
-  if (futureStartIndex <= 0 || futureStartIndex >= points.length) {
+  if (futureStartIndex < 0 || futureStartIndex >= points.length) {
     return `
       <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
       ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
     `;
   }
+  if (futureStartIndex === 0) return "";
   const historicalPoints = points.slice(0, futureStartIndex);
-  const futurePoints = points.slice(futureStartIndex - 1);
   return `
     <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${historicalPoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-    <polyline fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 6" opacity="0.72" points="${futurePoints.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
-    ${points.map((point, index) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8" opacity="${isMaturityFutureIndex(futureStartIndex, index) ? "0.68" : "1"}"></circle>`).join("")}
+    ${historicalPoints.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.8" fill="${color}" stroke="#ffffff" stroke-width="1.8"></circle>`).join("")}
   `;
 }
 
-function getBusinessAnalysisMonthEndOptions() {
+function getBusinessHistoricalMonthEndOptions() {
   const firstMonthKey = getBusinessMonthKeyFromDateValue(getDefaultGlobalStartDate());
   const lastMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate()));
   const firstSerial = getBusinessMonthSerial(firstMonthKey);
@@ -1275,84 +1350,21 @@ function getBusinessAnalysisMonthEndOptions() {
   );
 }
 
-function getDefaultBusinessAnalysisDateRange() {
-  const options = getBusinessAnalysisMonthEndOptions();
-  const fallbackEnd = getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate());
-  return [options[0] || fallbackEnd, options[options.length - 1] || fallbackEnd];
-}
-
-function normalizeBusinessAnalysisDateRange(values = [], changedIndex = null) {
-  const options = getBusinessAnalysisMonthEndOptions();
-  const [defaultStart, defaultEnd] = getDefaultBusinessAnalysisDateRange();
-  const minimum = options[0] || defaultStart;
-  const maximum = options[options.length - 1] || defaultEnd;
-  let startDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[0] : "", defaultStart);
-  let endDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[1] : "", defaultEnd);
-  startDate = startDate < minimum ? minimum : startDate > maximum ? maximum : startDate;
-  endDate = endDate < minimum ? minimum : endDate > maximum ? maximum : endDate;
-  if (startDate > endDate) {
-    if (Number(changedIndex) === 0) endDate = startDate;
-    else startDate = endDate;
-  }
-  return [startDate, endDate];
-}
-
-function ensureBusinessAnalysisDateRange() {
-  const [defaultStart] = getDefaultBusinessAnalysisDateRange();
-  const normalized = normalizeBusinessAnalysisDateRange([defaultStart, appState.businessEndDate], 1);
-  [appState.businessStartDate, appState.businessEndDate] = normalized;
-  return normalized;
-}
-
-function getBusinessAnalysisDateRange() {
-  return ensureBusinessAnalysisDateRange();
-}
-
-function renderBusinessAnalysisDateRangeControl() {
-  if (!businessEndInputEl) return;
-  const [, endDate] = ensureBusinessAnalysisDateRange();
-  const options = getBusinessAnalysisMonthEndOptions();
-  const renderOptions = (selectedDate) => options
-    .map((dateValue) => `<option value="${dateValue}" ${dateValue === selectedDate ? "selected" : ""}>${dateValue}</option>`)
-    .join("");
-  businessEndInputEl.innerHTML = renderOptions(endDate);
-  businessEndInputEl.value = endDate;
-}
-
-function resetBusinessStructureDateRanges() {
-  const newBusinessState = appState.widgetFilters[89];
-  if (newBusinessState) delete newBusinessState["时间区间（起止）"];
-  const maturityState = appState.widgetFilters[96];
-  if (maturityState) {
-    delete maturityState["历史时间区间（起止）"];
-    delete maturityState["未来时间区间（起止）"];
-  }
-}
-
-function updateBusinessAnalysisDateRange(changedIndex, dateValue) {
-  const currentRange = ensureBusinessAnalysisDateRange();
-  currentRange[Number(changedIndex)] = dateValue || currentRange[Number(changedIndex)];
-  const normalized = normalizeBusinessAnalysisDateRange(currentRange, changedIndex);
-  [appState.businessStartDate, appState.businessEndDate] = normalized;
-  resetBusinessStructureDateRanges();
-  return normalized;
-}
-
 function getBusinessStructureReferenceEndDate() {
-  return typeof appState !== "undefined" && isDateValue(appState.businessEndDate)
-    ? appState.businessEndDate
-    : getDefaultBusinessAnalysisDateRange()[1];
+  return typeof appState !== "undefined" && isDateValue(appState.globalEndDate)
+    ? appState.globalEndDate
+    : getDefaultGlobalEndDate();
 }
 
 function getBusinessStructureReferenceStartDate() {
-  return typeof appState !== "undefined" && isDateValue(appState.businessStartDate)
-    ? appState.businessStartDate
-    : getDefaultBusinessAnalysisDateRange()[0];
+  return typeof appState !== "undefined" && isDateValue(appState.globalStartDate)
+    ? appState.globalStartDate
+    : getDefaultGlobalStartDate();
 }
 
 function getLatestCompletedBusinessMonthEnd(referenceDateValue = null) {
   const resolvedReferenceDateValue = referenceDateValue
-    || (typeof appState !== "undefined" && isDateValue(appState.businessEndDate) ? appState.businessEndDate : getDefaultGlobalEndDate());
+    || (typeof appState !== "undefined" && isDateValue(appState.globalEndDate) ? appState.globalEndDate : getDefaultGlobalEndDate());
   const referenceDate = parseDateValue(resolvedReferenceDateValue) || parseDateValue(getDefaultGlobalEndDate()) || new Date();
   const currentMonthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
   if (formatDateValue(currentMonthEnd) <= formatDateValue(referenceDate)) return formatDateValue(currentMonthEnd);
@@ -1365,48 +1377,58 @@ function normalizeBusinessMonthEndDate(dateValue, fallbackDateValue) {
 }
 
 function getBusinessMonthEndSelectionOptions(rangeMode = "historical") {
-  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd());
+  if (rangeMode !== "future") return getBusinessHistoricalMonthEndOptions();
+  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate()));
   const cutoffSerial = getBusinessMonthSerial(cutoffMonthKey);
   if (!Number.isFinite(cutoffSerial)) return [];
-  if (rangeMode === "future") {
-    return Array.from({ length: FUTURE_MATURITY_MONTH_COUNT }, (_, index) =>
-      getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + index + 1))
-    );
-  }
-  const referenceStartMonthKey = getBusinessMonthKeyFromDateValue(getBusinessStructureReferenceStartDate());
-  const referenceStartSerial = getBusinessMonthSerial(referenceStartMonthKey);
-  const firstSerial = Number.isFinite(referenceStartSerial)
-    ? Math.min(referenceStartSerial, cutoffSerial)
-    : cutoffSerial;
-  return Array.from({ length: cutoffSerial - firstSerial + 1 }, (_, index) =>
-    getBusinessMonthEndDate(formatBusinessMonthKey(firstSerial + index))
+  return Array.from({ length: FUTURE_MATURITY_MONTH_COUNT }, (_, index) =>
+    getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + index + 1))
   );
 }
 
 function getDefaultBusinessStructureDateRange() {
-  return [getBusinessStructureReferenceStartDate(), getBusinessStructureReferenceEndDate()];
+  const options = getBusinessHistoricalMonthEndOptions();
+  return options.length
+    ? [options[0], options[options.length - 1]]
+    : [getDefaultGlobalStartDate(), getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate())];
 }
 
-function getDefaultFutureBusinessStructureDateRange(referenceDateValue = getBusinessStructureReferenceEndDate()) {
-  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(getLatestCompletedBusinessMonthEnd(referenceDateValue));
+function getDefaultFutureBusinessStructureDateRange(referenceDateValue = getDefaultGlobalEndDate()) {
+  const cutoffDate = getLatestCompletedBusinessMonthEnd(referenceDateValue);
+  const cutoffMonthKey = getBusinessMonthKeyFromDateValue(cutoffDate);
   const cutoffSerial = getBusinessMonthSerial(cutoffMonthKey);
   if (!Number.isFinite(cutoffSerial)) return getDefaultBusinessStructureDateRange();
-  const startDate = getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + 1));
+  const startDate = addDays(cutoffDate, 1);
   const endDate = getBusinessMonthEndDate(formatBusinessMonthKey(cutoffSerial + FUTURE_MATURITY_MONTH_COUNT));
   return [startDate, endDate];
 }
 
+function getFutureBusinessStructureDateBounds(referenceDateValue = getDefaultGlobalEndDate()) {
+  return getDefaultFutureBusinessStructureDateRange(referenceDateValue);
+}
+
 function isFutureBusinessDate(dateValue) {
-  return isDateValue(dateValue) && dateValue > getLatestCompletedBusinessMonthEnd();
+  return isDateValue(dateValue) && dateValue > getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate());
 }
 
 function normalizeBusinessStructureDateRange(values = [], options = {}) {
   const rangeMode = options.rangeMode === "future" ? "future" : "historical";
   const changedIndex = options.changedIndex == null ? null : Number(options.changedIndex);
+  if (rangeMode === "future") {
+    const fallbackRange = getDefaultFutureBusinessStructureDateRange();
+    const [minimum, maximum] = getFutureBusinessStructureDateBounds();
+    let startDate = isDateValue(Array.isArray(values) ? values[0] : "") ? values[0] : fallbackRange[0];
+    let endDate = isDateValue(Array.isArray(values) ? values[1] : "") ? values[1] : fallbackRange[1];
+    startDate = startDate < minimum ? minimum : startDate > maximum ? maximum : startDate;
+    endDate = endDate < minimum ? minimum : endDate > maximum ? maximum : endDate;
+    if (startDate > endDate) {
+      if (changedIndex === 0) endDate = startDate;
+      else startDate = endDate;
+    }
+    return [startDate, endDate];
+  }
   const selectionOptions = getBusinessMonthEndSelectionOptions(rangeMode);
-  const fallbackRange = rangeMode === "future"
-    ? getDefaultFutureBusinessStructureDateRange()
-    : getDefaultBusinessStructureDateRange();
+  const fallbackRange = getDefaultBusinessStructureDateRange();
   const minimum = selectionOptions[0] || fallbackRange[0];
   const maximum = selectionOptions[selectionOptions.length - 1] || fallbackRange[1];
   let startDate = normalizeBusinessMonthEndDate(Array.isArray(values) ? values[0] : "", fallbackRange[0]);

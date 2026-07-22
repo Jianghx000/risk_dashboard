@@ -1285,6 +1285,8 @@ function buildLcrGroupedOwenProcessImpactMap(model, selectedIndex, comparisonInd
       currentBranchName: current.activeBranchName,
       switched: base.activeBranch !== current.activeBranch,
       pathCount: grouped.pathCount,
+      effectivePathCount: grouped.pathCount,
+      structuralPathCount: 24,
       numeratorUnitImpact,
       branchContributionIsIndependentFactor: false,
     },
@@ -1309,7 +1311,16 @@ function buildLiquidityProcessImpactMap(model, selectedIndex, comparisonIndex, m
 }
 
 function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex) {
+  if (model.supportsAttribution === false) {
+    throw new RangeError("当前重定价缺口率口径不支持拆解归因");
+  }
   if (comparisonIndex < 0) return {};
+  const repricingWeights = (model.repricingWeights || []).map((value, index) => {
+    const weight = assertProcessFiniteNumber(value, `重定价期限权重第${index + 1}项`);
+    if (weight < 0 || weight > 1) throw new RangeError(`重定价期限权重第${index + 1}项必须位于0至1之间`);
+    return weight;
+  });
+  if (!repricingWeights.length) throw new RangeError("重定价缺口率缺少一年内期限权重");
   const totalInterestAssetsByBusiness = Object.fromEntries(model.totalInterestAssetItems.map((item) => [
     item.key.replace(/^total-/, ""),
     item,
@@ -1318,9 +1329,26 @@ function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex
     assets: Object.fromEntries(model.assetItems.map((item) => {
       const totalItem = totalInterestAssetsByBusiness[item.key];
       if (!totalItem) throw new RangeError(`${item.title}缺少总规模序列`);
+      if (!Array.isArray(item.withinOneYearBucketSeries)
+        || item.withinOneYearBucketSeries.length !== repricingWeights.length) {
+        throw new RangeError(`${item.title}的一年内期限桶必须与期限权重等长`);
+      }
+      const withinOneYearBuckets = item.withinOneYearBucketSeries.map((series, bucketIndex) => {
+        const amount = getProcessSeriesValue(series, dateIndex);
+        if (amount < 0) throw new RangeError(`${item.title}第${bucketIndex + 1}个一年内期限桶不得为负数`);
+        return amount;
+      });
+      const totalInterestAssetScale = getProcessSeriesValue(totalItem.values, dateIndex);
+      if (totalInterestAssetScale < 0) throw new RangeError(`${item.title}总生息资产规模不得为负数`);
+      const withinOneYearScale = withinOneYearBuckets.reduce((sum, amount) => sum + amount, 0);
+      const beyondOneYearScale = totalInterestAssetScale - withinOneYearScale;
+      const tolerance = 1e-9 * Math.max(1, totalInterestAssetScale, withinOneYearScale);
+      if (beyondOneYearScale < -tolerance) {
+        throw new RangeError(`${item.title}的一年内期限桶合计不能大于总生息资产规模`);
+      }
       return [item.key, {
-        repricingScale: getProcessSeriesValue(item.values, dateIndex),
-        totalScale: getProcessSeriesValue(totalItem.values, dateIndex),
+        withinOneYearBuckets,
+        beyondOneYearScale: Math.max(0, beyondOneYearScale),
       }];
     })),
     liabilities: Object.fromEntries(model.liabilityItems.map((item) => [
@@ -1338,26 +1366,23 @@ function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex
   });
   const base = buildState(comparisonIndex);
   const current = buildState(selectedIndex);
-  const assetKeys = Object.keys(base.assets).sort();
+  const inputAssetKeys = Object.keys(base.assets).sort();
+  const getWithinOneYearScale = (item) => item.withinOneYearBuckets
+    .reduce((sum, amount) => sum + amount, 0);
+  const getAdjustedRepricingScale = (item) => item.withinOneYearBuckets
+    .reduce((sum, amount, index) => sum + amount * repricingWeights[index], 0);
+  const getTotalAssetScale = (item) => getWithinOneYearScale(item) + item.beyondOneYearScale;
+  const assetKeys = inputAssetKeys.filter((key) => (
+    getTotalAssetScale(base.assets[key]) > 1e-9 || getTotalAssetScale(current.assets[key]) > 1e-9
+  ));
   const liabilityKeys = Object.keys(base.liabilities).sort();
   if (assetKeys.length > 15) throw new RangeError("资产业务类别过多，请先按正式业务分类归组");
-  assetKeys.forEach((key) => {
-    [base.assets[key], current.assets[key]].forEach((item) => {
-      if (item.repricingScale < 0 || item.totalScale < 0 || item.repricingScale > item.totalScale) {
-        throw new RangeError(`${key}不满足0≤重定价规模≤总规模`);
-      }
-    });
-    if (base.assets[key].repricingScale > current.assets[key].totalScale
-      || current.assets[key].repricingScale > base.assets[key].totalScale) {
-      throw new RangeError(`${key}的跨期混合状态不满足0≤重定价规模≤总规模`);
-    }
-  });
   const evaluate = (state) => {
     const denominator = Object.values(state.assets)
-      .reduce((sum, item) => sum + item.totalScale, 0);
+      .reduce((sum, item) => sum + getTotalAssetScale(item), 0);
     assertProcessPositiveNumber(denominator, "重定价缺口率总规模");
     const assetRepricing = Object.values(state.assets)
-      .reduce((sum, item) => sum + item.repricingScale, 0);
+      .reduce((sum, item) => sum + getAdjustedRepricingScale(item), 0);
     const liabilityRepricing = Object.values(state.liabilities)
       .reduce((sum, value) => sum + value, 0);
     const bankGap = state.bankBook.receivable - state.bankBook.payable;
@@ -1370,9 +1395,12 @@ function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex
   const businessFactorial = getProcessFactorial(businessCount);
   const otherTopKeys = ["liabilities", "bankBook", "tradingBook"];
   assetKeys.forEach((targetKey, targetIndex) => {
-    ["repricingScale", "totalScale"].forEach((targetField) => {
-      const leafKey = `${targetKey}:${targetField}`;
-      const otherField = targetField === "repricingScale" ? "totalScale" : "repricingScale";
+    ["withinOneYearBuckets", "beyondOneYearScale"].forEach((targetField) => {
+      const leafSuffix = targetField === "withinOneYearBuckets" ? "withinOneYear" : "beyondOneYear";
+      const leafKey = `${targetKey}:${leafSuffix}`;
+      const otherField = targetField === "withinOneYearBuckets"
+        ? "beyondOneYearScale"
+        : "withinOneYearBuckets";
       let contribution = 0;
       for (let topMask = 0; topMask < 8; topMask += 1) {
         const topSize = countProcessMaskBits(topMask);
@@ -1411,19 +1439,31 @@ function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex
       assetLeafImpacts[leafKey] = contribution;
     });
   });
-  const baseDenominator = Object.values(base.assets).reduce((sum, item) => sum + item.totalScale, 0);
-  const currentDenominator = Object.values(current.assets).reduce((sum, item) => sum + item.totalScale, 0);
+  const baseDenominator = Object.values(base.assets).reduce((sum, item) => sum + getTotalAssetScale(item), 0);
+  const currentDenominator = Object.values(current.assets).reduce((sum, item) => sum + getTotalAssetScale(item), 0);
+  assertProcessPositiveNumber(baseDenominator, "基期重定价缺口率总生息资产规模");
+  assertProcessPositiveNumber(currentDenominator, "当期重定价缺口率总生息资产规模");
   const linearUnitImpact = 0.5 * ((100 / baseDenominator) + (100 / currentDenominator));
+  const evaluatedRatioImpact = evaluate(current) - evaluate(base);
   const ratioImpact = getProcessSeriesDelta(model.ratios, selectedIndex, comparisonIndex);
+  if (Math.abs(evaluatedRatioImpact - ratioImpact) > 1e-7) {
+    throw new Error("重定价缺口率归因输入未与页面指标值勾稽");
+  }
   const impactMap = {
     ratio: ratioImpact,
-    attributionMethod: "three-level-nested-owen",
-    marginalDifferenceCount: 16 * businessCount * (2 ** businessCount),
+    attributionMethod: "three-level-nested-owen-with-joint-within-year-factor",
+    effectiveAssetBusinessCount: businessCount,
+    inputAssetBusinessCount: inputAssetKeys.length,
+    withinOneYearBucketCount: repricingWeights.length,
+    attributionMarginalDifferenceCount: 16 * businessCount * (2 ** businessCount),
+    controlMarginalDifferenceCount: 32,
+    marginalDifferenceCount: 16 * businessCount * (2 ** businessCount) + 32,
+    linkedWithinYearFactor: true,
   };
-  assetKeys.forEach((key) => {
-    impactMap[`${key}:repricingScale`] = assetLeafImpacts[`${key}:repricingScale`];
-    impactMap[`${key}:totalScale`] = assetLeafImpacts[`${key}:totalScale`];
-    impactMap[key] = impactMap[`${key}:repricingScale`] + impactMap[`${key}:totalScale`];
+  inputAssetKeys.forEach((key) => {
+    impactMap[`${key}:withinOneYear`] = assetLeafImpacts[`${key}:withinOneYear`] || 0;
+    impactMap[`${key}:beyondOneYear`] = assetLeafImpacts[`${key}:beyondOneYear`] || 0;
+    impactMap[key] = impactMap[`${key}:withinOneYear`] + impactMap[`${key}:beyondOneYear`];
   });
   liabilityKeys.forEach((key) => {
     impactMap[key] = -(current.liabilities[key] - base.liabilities[key]) * linearUnitImpact;
@@ -1433,59 +1473,36 @@ function buildRepricingGapProcessImpactMap(model, selectedIndex, comparisonIndex
   impactMap["trading-book-receivable"] = (current.tradingBook.receivable - base.tradingBook.receivable) * linearUnitImpact;
   impactMap["trading-book-payable"] = -(current.tradingBook.payable - base.tradingBook.payable) * linearUnitImpact;
   const sumKeys = (keys) => keys.reduce((sum, key) => sum + impactMap[key], 0);
-  impactMap["adjusted-assets:repricingScale"] = sumKeys(assetKeys.map((key) => `${key}:repricingScale`));
-  impactMap["adjusted-assets:totalScale"] = sumKeys(assetKeys.map((key) => `${key}:totalScale`));
-  impactMap["adjusted-assets"] = impactMap["adjusted-assets:repricingScale"]
-    + impactMap["adjusted-assets:totalScale"];
+  impactMap["adjusted-assets:withinOneYear"] = sumKeys(inputAssetKeys.map((key) => `${key}:withinOneYear`));
+  impactMap["adjusted-assets:beyondOneYear"] = sumKeys(inputAssetKeys.map((key) => `${key}:beyondOneYear`));
+  impactMap["adjusted-assets"] = impactMap["adjusted-assets:withinOneYear"]
+    + impactMap["adjusted-assets:beyondOneYear"];
   impactMap["adjusted-liabilities"] = sumKeys(liabilityKeys);
   impactMap["bank-book-derivative-gap"] = sumKeys(["bank-book-receivable", "bank-book-payable"]);
   impactMap["trading-book-derivative-gap"] = sumKeys(["trading-book-receivable", "trading-book-payable"]);
-  return impactMap;
-}
-
-function buildRepricingDurationGapProcessImpactMap(widget, model, selectedIndex, comparisonIndex) {
-  if (comparisonIndex < 0) return {};
-  const assetImpact = getProcessSeriesDelta(model.assetDurations, selectedIndex, comparisonIndex);
-  const liabilityImpact = -getProcessSeriesDelta(model.liabilityDurations, selectedIndex, comparisonIndex);
-  const impactMap = {
-    "duration-gap": getProcessSeriesDelta(model.gaps, selectedIndex, comparisonIndex),
-    "asset-duration": assetImpact,
-    "liability-duration": liabilityImpact,
-  };
-  ["asset", "liability"].forEach((side) => {
-    const sideLabel = side === "asset" ? "资产端" : "负债端";
-    const currentRows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, selectedIndex)
-      .filter((row) => row.side === sideLabel);
-    const baselineRows = buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, comparisonIndex)
-      .filter((row) => row.side === sideLabel);
-    const baselineByBusiness = Object.fromEntries(baselineRows.map((row) => [row.businessType, row]));
-    const factors = currentRows.map((row) => {
-      const baselineRow = baselineByBusiness[row.businessType];
-      if (!baselineRow) throw new RangeError(`${sideLabel}${row.businessType}缺少基期数据`);
-      return {
-        key: `${side}:${row.businessType}`,
-        baseline: {
-          scale: assertProcessFiniteNumber(baselineRow.scale, `${sideLabel}${row.businessType}基期规模`),
-          duration: assertProcessFiniteNumber(baselineRow.duration, `${sideLabel}${row.businessType}基期久期`),
-        },
-        current: {
-          scale: assertProcessFiniteNumber(row.scale, `${sideLabel}${row.businessType}本期规模`),
-          duration: assertProcessFiniteNumber(row.duration, `${sideLabel}${row.businessType}本期久期`),
-        },
-      };
-    });
-    const raw = calculateProcessShapleyImpacts(factors, (values) => {
-      const businesses = Object.values(values);
-      const totalScale = businesses.reduce((sum, business) => sum + business.scale, 0);
-      assertProcessPositiveNumber(totalScale, `${sideLabel}总规模`);
-      return businesses.reduce((sum, business) =>
-        sum + business.scale * business.duration
-      , 0) / totalScale;
-    });
-    Object.entries(raw).forEach(([key, value]) => {
-      impactMap[key] = side === "asset" ? value : -value;
-    });
+  const topLevelControl = calculateProcessShapleyImpacts([
+    { key: "assets", baseline: base.assets, current: current.assets },
+    { key: "liabilities", baseline: base.liabilities, current: current.liabilities },
+    { key: "bankBook", baseline: base.bankBook, current: current.bankBook },
+    { key: "tradingBook", baseline: base.tradingBook, current: current.tradingBook },
+  ], evaluate);
+  [
+    ["adjusted-assets", "assets"],
+    ["adjusted-liabilities", "liabilities"],
+    ["bank-book-derivative-gap", "bankBook"],
+    ["trading-book-derivative-gap", "tradingBook"],
+  ].forEach(([impactKey, controlKey]) => {
+    if (Math.abs(impactMap[impactKey] - topLevelControl[controlKey]) > 1e-7) {
+      throw new Error(`重定价缺口率${impactKey}归因未与一级组整体替换控制值勾稽`);
+    }
   });
+  impactMap.topLevelControl = topLevelControl;
+  const attributedTotal = sumKeys([
+    "adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap",
+  ]);
+  if (Math.abs(attributedTotal - ratioImpact) > 1e-7) {
+    throw new Error("重定价缺口率各归因因素影响合计未与指标变化勾稽");
+  }
   return impactMap;
 }
 
@@ -1557,64 +1574,6 @@ function getPaddedProcessSeriesRange(values = [], minimumPadding = 0.1) {
   const maxValue = finiteValues.length ? Math.max(...finiteValues) : 0;
   const padding = Math.max(minimumPadding, (maxValue - minValue) * 0.1);
   return { min: minValue - padding, max: maxValue + padding };
-}
-
-function renderRepricingDurationDualAxisSparkline(
-  scaleSeries,
-  durationSeries,
-  selectedIndex,
-  comparisonIndex
-) {
-  const width = 250;
-  const height = 70;
-  const frame = { left: 32, right: 218, top: 16, bottom: 58, width: 186, height: 42, count: scaleSeries.length };
-  const scaleRange = getPaddedProcessSeriesRange(scaleSeries, 1);
-  const durationRange = getPaddedProcessSeriesRange(durationSeries, 0.02);
-  const scalePoints = scaleValuesToFrame(scaleSeries, frame, scaleRange.min, scaleRange.max);
-  const durationPoints = scaleValuesToFrame(durationSeries, frame, durationRange.min, durationRange.max);
-  const selected = clampNumber(selectedIndex, 0, Math.max(0, scalePoints.length - 1));
-  const comparison = comparisonIndex >= 0 && comparisonIndex < scalePoints.length
-    ? comparisonIndex
-    : -1;
-  const selectedScale = scalePoints[selected] || { x: frame.left, y: frame.bottom };
-  const selectedDuration = durationPoints[selected] || { x: frame.left, y: frame.bottom };
-  const scalePath = scalePoints.map((point) => `${point.x},${point.y}`).join(" ");
-  const durationPath = durationPoints.map((point) => `${point.x},${point.y}`).join(" ");
-  const periodScalePath = comparison >= 0
-    ? scalePoints.slice(comparison, selected + 1).map((point) => `${point.x},${point.y}`).join(" ")
-    : "";
-  const periodDurationPath = comparison >= 0
-    ? durationPoints.slice(comparison, selected + 1).map((point) => `${point.x},${point.y}`).join(" ")
-    : "";
-  const comparisonMarkup = comparison >= 0 && comparison !== selected
-    ? `
-      <rect x="${scalePoints[comparison].x}" y="${frame.top}" width="${Math.max(0, selectedScale.x - scalePoints[comparison].x)}" height="${frame.height}" rx="4" fill="rgba(240, 154, 69, 0.09)"></rect>
-      <line data-process-marker="comparison" x1="${scalePoints[comparison].x}" y1="${frame.top}" x2="${scalePoints[comparison].x}" y2="${frame.bottom}" stroke="#6F89AA" stroke-width="1.2" stroke-dasharray="3 3"></line>
-      <circle cx="${scalePoints[comparison].x}" cy="${scalePoints[comparison].y}" r="2.8" fill="#fff" stroke="#2878C7" stroke-width="1.5"></circle>
-      <circle cx="${durationPoints[comparison].x}" cy="${durationPoints[comparison].y}" r="2.8" fill="#fff" stroke="#C06A3A" stroke-width="1.5"></circle>
-    `
-    : "";
-  return `
-    <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
-      <text x="2" y="10" fill="#2878C7" font-size="8.5" font-weight="900">规模(亿)</text>
-      <text x="248" y="10" text-anchor="end" fill="#C06A3A" font-size="8.5" font-weight="900">久期(年)</text>
-      <line x1="${frame.left}" y1="${frame.top}" x2="${frame.left}" y2="${frame.bottom}" stroke="#9FC4E8" stroke-width="1"></line>
-      <line x1="${frame.right}" y1="${frame.top}" x2="${frame.right}" y2="${frame.bottom}" stroke="#E1B18F" stroke-width="1"></line>
-      <line x1="${frame.left}" y1="${frame.bottom}" x2="${frame.right}" y2="${frame.bottom}" stroke="#D7E6F4" stroke-width="1"></line>
-      <text x="28" y="${frame.top + 3}" text-anchor="end" fill="#2878C7" font-size="7.5">${Math.max(...scaleSeries.map(Number)).toFixed(1)}</text>
-      <text x="28" y="${frame.bottom}" text-anchor="end" fill="#2878C7" font-size="7.5">${Math.min(...scaleSeries.map(Number)).toFixed(1)}</text>
-      <text x="222" y="${frame.top + 3}" fill="#C06A3A" font-size="7.5">${Math.max(...durationSeries.map(Number)).toFixed(2)}</text>
-      <text x="222" y="${frame.bottom}" fill="#C06A3A" font-size="7.5">${Math.min(...durationSeries.map(Number)).toFixed(2)}</text>
-      ${comparisonMarkup}
-      <line data-process-marker="current" x1="${selectedScale.x}" y1="${frame.top}" x2="${selectedScale.x}" y2="${frame.bottom}" stroke="#D85F63" stroke-width="1.6" stroke-dasharray="4 3"></line>
-      <polyline fill="none" stroke="#2878C7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${scalePath}"></polyline>
-      <polyline fill="none" stroke="#C06A3A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${durationPath}"></polyline>
-      ${periodScalePath ? `<polyline data-process-period-line="scale" fill="none" stroke="#0B5FB4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${periodScalePath}"></polyline>` : ""}
-      ${periodDurationPath ? `<polyline data-process-period-line="duration" fill="none" stroke="#B84D1F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${periodDurationPath}"></polyline>` : ""}
-      <circle cx="${selectedScale.x}" cy="${selectedScale.y}" r="3.5" fill="#fff" stroke="#2878C7" stroke-width="2"></circle>
-      <circle cx="${selectedDuration.x}" cy="${selectedDuration.y}" r="3.5" fill="#fff" stroke="#C06A3A" stroke-width="2"></circle>
-    </svg>
-  `;
 }
 
 function renderProcessSparklinePreview() {
@@ -2837,7 +2796,7 @@ function renderRepricingGapRateChart(widget, chartContext) {
           data-date-index="${index}"
           data-repricing-gap-signature="${model.signature}"
           data-repricing-gap-labels="${model.labels.join("||")}"
-          aria-label="${model.displayLabels[index]} 查看计算过程"
+          aria-label="${model.displayLabels[index]} ${model.supportsAttribution ? "查看计算过程" : "查看取值"}"
         ></circle>
       `;
     })
@@ -2896,16 +2855,20 @@ function renderRepricingGapPointPopover(widget, model, point, index) {
         <div><span>日期</span><strong>${model.displayLabels[index]}</strong></div>
         <div><span>取值</span><strong>${formatRepricingGapPercent(ratio)}</strong></div>
       </div>
-      <button
-        class="eve-point-popover__action"
-        type="button"
-        data-open-repricing-gap-process="true"
-        data-widget-seq="${widget.seq}"
-        data-source-widget-seq="${widget.sourceSeq || widget.seq}"
-        data-date-index="${index}"
-        data-repricing-gap-signature="${model.signature}"
-        data-repricing-gap-labels="${model.labels.join("||")}"
-      >查看计算过程</button>
+      ${model.supportsAttribution ? `
+        <button
+          class="eve-point-popover__action"
+          type="button"
+          data-open-repricing-gap-process="true"
+          data-widget-seq="${widget.seq}"
+          data-source-widget-seq="${widget.sourceSeq || widget.seq}"
+          data-date-index="${index}"
+          data-repricing-gap-signature="${model.signature}"
+          data-repricing-gap-labels="${model.labels.join("||")}"
+        >查看计算过程</button>
+      ` : `
+        <div class="eve-point-popover__hint">仅“不含活期存款、含银行账簿和交易账簿表外衍生品”口径支持拆解归因</div>
+      `}
     </div>
   `;
 }
@@ -2925,11 +2888,64 @@ function buildDiagnosticAmountSeries(count, normalizedOffset, base, slope, wave,
   ).toFixed(1)));
 }
 
+function allocateRepricingWithinOneYearBuckets(adjustedScale, totalScale, repricingWeights) {
+  const adjusted = assertProcessFiniteNumber(adjustedScale, "期限调整后重定价规模");
+  const total = assertProcessFiniteNumber(totalScale, "总生息资产规模");
+  if (adjusted < 0 || total < 0 || adjusted > total + 1e-9) {
+    throw new RangeError("重定价规模必须满足0≤重定价规模≤总生息资产规模");
+  }
+  if (!Array.isArray(repricingWeights) || !repricingWeights.length) {
+    throw new RangeError("缺少一年内重定价期限权重");
+  }
+  const weights = repricingWeights.map((value, index) => {
+    const weight = assertProcessFiniteNumber(value, `重定价期限权重第${index + 1}项`);
+    if (weight < 0 || weight > 1) throw new RangeError(`重定价期限权重第${index + 1}项必须位于0至1之间`);
+    return weight;
+  });
+  const buckets = weights.map(() => 0);
+  if (adjusted <= 1e-12 || total <= 1e-12) return buckets;
+
+  const maximumWeight = Math.max(...weights);
+  const positiveWeights = weights.filter((weight) => weight > 0);
+  const minimumPositiveWeight = Math.min(...positiveWeights);
+  if (adjusted > total * maximumWeight + 1e-9) {
+    throw new RangeError("重定价规模超过一年内期限桶可实现的最大加权规模");
+  }
+  let withinOneYearScale = Math.min(total, Math.max(adjusted / maximumWeight, total * 0.9));
+  if (adjusted / withinOneYearScale < minimumPositiveWeight) {
+    withinOneYearScale = Math.min(total, adjusted / minimumPositiveWeight);
+  }
+  const targetAverageWeight = adjusted / withinOneYearScale;
+  const ordered = weights
+    .map((weight, index) => ({ weight, index }))
+    .sort((left, right) => right.weight - left.weight);
+  const exact = ordered.find((item) => Math.abs(item.weight - targetAverageWeight) <= 1e-12);
+  if (exact) {
+    buckets[exact.index] = withinOneYearScale;
+    return buckets;
+  }
+  const upperIndex = ordered.findIndex((item, index) => (
+    index < ordered.length - 1
+    && item.weight > targetAverageWeight
+    && ordered[index + 1].weight < targetAverageWeight
+  ));
+  if (upperIndex < 0) throw new RangeError("无法用一年内期限权重还原重定价规模");
+  const upper = ordered[upperIndex];
+  const lower = ordered[upperIndex + 1];
+  const upperShare = (targetAverageWeight - lower.weight) / (upper.weight - lower.weight);
+  buckets[upper.index] = withinOneYearScale * upperShare;
+  buckets[lower.index] = withinOneYearScale * (1 - upperShare);
+  return buckets;
+}
+
 function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
   const rawLabels = (chartContextOrState.xLabels || chartContextOrState.labels || inferBaseXAxisLabels(widget)).filter(Boolean);
   const labels = rawLabels.length ? [...rawLabels] : buildMonthlyXAxisLabels();
   const pageId = chartContextOrState.pageId || getCurrentPage()?.id || "interest-risk";
   const filterState = getDiagnosticFilterState(pageId, chartContextOrState);
+  const demandDepositScope = (filterState["活期存款"] || [])[0] || REPRICING_GAP_DEFAULT_DEMAND_DEPOSIT_SCOPE;
+  const derivativeScope = (filterState["表外衍生品"] || [])[0] || REPRICING_GAP_DEFAULT_DERIVATIVE_SCOPE;
+  const caliberOptions = getRepricingGapCaliberOptions({}, { demandDepositScope, derivativeScope });
   const organizations = getDiagnosticOrganizations(pageId, chartContextOrState);
   const includesInternalTransactions = isSingleForeignBranchScope(organizations);
   const simulation = typeof getPageSimulation === "function" ? getPageSimulation(pageId) : null;
@@ -2948,7 +2964,10 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
       }
     }
   }
-  const signature = Number(chartContextOrState.signature || createSignature(widget?.seq || widget?.sourceSeq || 9, filterState));
+  const dataFilterState = { ...filterState };
+  delete dataFilterState["活期存款"];
+  delete dataFilterState["表外衍生品"];
+  const signature = Number(createSignature(widget?.seq || widget?.sourceSeq || 9, dataFilterState));
   const count = labels.length;
   const normalizedOffset = signature % 19;
   const diagnosticProfiles = {
@@ -2964,6 +2983,7 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     "central-bank-borrowings": [36, 0.5, 3, 4],
     "lease-liabilities": [18, 0.3, 2, 5],
     "internal-transaction-liabilities": [33, 0.6, 2.5, 4],
+    "demand-deposits": [74, 1.1, 5, 2],
   };
   const buildBusinessItems = (definitions = []) => definitions
     .filter((definition) => includesInternalTransactions || !definition.internalTransaction)
@@ -2976,13 +2996,18 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
       };
     });
   const assetItems = buildBusinessItems(REPRICING_GAP_BUSINESS_GROUPS.assets);
-  const liabilityItems = buildBusinessItems(REPRICING_GAP_BUSINESS_GROUPS.liabilities);
+  const liabilityDefinitions = caliberOptions.includeDemandDeposits
+    ? [{ key: "demand-deposits", label: "活期存款" }, ...REPRICING_GAP_BUSINESS_GROUPS.liabilities]
+    : REPRICING_GAP_BUSINESS_GROUPS.liabilities;
+  const liabilityItems = buildBusinessItems(liabilityDefinitions);
   const bankBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 31, 0.4, 2.8, 1);
   const bankBookPayable = buildDiagnosticAmountSeries(count, normalizedOffset, 26, 0.35, 2.4, 3);
   const tradingBookReceivable = buildDiagnosticAmountSeries(count, normalizedOffset, 19, 0.28, 2.1, 2);
   const tradingBookPayable = buildDiagnosticAmountSeries(count, normalizedOffset, 15, 0.24, 1.8, 5);
-  const bankBookDerivativeGap = bankBookReceivable.map((value, index) => Number((value - bankBookPayable[index]).toFixed(1)));
-  const tradingBookDerivativeGap = tradingBookReceivable.map((value, index) => Number((value - tradingBookPayable[index]).toFixed(1)));
+  const rawBankBookDerivativeGap = bankBookReceivable.map((value, index) => Number((value - bankBookPayable[index]).toFixed(1)));
+  const rawTradingBookDerivativeGap = tradingBookReceivable.map((value, index) => Number((value - tradingBookPayable[index]).toFixed(1)));
+  const bankBookDerivativeGap = rawBankBookDerivativeGap.map((value) => caliberOptions.includeBankBookDerivatives ? value : 0);
+  const tradingBookDerivativeGap = rawTradingBookDerivativeGap.map((value) => caliberOptions.includeTradingBookDerivatives ? value : 0);
   const adjustedInterestAssets = sumDiagnosticSeries(assetItems, count);
   const adjustedInterestLiabilities = sumDiagnosticSeries(liabilityItems, count);
   const totalInterestAssetItems = assetItems.map((item) => ({
@@ -2990,6 +3015,21 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     title: item.title,
     values: item.values.map((value, index) => Number((value * (1.48 + ((index + normalizedOffset) % 4) * 0.01)).toFixed(1))),
   }));
+  const repricingWeights = [...REPRICING_GAP_BUCKET_WEIGHTS];
+  const totalInterestAssetsByBusiness = Object.fromEntries(totalInterestAssetItems.map((item) => [
+    item.key.replace(/^total-/, ""),
+    item,
+  ]));
+  assetItems.forEach((item) => {
+    item.withinOneYearBucketSeries = repricingWeights.map(() => Array(count).fill(0));
+    item.values.forEach((adjustedScale, dateIndex) => {
+      const totalScale = totalInterestAssetsByBusiness[item.key]?.values[dateIndex];
+      const buckets = allocateRepricingWithinOneYearBuckets(adjustedScale, totalScale, repricingWeights);
+      buckets.forEach((amount, bucketIndex) => {
+        item.withinOneYearBucketSeries[bucketIndex][dateIndex] = amount;
+      });
+    });
+  });
   const totalInterestAssets = sumDiagnosticSeries(totalInterestAssetItems, count);
   const numerator = adjustedInterestAssets.map((value, index) => Number((
     value
@@ -3002,7 +3042,7 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
   let baselineRatios = null;
   let simulatedRatios = null;
   if (hasRepricingSimulation && simulationTargetIndex >= 0) {
-    simulationResult = buildRepricingGapSimulationResult(simulation);
+    simulationResult = buildRepricingGapSimulationResult(simulation, caliberOptions);
     baselineRatios = [...ratios];
     simulatedRatios = [...ratios];
     baselineRatios[simulationTargetIndex] = simulationResult.baseMetrics.ratio;
@@ -3026,6 +3066,15 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
         simulationResult.baseMatrix,
         item.title
       ).total;
+    });
+    assetItems.forEach((item) => {
+      const row = simulationResult.baseMatrix[item.title] || [];
+      item.withinOneYearBucketSeries.forEach((series, bucketIndex) => {
+        series[simulationTargetIndex] = assertProcessFiniteNumber(
+          Number(row[bucketIndex] || 0),
+          `${item.title}${REPRICING_GAP_BUCKETS[bucketIndex] || bucketIndex}期限桶`
+        );
+      });
     });
     adjustedInterestAssets[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestAssets;
     adjustedInterestLiabilities[simulationTargetIndex] = simulationResult.baseMetrics.adjustedInterestLiabilities;
@@ -3066,8 +3115,11 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     assetItems,
     liabilityItems,
     totalInterestAssetItems,
+    repricingWeights,
     organizations,
     includesInternalTransactions,
+    ...caliberOptions,
+    caliberLabel: `${caliberOptions.includeDemandDeposits ? "含" : "不含"}活期存款；表外衍生品${caliberOptions.derivativeScope}`,
     scopeLabel: includesInternalTransactions ? "含内部交易" : "不含内部交易",
     denominatorTitle: `总生息资产规模（${includesInternalTransactions ? "含内部交易" : "剔除内部交易"}）`,
     numerator,
@@ -3126,8 +3178,18 @@ function renderRepricingGapProcessModal() {
   const model = buildRepricingGapDiagnosticModel(widget, {
     labels: state.labels,
     signature: state.signature,
-    filterState: getDiagnosticFilterState("interest-risk"),
+    filterState: {
+      ...getDiagnosticFilterState("interest-risk"),
+      ...(appState.widgetFilters?.[REPRICING_GAP_SIMULATION_WIDGET_SEQ] || {}),
+    },
   });
+  if (!model.supportsAttribution) {
+    appState.repricingGapProcessModal = null;
+    repricingGapProcessModalEl.innerHTML = "";
+    repricingGapProcessModalEl.classList.remove("is-open");
+    repricingGapProcessModalEl.setAttribute("aria-hidden", "true");
+    return;
+  }
   const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
   const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
   const activeNode = state.activeNode || "ratio";
@@ -3261,6 +3323,9 @@ function renderRepricingGapAttributionCard({
             const metricImpact = metric.impact === undefined
               ? null
               : formatProcessNodeImpact(metric.impact);
+            const metricImpactText = metricImpact && metric.impactLabel
+              ? metricImpact.text.replace(/^影响/, metric.impactLabel)
+              : metricImpact?.text;
             return `
               <span class="repricing-gap-attribution-card__metric">
                 <span class="repricing-gap-attribution-card__metric-current">
@@ -3270,7 +3335,7 @@ function renderRepricingGapAttributionCard({
                 <span class="repricing-gap-attribution-card__metric-comparisons">
                   <em class="${delta.className}">${delta.text}</em>
                   <em class="${growth.className}">${growth.text}</em>
-                  ${metricImpact ? `<em class="repricing-gap-attribution-card__metric-impact ${metricImpact.className}">${metricImpact.text}</em>` : ""}
+                  ${metricImpact ? `<em class="repricing-gap-attribution-card__metric-impact ${metricImpact.className}" title="${metric.impactTitle || metricImpactText}">${metricImpactText}</em>` : ""}
                 </span>
               </span>
             `;
@@ -3318,17 +3383,19 @@ function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, ac
         {
           label: "重定价规模",
           values: model.adjustedInterestAssets,
-          impact: impactMap["adjusted-assets:repricingScale"],
+          impact: impactMap["adjusted-assets:withinOneYear"],
+          impactTitle: "一年内期限桶联合替换对分子重定价规模和分母一年内规模的共同影响",
         },
         {
           label: "总规模",
           values: model.totalInterestAssets,
-          impact: impactMap["adjusted-assets:totalScale"],
+          impact: impactMap["adjusted-assets:beyondOneYear"],
+          impactTitle: "一年外及无明确重定价期限资产规模变化的影响",
         },
       ],
       children: renderRepricingGapBusinessStrip(
         "资产端业务类别",
-        "资产端业务重定价规模 = 各资产业务重定价规模合计；总规模 = 各资产业务总规模合计",
+        "重定价规模 = Σ（一年内各期限桶 × 期限权重）；总规模 = 一年内期限桶合计 + 一年外及无明确重定价期限资产",
         model.assetItems.map((item) => renderRepricingGapAttributionCard({
         ...cardOptions,
         key: item.key,
@@ -3337,12 +3404,14 @@ function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, ac
           {
             label: "重定价规模",
             values: item.values,
-            impact: impactMap[`${item.key}:repricingScale`],
+            impact: impactMap[`${item.key}:withinOneYear`],
+            impactTitle: "一年内期限桶联合替换对分子重定价规模和分母一年内规模的共同影响",
           },
           {
             label: "总规模",
             values: totalInterestAssetsByBusiness[item.key]?.values || [],
-            impact: impactMap[`${item.key}:totalScale`],
+            impact: impactMap[`${item.key}:beyondOneYear`],
+            impactTitle: "一年外及无明确重定价期限资产规模变化的影响",
           },
         ],
           impact: impactMap[item.key],
@@ -3432,208 +3501,6 @@ function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, ac
       </div>
     </div>
   `;
-}
-
-function renderRepricingDurationGapProcessModal() {
-  const state = appState.repricingDurationGapProcessModal;
-  if (!state) {
-    repricingDurationGapProcessModalEl.innerHTML = "";
-    repricingDurationGapProcessModalEl.classList.remove("is-open");
-    repricingDurationGapProcessModalEl.setAttribute("aria-hidden", "true");
-    return;
-  }
-  const target = findWidgetBySeq(state.widgetSeq || 15);
-  const widget = target?.widget || { seq: state.widgetSeq || 15, title: "资产负债重定价久期缺口" };
-  const model = buildRepricingDurationGapModel(widget, {
-    labels: state.labels,
-    signature: state.signature,
-  });
-  const selectedIndex = clampNumber(Number(state.dateIndex || 0), 0, model.labels.length - 1);
-  const comparisonIndex = getProcessComparisonIndex(state, selectedIndex, model.labels.length);
-  const activeNode = state.activeNode || "duration-gap";
-  const impactMap = buildRepricingDurationGapProcessImpactMap(widget, model, selectedIndex, comparisonIndex);
-
-  repricingDurationGapProcessModalEl.innerHTML = `
-    <div class="overlay-scrim" data-close-overlay="repricingDurationGapProcessModal"></div>
-    <section class="eve-process-modal" role="dialog" aria-modal="true" aria-labelledby="repricingDurationGapProcessModalTitle">
-      <div class="eve-process-modal__header">
-        <h3 id="repricingDurationGapProcessModalTitle">计算过程</h3>
-        <button class="overlay-panel__close eve-process-modal__close" type="button" data-close-overlay="repricingDurationGapProcessModal">关闭</button>
-      </div>
-      <div class="eve-process-modal__controls">
-        ${renderProcessDateContext(model.displayLabels, comparisonIndex, selectedIndex)}
-        <div class="eve-process-slider">
-          ${renderProcessDualDateSlider(model.displayLabels, comparisonIndex, selectedIndex)}
-          <div class="eve-process-formula">资产负债重定价久期缺口 = 资产重定价久期 - 负债重定价久期</div>
-        </div>
-      </div>
-      <div class="eve-process-flow">
-        <div class="eve-process-flow__canvas">
-          <div class="eve-process-flow__lane">
-            ${renderEveProcessNode({
-              key: "duration-gap",
-              title: "资产负债重定价久期缺口",
-              value: formatDurationProcessValue(model.gaps[selectedIndex]),
-              series: model.gaps,
-              selectedIndex,
-              comparisonIndex,
-              activeNode,
-              dataAttribute: "data-repricing-duration-gap-process-node",
-              changeType: "durationDelta",
-              valueFormat: "duration",
-              labels: model.displayLabels,
-              impact: impactMap["duration-gap"],
-              impactType: "number",
-              nodeKind: "result",
-            })}
-            <div class="eve-process-operator">=</div>
-            <div class="eve-process-factor-stack">
-              ${renderEveProcessNode({
-                key: "asset-duration",
-                title: "资产重定价久期",
-                value: formatDurationProcessValue(model.assetDurations[selectedIndex]),
-                series: model.assetDurations,
-                selectedIndex,
-                comparisonIndex,
-                activeNode,
-                actionText: state.assetExpanded ? "点击收回" : "点击展开",
-                dataAttribute: "data-repricing-duration-gap-process-node",
-                changeType: "durationDelta",
-                valueFormat: "duration",
-                labels: model.displayLabels,
-                impact: impactMap["asset-duration"],
-                impactType: "number",
-              })}
-              <div class="eve-process-division">-</div>
-              ${renderEveProcessNode({
-                key: "liability-duration",
-                title: "负债重定价久期",
-                value: formatDurationProcessValue(model.liabilityDurations[selectedIndex]),
-                series: model.liabilityDurations,
-                selectedIndex,
-                comparisonIndex,
-                activeNode,
-                actionText: state.liabilityExpanded ? "点击收回" : "点击展开",
-                dataAttribute: "data-repricing-duration-gap-process-node",
-                changeType: "durationDelta",
-                valueFormat: "duration",
-                labels: model.displayLabels,
-                impact: impactMap["liability-duration"],
-                impactType: "number",
-              })}
-            </div>
-            <div class="eve-process-connector" aria-hidden="true"></div>
-            <div class="eve-process-expansions">
-              <div class="eve-process-expansion-slot">
-                ${state.assetExpanded
-                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "asset", impactMap)
-                  : ""}
-              </div>
-              <div class="eve-process-expansion-slot">
-                ${state.liabilityExpanded
-                  ? renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, "liability", impactMap)
-                  : ""}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
-  repricingDurationGapProcessModalEl.classList.add("is-open");
-  repricingDurationGapProcessModalEl.setAttribute("aria-hidden", "false");
-}
-
-function renderRepricingDurationGapContributionExpansion(widget, model, selectedIndex, comparisonIndex, activeNode, side, impactMap = {}) {
-  const sideLabel = side === "asset" ? "资产端" : "负债端";
-  const rowsByDate = model.labels.map((_, dateIndex) =>
-    buildRepricingDurationGapDetailRows(widget, { signature: model.signature }, model, dateIndex)
-      .filter((row) => row.side === sideLabel)
-  );
-  const rows = rowsByDate[selectedIndex] || [];
-  return `
-    <div class="eve-process-expansion">
-      <div class="eve-process-expansion__formula">
-        ${sideLabel}重定价久期 = Σ（各业务规模 × 各业务重定价久期）÷ Σ各业务规模
-      </div>
-      <div class="eve-process-scenario-strip repricing-duration-gap-component-strip">
-        ${rows.map((row) => {
-        const impactDisplay = formatProcessNodeImpact(impactMap[`${side}:${row.businessType}`], "number");
-        const impactText = impactDisplay.text === "影响 --"
-          ? "合计影响 --"
-          : `${impactDisplay.text.replace(/^影响/, "合计影响")}年`;
-        const scaleSeries = rowsByDate.map((dateRows) =>
-          Number(dateRows.find((item) => item.businessType === row.businessType)?.scale || 0)
-        );
-        const durationSeries = rowsByDate.map((dateRows) =>
-          Number(dateRows.find((item) => item.businessType === row.businessType)?.duration || 0)
-        );
-        const scaleDelta = formatProcessNodeDelta(scaleSeries, selectedIndex, comparisonIndex, "amount");
-        const scaleGrowth = formatProcessNodeGrowth(scaleSeries, selectedIndex, comparisonIndex);
-        const durationDelta = formatProcessNodeDelta(durationSeries, selectedIndex, comparisonIndex, "duration");
-        const durationGrowth = formatProcessNodeGrowth(durationSeries, selectedIndex, comparisonIndex);
-        const previewPayload = encodeProcessPreviewPayload({
-          title: `${row.businessType}规模及久期趋势`,
-          labels: model.displayLabels,
-          values: scaleSeries,
-          secondaryValues: durationSeries,
-          selectedIndex,
-          comparisonIndex,
-          primaryLabel: "规模",
-          secondaryLabel: "久期",
-          primaryColor: "#2878C7",
-          secondaryColor: "#C06A3A",
-          primaryValueFormat: "amount",
-          secondaryValueFormat: "duration",
-        });
-        return `
-          <article
-            class="eve-process-node eve-process-node--compact repricing-gap-attribution-card repricing-duration-business-card"
-            data-repricing-duration-business-card="${side}:${row.businessType}"
-            aria-label="${row.businessType}久期影响"
-          >
-            <span class="repricing-gap-attribution-card__header"><strong>${row.businessType}</strong></span>
-            <span class="repricing-gap-attribution-card__metrics repricing-gap-attribution-card__metrics--dual">
-              <span class="repricing-gap-attribution-card__metric">
-                <span class="repricing-gap-attribution-card__metric-current">
-                  <span>规模</span>
-                  <strong>${formatEveAmount(row.scale)}</strong>
-                </span>
-                <span class="repricing-gap-attribution-card__metric-comparisons">
-                  <em class="${scaleDelta.className}">${scaleDelta.text}</em>
-                  <em class="${scaleGrowth.className}">${scaleGrowth.text}</em>
-                </span>
-              </span>
-              <span class="repricing-gap-attribution-card__metric">
-                <span class="repricing-gap-attribution-card__metric-current">
-                  <span>久期</span>
-                  <strong>${Number(row.duration || 0).toFixed(2)}年</strong>
-                </span>
-                <span class="repricing-gap-attribution-card__metric-comparisons">
-                  <em class="${durationDelta.className}">${durationDelta.text}</em>
-                  <em class="${durationGrowth.className}">${durationGrowth.text}</em>
-                </span>
-              </span>
-            </span>
-            <span class="eve-process-node__impact repricing-gap-attribution-card__impact ${impactDisplay.className}">${impactText}</span>
-            <button
-              class="eve-process-sparkline repricing-duration-dual-sparkline"
-              type="button"
-              aria-label="放大${row.businessType}规模及久期双轴趋势"
-              title="点击放大规模及久期双轴趋势"
-              data-process-sparkline="true"
-              data-process-preview="${previewPayload}"
-            >${renderRepricingDurationDualAxisSparkline(scaleSeries, durationSeries, selectedIndex, comparisonIndex)}</button>
-          </article>
-        `;
-        }).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function formatDurationProcessValue(value) {
-  return `${Number(value || 0).toFixed(2)}年`;
 }
 
 function shouldShowProcessAxisLabel(labels, index) {

@@ -571,14 +571,20 @@ function getFutureFundingFlowBusinessSelection(chartContext) {
   return selected.length ? selected : all;
 }
 
+function supportsFutureFundingFlowDetail(businessType) {
+  return !["现金", "活期存款"].includes(businessType);
+}
+
 function getFutureFundingFlowDrilldown(widget, flowState) {
   const widgetKey = String(widget.seq);
   const current = appState.futureFundingFlowDrilldowns?.[widgetKey] || {};
   const hasCurrentDate = flowState.future.businessMatrix.rows.some((row) => row.date === current.date);
-  const hasCurrentType = flowState.future.businessMatrix.series.some((series) => series.name === current.businessType);
+  const hasCurrentType = flowState.future.businessMatrix.series.some((series) =>
+    series.name === current.businessType && supportsFutureFundingFlowDetail(series.name)
+  );
   if (hasCurrentDate && hasCurrentType) return current;
   const firstRow = flowState.future.businessMatrix.rows[0];
-  const firstSeries = flowState.future.businessMatrix.series[0];
+  const firstSeries = flowState.future.businessMatrix.series.find((series) => supportsFutureFundingFlowDetail(series.name));
   return {
     date: firstRow?.date || "",
     label: firstRow?.label || "",
@@ -838,20 +844,26 @@ function renderFutureFundingFlowChart(widget, chartContext) {
     let negativeOffset = 0;
     return row.values.map((value, valueIndex) => {
       const businessType = matrix.series[valueIndex].name;
-      const isActive = drilldown.date === row.date && drilldown.businessType === businessType;
+      const supportsDetail = supportsFutureFundingFlowDetail(businessType);
+      const isActive = supportsDetail && drilldown.date === row.date && drilldown.businessType === businessType;
       const height = Math.abs(value) * businessScale;
       const color = getPaletteColor(businessType, allBusinessTypes, allBusinessTypes.indexOf(businessType), "bar");
-      const attrs = `
-        class="future-funding-flow-segment ${isActive ? "is-active" : ""}"
-        data-future-funding-flow-cell="true"
-        data-widget-seq="${widget.seq}"
-        data-date="${row.date}"
-        data-label="${row.label}"
-        data-business-type="${businessType}"
-        role="button"
-        tabindex="0"
-        aria-label="${row.label} ${businessType} 查看未来资金流明细"
-      `;
+      const attrs = supportsDetail ? `
+          class="future-funding-flow-segment ${isActive ? "is-active" : ""}"
+          data-future-funding-flow-cell="true"
+          data-widget-seq="${widget.seq}"
+          data-date="${row.date}"
+          data-label="${row.label}"
+          data-business-type="${businessType}"
+          role="button"
+          tabindex="0"
+          aria-label="${row.label} ${businessType} 查看未来资金流明细"
+        ` : `
+          class="future-funding-flow-segment is-detail-disabled"
+          data-future-funding-flow-detail-disabled="true"
+          data-business-type="${businessType}"
+          aria-label="${row.label} ${businessType}，不提供右侧明细"
+        `;
       if (value >= 0) {
         const y = zeroY - positiveOffset - height;
         positiveOffset += height;

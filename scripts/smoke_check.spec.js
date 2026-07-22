@@ -240,6 +240,13 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     return `${year}-${month}-${day}`;
   });
   await expect(page.locator("#globalEndDate")).toHaveValue(expectedEndDate);
+  await expect(page.locator(".system-menu > .system-menu__item > span:nth-child(2)")).toHaveText([
+    "\u98ce\u9669\u5206\u6790\u89c6\u56fe",
+    "\u9650\u989d\u7ba1\u7406",
+    "\u538b\u529b\u6d4b\u8bd5",
+    "\u5e02\u573a\u6570\u636e\u7ba1\u7406",
+  ]);
+  await expect(page.locator("#pageTabs .page-tab")).toHaveText(TEXT.pages);
   for (const title of TEXT.pages) {
     await expect(page.getByRole("button", { name: title, exact: true })).toBeVisible();
   }
@@ -456,90 +463,55 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.getByText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387\uff08\u65e5\u9891\uff09", { exact: true })).toHaveCount(0);
   const durationGapWidget = page.locator('article[data-widget-seq="15"]');
   await expect(durationGapWidget).toContainText("\u8d44\u4ea7\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f\u7f3a\u53e3");
+  const durationGapPointCount = await durationGapWidget.locator('[data-repricing-duration-gap-point="true"]').count();
+  expect(durationGapPointCount).toBeGreaterThan(0);
+  await expect(durationGapWidget.locator('[data-repricing-duration-gap-bar="asset"]')).toHaveCount(durationGapPointCount);
+  await expect(durationGapWidget.locator('[data-repricing-duration-gap-bar="liability"]')).toHaveCount(durationGapPointCount);
+  await expect(durationGapWidget.locator(".repricing-duration-gap-line")).toHaveCount(1);
+  await expect(durationGapWidget.locator(".chart-legend")).toContainText("\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f");
+  await expect(durationGapWidget.locator(".chart-legend")).toContainText("\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
+  await expect(durationGapWidget.locator(".chart-legend")).toContainText("\u8d44\u4ea7\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f\u7f3a\u53e3");
   await durationGapWidget.locator('[data-repricing-duration-gap-point="true"]').nth(3).click({ force: true });
-  await expect(durationGapWidget.locator(".eve-point-popover__grid > div")).toHaveCount(2);
-  await expect(durationGapWidget.locator(".eve-point-popover")).not.toContainText("\u8d44\u4ea7\u4e45\u671f");
-  await durationGapWidget.locator(".eve-point-popover__action").click();
-  await expect(page.locator("#repricingDurationGapProcessModal [data-process-date-slider]")).toHaveCount(2);
-  await expect(page.locator("#repricingDurationGapProcessModal select")).toHaveCount(0);
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8f83\u57fa\u671f");
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d44\u4ea7\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f\u7f3a\u53e3 = \u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f - \u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f");
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u8d1f\u503a\u91cd\u5b9a\u4ef7\u4e45\u671f");
-  await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("资产端重定价久期 = Σ（各业务规模 × 各业务重定价久期）÷ Σ各业务规模");
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("\u81ea\u8425\u8d37\u6b3e");
-  const durationBusinessCards = page.locator("#repricingDurationGapProcessModal [data-repricing-duration-business-card]");
-  await expect(durationBusinessCards).toHaveCount(6);
-  for (const businessType of ["自营贷款", "投资类资产", "同业资产", "自营非标投资", "存放央行", "内部交易资产"]) {
-    await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:${businessType}"]`)).toHaveCount(1);
-  }
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:表外衍生品应收"]')).toHaveCount(0);
-  const loanDurationBusinessCard = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:\u81ea\u8425\u8d37\u6b3e"]');
-  await expect(loanDurationBusinessCard).toHaveClass(/repricing-gap-attribution-card/);
-  const durationMetrics = loanDurationBusinessCard.locator(".repricing-gap-attribution-card__metric");
-  await expect(durationMetrics).toHaveCount(2);
-  await expect(durationMetrics.nth(0)).toContainText("规模");
-  await expect(durationMetrics.nth(1)).toContainText("久期");
-  await expect(loanDurationBusinessCard.locator(".repricing-gap-attribution-card__impact")).toContainText("合计影响");
-  await expect(loanDurationBusinessCard.locator(".eve-process-sparkline")).toHaveCount(1);
-  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toHaveCount(1);
-  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("规模(亿)");
-  await expect(loanDurationBusinessCard.locator(".repricing-duration-dual-sparkline")).toContainText("久期(年)");
-  await expect(loanDurationBusinessCard.locator('[data-process-marker="comparison"]')).toHaveCount(1);
-  await expect(loanDurationBusinessCard.locator('[data-process-marker="current"]')).toHaveCount(1);
-  await expect(loanDurationBusinessCard.locator("[data-process-period-line]")).toHaveCount(2);
-  await expect(loanDurationBusinessCard).toContainText("\u589e\u91cf");
-  await expect(loanDurationBusinessCard).toContainText("\u589e\u901f");
-  await expect(loanDurationBusinessCard).toContainText("\u5f71\u54cd");
-  await expect(loanDurationBusinessCard).not.toContainText("\u89c4\u6a21\u5f71\u54cd");
-  await expect(loanDurationBusinessCard).not.toContainText("\u4e45\u671f\u5f71\u54cd");
-  const durationCardLayout = await loanDurationBusinessCard.evaluate((card) => {
-    const metrics = [...card.querySelectorAll(".repricing-gap-attribution-card__metric")]
-      .map((node) => node.getBoundingClientRect());
-    const impact = card.querySelector(".repricing-gap-attribution-card__impact")?.getBoundingClientRect();
+  await expect(durationGapWidget.locator(".eve-point-popover__grid > div")).toHaveCount(4);
+  await expect(durationGapWidget.locator(".eve-point-popover")).toContainText("\u8d44\u4ea7\u4e45\u671f");
+  await expect(durationGapWidget.locator(".eve-point-popover")).toContainText("\u8d1f\u503a\u4e45\u671f");
+  await expect(durationGapWidget.locator(".eve-point-popover")).toContainText("\u4e45\u671f\u7f3a\u53e3");
+  await expect(durationGapWidget.locator(".eve-point-popover__action")).toHaveCount(0);
+  await expect(durationGapWidget.getByRole("button", { name: "\u67e5\u770b\u8ba1\u7b97\u8fc7\u7a0b", exact: true })).toHaveCount(0);
+  const repricingGapWidget = page.locator('article[data-widget-seq="9"]');
+  await expect(repricingGapWidget.locator('[data-filter-name="活期存款"] .filter-select__value')).toHaveText("不含");
+  await expect(repricingGapWidget.locator('[data-filter-name="表外衍生品"] .filter-select__value')).toHaveText("含银行账簿和交易账簿");
+  const repricingCaliberModels = await page.evaluate(() => {
+    const build = (demandDepositScope, derivativeScope) => buildRepricingGapDiagnosticModel({ seq: 9 }, {
+      pageId: "interest-risk",
+      labels: ["2026-01", "2026-02"],
+      filterState: {
+        机构: ["法人汇总"],
+        活期存款: [demandDepositScope],
+        表外衍生品: [derivativeScope],
+      },
+    });
     return {
-      metricCount: metrics.length,
-      sameRow: metrics.length === 2 && Math.abs(metrics[0].top - metrics[1].top) < 3,
-      similarWidth: metrics.length === 2 && Math.abs(metrics[0].width - metrics[1].width) < 3,
-      impactBelow: Boolean(impact) && impact.top > Math.max(...metrics.map((rect) => rect.bottom)),
+      defaultModel: build("不含", "含银行账簿和交易账簿"),
+      withDemandDeposits: build("含", "含银行账簿和交易账簿"),
+      withoutDerivatives: build("不含", "不含"),
+      withBankBookOnly: build("不含", "仅含银行账簿"),
     };
   });
-  expect(durationCardLayout).toEqual({ metricCount: 2, sameRow: true, similarWidth: true, impactBelow: true });
-  const durationBusinessWidths = await durationBusinessCards.evaluateAll((nodes) =>
-    nodes.map((node) => Math.round(node.getBoundingClientRect().width))
-  );
-  expect(new Set(durationBusinessWidths)).toEqual(new Set([276]));
-  await loanDurationBusinessCard.locator(".eve-process-sparkline").click();
-  await expect(page.locator("#processSparklinePreview")).toContainText("自营贷款规模及久期趋势");
-  await expect(page.locator("#processSparklinePreview")).toContainText("主轴 · 规模");
-  await expect(page.locator("#processSparklinePreview")).toContainText("次轴 · 久期");
-  await expect(page.locator("button button")).toHaveCount(0);
-  await expect(loanDurationBusinessCard.locator("[data-process-sparkline]")).toHaveAttribute("type", "button");
-  await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
-  await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
-  await expect(page.locator("#repricingDurationGapProcessModal")).toContainText("负债端重定价久期 = Σ（各业务规模 × 各业务重定价久期）÷ Σ各业务规模");
-  const liabilityDurationBusinessCards = page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card^="liability:"]');
-  await expect(liabilityDurationBusinessCards).toHaveCount(7);
-  for (const businessType of ["活期存款", "定期存款", "同业负债", "发行债券", "向央行借款", "租赁负债", "内部交易负债"]) {
-    await expect(page.locator(`#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:${businessType}"]`)).toHaveCount(1);
-  }
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:表外衍生品应付"]')).toHaveCount(0);
-  await expect(page.locator("#repricingDurationGapProcessModal")).not.toContainText("表外衍生品");
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="asset:内部交易资产"]')).toContainText("增量 0.0亿");
-  await expect(page.locator('#repricingDurationGapProcessModal [data-repricing-duration-business-card="liability:内部交易负债"]')).toContainText("增量 0.0亿");
-  await expectAllProcessNodesHaveImpact(page.locator("#repricingDurationGapProcessModal"));
-  await page.locator('[data-repricing-duration-gap-process-node="liability-duration"] .eve-process-node__action').click();
-  await expect(page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u6536\u56de");
-  await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
-  await expect(page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action')).toContainText("\u70b9\u51fb\u5c55\u5f00");
-  await expect(page.locator("#repricingDurationGapProcessModal")).not.toContainText("\u81ea\u8425\u8d37\u6b3e");
-  await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] .eve-process-node__action').click();
-  await page.locator('[data-repricing-duration-gap-process-node="asset-duration"] [data-process-sparkline]').click();
-  await expect(page.locator("#processSparklinePreview")).toContainText("\u8d44\u4ea7\u91cd\u5b9a\u4ef7\u4e45\u671f");
-  await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
-  await page.keyboard.press("Escape");
-  const repricingGapWidget = page.locator('article[data-widget-seq="9"]');
+  const { defaultModel, withDemandDeposits, withoutDerivatives, withBankBookOnly } = repricingCaliberModels;
+  expect(defaultModel.supportsAttribution).toBeTruthy();
+  expect(withDemandDeposits.supportsAttribution).toBeFalsy();
+  expect(withoutDerivatives.supportsAttribution).toBeFalsy();
+  expect(withBankBookOnly.supportsAttribution).toBeFalsy();
+  expect(defaultModel.liabilityItems.map((item) => item.title)).not.toContain("活期存款");
+  const demandDepositItem = withDemandDeposits.liabilityItems.find((item) => item.title === "活期存款");
+  expect(demandDepositItem).toBeTruthy();
+  expect(withDemandDeposits.totalInterestAssets[0]).toBe(defaultModel.totalInterestAssets[0]);
+  expect(withDemandDeposits.numerator[0]).toBeCloseTo(defaultModel.numerator[0] - demandDepositItem.values[0], 10);
+  expect(withoutDerivatives.bankBookDerivativeGap[0]).toBe(0);
+  expect(withoutDerivatives.tradingBookDerivativeGap[0]).toBe(0);
+  expect(withBankBookOnly.bankBookDerivativeGap[0]).toBe(defaultModel.bankBookDerivativeGap[0]);
+  expect(withBankBookOnly.tradingBookDerivativeGap[0]).toBe(0);
   const repricingScopeModels = await page.evaluate(() => {
     const build = (organization) => buildRepricingGapDiagnosticModel({ seq: 9 }, {
       pageId: "interest-risk",
@@ -603,7 +575,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="adjusted-assets"] .eve-process-node__action').click();
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(1);
-  await expect(page.locator("#repricingGapProcessModal")).toContainText("资产端业务重定价规模 = 各资产业务重定价规模合计；总规模 = 各资产业务总规模合计");
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("重定价规模 = Σ（一年内各期限桶 × 期限权重）；总规模 = 一年内期限桶合计 + 一年外及无明确重定价期限资产");
   const numeratorNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"]').boundingBox();
   const assetNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]').boundingBox();
   const assetLeafBox = await page.locator("#repricingGapProcessModal .repricing-gap-business-expansion").boundingBox();
@@ -679,6 +651,27 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator("#processSparklinePreview")).toContainText("\u91cd\u5b9a\u4ef7\u7f3a\u53e3");
   await page.locator('#processSparklinePreview button[data-close-process-sparkline="true"]').click();
   await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    appState.widgetFilters[9] = {
+      ...(appState.widgetFilters[9] || {}),
+      活期存款: ["含"],
+      表外衍生品: ["含银行账簿和交易账簿"],
+    };
+    render();
+  });
+  const nonDefaultRepricingGapWidget = page.locator('article[data-widget-seq="9"]');
+  await nonDefaultRepricingGapWidget.locator('[data-repricing-gap-point="true"]').nth(3).click({ force: true });
+  await expect(nonDefaultRepricingGapWidget.locator(".eve-point-popover__hint")).toContainText("仅“不含活期存款、含银行账簿和交易账簿表外衍生品”口径支持拆解归因");
+  await expect(nonDefaultRepricingGapWidget.locator('[data-open-repricing-gap-process="true"]')).toHaveCount(0);
+  await page.evaluate(() => {
+    appState.widgetFilters[9] = {
+      ...(appState.widgetFilters[9] || {}),
+      活期存款: ["不含"],
+      表外衍生品: ["含银行账簿和交易账簿"],
+    };
+    appState.repricingGapPointPopover = null;
+    render();
+  });
   await expect(page.locator("#globalFilterBar").getByRole("button", { name: TEXT.interestBondBlock, exact: true })).toHaveCount(0);
   await expect(page.locator('article[data-widget-seq="60"]').getByRole("heading", { name: TEXT.interestPortfolioDurationTitle, exact: true })).toBeVisible();
   expect(await page.locator('article[data-widget-seq="60"] svg polyline').count()).toBeGreaterThan(0);
@@ -1122,8 +1115,10 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     add("LCR分母", lcrImpacts.denominator, sum(lcrImpacts, ["cash-outflow", "cash-inflow"]));
     if (lcrImpacts.attributionMethod !== "direct-max-grouped-owen-4-paths"
       || lcrImpacts.lcrBridge?.pathCount !== 4
+      || lcrImpacts.lcrBridge?.effectivePathCount !== 4
+      || lcrImpacts.lcrBridge?.structuralPathCount !== 24
       || lcrImpacts["constraint-branch-switch"] !== undefined) {
-      throw new Error("LCR未采用逐步重算max的4条正式分组Owen路径");
+      throw new Error("LCR未采用逐步重算max的24条正式路径及4类等价路径环境");
     }
     const switchModel = {
       kind: "lcr",
@@ -1271,41 +1266,38 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     const repricingImpacts = buildRepricingGapProcessImpactMap(repricingModel, selectedIndex, comparisonIndex);
     add("重定价缺口率顶层", repricingImpacts.ratio, sum(repricingImpacts, ["adjusted-assets", "adjusted-liabilities", "bank-book-derivative-gap", "trading-book-derivative-gap"]));
     add("重定价缺口率资产端", repricingImpacts["adjusted-assets"], sum(repricingImpacts, repricingModel.assetItems.map((item) => item.key)));
-    add("重定价缺口率资产端重定价规模", repricingImpacts["adjusted-assets:repricingScale"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:repricingScale`)));
-    add("重定价缺口率资产端总规模", repricingImpacts["adjusted-assets:totalScale"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:totalScale`)));
+    add("重定价缺口率资产端一年内联动", repricingImpacts["adjusted-assets:withinOneYear"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:withinOneYear`)));
+    add("重定价缺口率资产端一年外", repricingImpacts["adjusted-assets:beyondOneYear"], sum(repricingImpacts, repricingModel.assetItems.map((item) => `${item.key}:beyondOneYear`)));
     add("重定价缺口率负债端", repricingImpacts["adjusted-liabilities"], sum(repricingImpacts, repricingModel.liabilityItems.map((item) => item.key)));
     add("重定价缺口率银行账簿衍生品", repricingImpacts["bank-book-derivative-gap"], sum(repricingImpacts, ["bank-book-receivable", "bank-book-payable"]));
     add("重定价缺口率交易账簿衍生品", repricingImpacts["trading-book-derivative-gap"], sum(repricingImpacts, ["trading-book-receivable", "trading-book-payable"]));
     repricingModel.assetItems.forEach((item) => {
-      add(`重定价缺口率${item.title}双字段`, repricingImpacts[item.key], sum(repricingImpacts, [
-        `${item.key}:repricingScale`, `${item.key}:totalScale`,
+      add(`重定价缺口率${item.title}两项因素`, repricingImpacts[item.key], sum(repricingImpacts, [
+        `${item.key}:withinOneYear`, `${item.key}:beyondOneYear`,
       ]));
+      const totalItem = repricingModel.totalInterestAssetItems.find((candidate) => candidate.key === `total-${item.key}`);
+      const withinBuckets = item.withinOneYearBucketSeries.map((series) => Number(series[selectedIndex]));
+      const withinScale = withinBuckets.reduce((total, value) => total + value, 0);
+      const adjustedScale = withinBuckets.reduce((total, value, index) => (
+        total + value * repricingModel.repricingWeights[index]
+      ), 0);
+      if (!totalItem
+        || withinScale > Number(totalItem.values[selectedIndex]) + 1e-7
+        || Math.abs(adjustedScale - Number(item.values[selectedIndex])) > 1e-7) {
+        throw new Error(`重定价缺口率${item.title}期限桶未与重定价规模、总规模勾稽`);
+      }
     });
-    if (repricingImpacts.attributionMethod !== "three-level-nested-owen") {
-      throw new Error("重定价缺口率未采用正式三层嵌套Owen口径");
+    if (repricingImpacts.attributionMethod !== "three-level-nested-owen-with-joint-within-year-factor"
+      || repricingImpacts.linkedWithinYearFactor !== true
+      || repricingImpacts.withinOneYearBucketCount !== repricingModel.repricingWeights.length
+      || repricingImpacts["adjusted-assets:repricingScale"] !== undefined
+      || repricingImpacts["adjusted-assets:totalScale"] !== undefined) {
+      throw new Error("重定价缺口率未采用一年内期限桶联合替换的正式三层嵌套Owen口径");
     }
     if (repricingImpacts.numerator !== undefined || repricingImpacts.denominator !== undefined) {
       throw new Error("重定价缺口率不应再把分子和分母作为独立归因因素");
     }
 
-    const durationWidget = { seq: 15, title: "资产负债重定价久期缺口" };
-    const durationModel = buildRepricingDurationGapModel(durationWidget, { labels, signature: 59 });
-    [comparisonIndex, selectedIndex].forEach((dateIndex) => {
-      const durationRows = buildRepricingDurationGapDetailRows(durationWidget, { signature: durationModel.signature }, durationModel, dateIndex);
-      [
-        ["资产端", durationModel.assetDurations[dateIndex]],
-        ["负债端", durationModel.liabilityDurations[dateIndex]],
-      ].forEach(([sideLabel, parentDuration]) => {
-        const sideRows = durationRows.filter((row) => row.side === sideLabel);
-        const totalScale = sideRows.reduce((sum, row) => sum + Number(row.scale || 0), 0);
-        const weightedDuration = sideRows.reduce((sum, row) => sum + Number(row.scale || 0) * Number(row.duration || 0), 0) / totalScale;
-        add(`重定价久期${sideLabel}${dateIndex === selectedIndex ? "本期" : "基期"}加权一致`, parentDuration, weightedDuration);
-      });
-    });
-    const durationImpacts = buildRepricingDurationGapProcessImpactMap(durationWidget, durationModel, selectedIndex, comparisonIndex);
-    add("重定价久期缺口顶层", durationImpacts["duration-gap"], durationImpacts["asset-duration"] + durationImpacts["liability-duration"]);
-    add("重定价久期缺口资产端", durationImpacts["asset-duration"], sum(durationImpacts, Object.keys(durationImpacts).filter((key) => key.startsWith("asset:"))));
-    add("重定价久期缺口负债端", durationImpacts["liability-duration"], sum(durationImpacts, Object.keys(durationImpacts).filter((key) => key.startsWith("liability:"))));
     let strictRejected = false;
     try {
       getProcessSeriesValue([null], 0);
@@ -1316,7 +1308,7 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
     return results;
   });
 
-  expect(audits.length).toBeGreaterThanOrEqual(25);
+  expect(audits.length).toBeGreaterThanOrEqual(18);
   for (const audit of audits) {
     expect(Math.abs(audit.parent - audit.children), audit.name).toBeLessThan(1e-7);
   }
@@ -1349,6 +1341,13 @@ test("可交互SVG图形支持键盘且不被辅助技术隐藏", async ({ page 
   const liquidityAudit = await auditInteractiveTargets(liquiditySelectors);
   expect(liquidityAudit.count).toBeGreaterThan(0);
   expect(liquidityAudit).toMatchObject({ missingRole: 0, missingTabIndex: 0, hiddenBySvg: 0, missingName: 0 });
+  for (const businessType of ["现金", "活期存款"]) {
+    const disabledSegments = page.locator(`[data-future-funding-flow-detail-disabled="true"][data-business-type="${businessType}"]`);
+    expect(await disabledSegments.count()).toBeGreaterThan(0);
+    await expect(page.locator(`[data-future-funding-flow-cell][data-business-type="${businessType}"]`)).toHaveCount(0);
+    await expect(disabledSegments.first()).not.toHaveAttribute("role", "button");
+    await expect(disabledSegments.first()).not.toHaveAttribute("tabindex", "0");
+  }
   const liquidityPoint = page.locator("[data-liquidity-point]").nth(2);
   await liquidityPoint.press(" ");
   await expect(liquidityPoint.locator("xpath=ancestor::article[1]").locator(".eve-point-popover")).toBeVisible();
@@ -1479,37 +1478,37 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
 test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574", async ({ page }) => {
   await openPage(page);
   const sharedRiskStartDate = await page.evaluate(() => appState.globalStartDate);
-  const sharedRiskEndDate = await page.locator("#globalEndDate").inputValue();
   await expect(page.locator("#globalStartDate")).toHaveCount(0);
+  await expect(page.locator("#sharedDateControls")).toBeVisible();
+  const selectedSharedEndDate = await page.evaluate(() => addClampedMonthsDateValue(appState.globalEndDate, -2));
+  await page.locator("#globalEndDate").fill(selectedSharedEndDate);
+  await page.locator("#globalEndDate").evaluate((element) => {
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
-  await expect(page.locator("#riskDateControls")).toBeHidden();
-  await expect(page.locator("#businessDateControls")).toBeVisible();
+  await expect(page.locator("#sharedDateControls")).toBeVisible();
+  await expect(page.locator("#businessDateControls")).toHaveCount(0);
   await expect(page.locator("#businessStartDate")).toHaveCount(0);
-  const businessEndDate = page.locator("#businessEndDate");
-  const businessDateOptions = await businessEndDate.locator("option").evaluateAll((options) => options.map((option) => option.value));
-  expect(businessDateOptions.length).toBeGreaterThan(1);
-  expect(businessDateOptions.every((value) => isIsoMonthEnd(value))).toBeTruthy();
-  expect(isIsoMonthEnd(await businessEndDate.inputValue())).toBeTruthy();
-  const selectedBusinessEndDate = businessDateOptions[businessDateOptions.length - 2];
-  await businessEndDate.selectOption(selectedBusinessEndDate);
-  await expect(businessEndDate).toHaveValue(selectedBusinessEndDate);
-  await expect(page.locator('[data-widget-seq="72"] .chart-stage')).toContainText(selectedBusinessEndDate.slice(5, 7));
-  const independentDateState = await page.evaluate(() => ({
+  await expect(page.locator("#businessEndDate")).toHaveCount(0);
+  await expect(page.locator("#globalEndDate")).toHaveValue(selectedSharedEndDate);
+  const sharedDateState = await page.evaluate(() => ({
     globalRange: [appState.globalStartDate, appState.globalEndDate],
-    businessRange: [appState.businessStartDate, appState.businessEndDate],
-    newBusinessRange: appState.widgetFilters[89]?.["\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09"] || [],
+    hasBusinessStartDate: Object.prototype.hasOwnProperty.call(appState, "businessStartDate"),
+    hasBusinessEndDate: Object.prototype.hasOwnProperty.call(appState, "businessEndDate"),
+    completedMonthEnd: getLatestCompletedBusinessMonthEnd(appState.globalEndDate),
   }));
-  expect(independentDateState.globalRange).toEqual([sharedRiskStartDate, sharedRiskEndDate]);
-  expect(independentDateState.businessRange[0]).toBe(await page.evaluate(() => getDefaultBusinessAnalysisDateRange()[0]));
-  expect(independentDateState.businessRange[1]).toBe(selectedBusinessEndDate);
-  expect(independentDateState.newBusinessRange).toEqual(independentDateState.businessRange);
+  expect(sharedDateState.globalRange).toEqual([sharedRiskStartDate, selectedSharedEndDate]);
+  expect(sharedDateState.hasBusinessStartDate).toBeFalsy();
+  expect(sharedDateState.hasBusinessEndDate).toBeFalsy();
+  for (const widgetSeq of [72, 73, 83, 84, 90, 91]) {
+    await expect(page.locator(`[data-widget-seq="${widgetSeq}"] .chart-stage`)).toContainText(sharedDateState.completedMonthEnd.slice(5, 7));
+  }
   await page.getByRole("button", { name: TEXT.pages[0], exact: true }).click();
-  await expect(page.locator("#riskDateControls")).toBeVisible();
-  await expect(page.locator("#businessDateControls")).toBeHidden();
+  await expect(page.locator("#sharedDateControls")).toBeVisible();
   await expect(page.locator("#globalStartDate")).toHaveCount(0);
-  await expect(page.locator("#globalEndDate")).toHaveValue(sharedRiskEndDate);
+  await expect(page.locator("#globalEndDate")).toHaveValue(selectedSharedEndDate);
   await page.getByRole("button", { name: TEXT.pages[2], exact: true }).click();
-  await expect(businessEndDate).toHaveValue(selectedBusinessEndDate);
+  await expect(page.locator("#globalEndDate")).toHaveValue(selectedSharedEndDate);
   const businessSections = [
     { id: "area-stock", title: "\u5b58\u91cf\u4e1a\u52a1", widgets: ["72", "73", "79", "80"] },
     { id: "area-new", title: "\u65b0\u53d1\u751f\u4e1a\u52a1", widgets: ["83", "84", "89", "85"] },
@@ -1522,6 +1521,22 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
     for (const widgetSeq of sectionConfig.widgets) {
       await expect(section.locator(`article[data-widget-seq="${widgetSeq}"]`)).toHaveCount(1);
     }
+  }
+  let businessChartLogicalCount = 6;
+  let stockStructureLogicalCount = 1;
+  let stockDetailLogicalCount = 1;
+  for (const widgetSeq of [72, 73]) {
+    const widget = page.locator(`[data-widget-seq="${widgetSeq}"]`);
+    const monthTab = widget.locator('[role="tab"][data-filter-name="\u9891\u7387"][data-filter-value="\u6708\u9891"]');
+    const dayTab = widget.locator('[role="tab"][data-filter-name="\u9891\u7387"][data-filter-value="\u65e5\u9891"]');
+    await expect(monthTab).toHaveAttribute("aria-selected", "true");
+    await expect(dayTab).toHaveAttribute("aria-selected", "false");
+    await dayTab.click();
+    await expect(dayTab).toHaveAttribute("aria-selected", "true");
+    const dailyAxisLabels = await widget.locator(".axis-label--x").allTextContents();
+    expect(dailyAxisLabels.some((label) => /^\d{1,2}\/\d{2}$/.test(label))).toBeTruthy();
+    await monthTab.click();
+    await expect(monthTab).toHaveAttribute("aria-selected", "true");
   }
   for (const title of TEXT.businessChangeTitles) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
@@ -1610,6 +1625,30 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   });
   expect(newBusinessMonthEndAudit.values.every((value) => isIsoMonthEnd(value))).toBeTruthy();
   expect(newBusinessMonthEndAudit.options.every((value) => isIsoMonthEnd(value))).toBeTruthy();
+  const newBusinessRangeOptions = await newBusinessMonthEndControls.nth(0).locator("option").evaluateAll((options) => options.map((option) => option.value));
+  expect(newBusinessRangeOptions.length).toBeGreaterThan(3);
+  const localNewBusinessRange = [
+    newBusinessRangeOptions[newBusinessRangeOptions.length - 3],
+    newBusinessRangeOptions[newBusinessRangeOptions.length - 2],
+  ];
+  await newBusinessMonthEndControls.nth(0).selectOption(localNewBusinessRange[0]);
+  await newBusinessMonthEndControls.nth(1).selectOption(localNewBusinessRange[1]);
+  await page.locator('[data-widget-seq="79"] [data-open-business-detail="true"]').first().click();
+  await page.locator('[data-widget-seq="89"] [data-open-business-detail="true"]').first().click();
+  await expect(page.locator('[data-widget-seq="80"] .business-detail-context__meta')).toContainText(`\u622a\u81f3 ${selectedSharedEndDate}`);
+  await expect(page.locator('[data-widget-seq="85"] .business-detail-context__meta')).toContainText(`${localNewBusinessRange[0]} \u81f3 ${localNewBusinessRange[1]}`);
+  const stockStructureValueBeforeDateChange = await page.locator('[data-widget-seq="79"] tbody tr').first().locator("td").nth(2).textContent();
+  const changedSharedEndDate = await page.evaluate(() => addClampedMonthsDateValue(appState.globalEndDate, -1));
+  await page.locator("#globalEndDate").fill(changedSharedEndDate);
+  await page.locator("#globalEndDate").evaluate((element) => {
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect(newBusinessMonthEndControls.nth(0)).toHaveValue(localNewBusinessRange[0]);
+  await expect(newBusinessMonthEndControls.nth(1)).toHaveValue(localNewBusinessRange[1]);
+  await expect(page.locator('[data-widget-seq="80"] .business-detail-context__meta')).toContainText(`\u622a\u81f3 ${changedSharedEndDate}`);
+  await expect(page.locator('[data-widget-seq="85"] .business-detail-context__meta')).toContainText(`${localNewBusinessRange[0]} \u81f3 ${localNewBusinessRange[1]}`);
+  const stockStructureValueAfterDateChange = await page.locator('[data-widget-seq="79"] tbody tr').first().locator("td").nth(2).textContent();
+  expect(stockStructureValueAfterDateChange).not.toBe(stockStructureValueBeforeDateChange);
   const businessTrendRows = await page.evaluate(() => {
     const pairs = [["72", "73"], ["83", "84"], ["90", "91"]];
     return pairs.map(([leftSeq, rightSeq]) => {
@@ -1647,6 +1686,17 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   await expect(page.locator('[data-widget-seq="72"] .chart-legend')).toContainText("\u603b\u8d1f\u503a\u589e\u901f");
   await expect(page.locator('[data-widget-seq="73"] .chart-legend')).toContainText("\u73b0\u91d1");
   await expect(page.locator('[data-widget-seq="73"] .chart-legend')).toContainText("\u5b9a\u671f\u5b58\u6b3e");
+  businessChartLogicalCount += 6;
+  stockStructureLogicalCount += 1;
+  stockDetailLogicalCount += 1;
+  expect(businessChartLogicalCount).toBe(12);
+  expect(stockStructureLogicalCount).toBe(2);
+  expect(stockDetailLogicalCount).toBe(2);
+  for (const widgetSeq of [72, 73]) {
+    const widget = page.locator(`[data-widget-seq="${widgetSeq}"]`);
+    await expect(widget.locator('[role="tab"][data-filter-name="\u9891\u7387"][data-filter-value="\u6708\u9891"]')).toBeVisible();
+    await expect(widget.locator('[role="tab"][data-filter-name="\u9891\u7387"][data-filter-value="\u65e5\u9891"]')).toBeVisible();
+  }
 
   const liquidityStructureWidget = page.locator('article[data-widget-seq="79"]');
   await expect(liquidityStructureWidget.getByRole("heading", { name: "\u6d41\u52a8\u6027\u98ce\u9669\u4e1a\u52a1\u7ed3\u6784\u4e00\u89c8\u8868", exact: true })).toBeVisible();
@@ -1674,6 +1724,11 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   await liquidityStructureWidget.getByRole("button", { name: "\u67e5\u770b\u660e\u7ec6", exact: true }).first().click();
   await page.locator('[data-widget-seq="89"]').getByRole("button", { name: "\u67e5\u770b\u660e\u7ec6", exact: true }).first().click();
   await page.locator('[data-widget-seq="96"]').getByRole("button", { name: "\u67e5\u770b\u660e\u7ec6", exact: true }).first().click();
+  const currentSharedEndDate = await page.locator("#globalEndDate").inputValue();
+  await expect(page.locator('[data-widget-seq="80"] .business-detail-context__meta')).toContainText(`\u622a\u81f3 ${currentSharedEndDate}`);
+  await expect(page.locator('[data-widget-seq="85"] .business-detail-context__meta')).toContainText(`${localNewBusinessRange[0]} \u81f3 ${localNewBusinessRange[1]}`);
+  await expect(page.locator('[data-widget-seq="89"] select[data-inline-date-filter]').nth(0)).toHaveValue(localNewBusinessRange[0]);
+  await expect(page.locator('[data-widget-seq="89"] select[data-inline-date-filter]').nth(1)).toHaveValue(localNewBusinessRange[1]);
   const liquidityDetailHeaders = await page.evaluate(() => Object.fromEntries(
     ["80", "85", "97"].map((seq) => [
       seq,
@@ -1717,33 +1772,101 @@ test("\u4e1a\u52a1\u53d8\u52a8\u5206\u6790\u5173\u952e\u6807\u9898\u5b8c\u6574",
   }
   await expect(page.locator('[data-widget-seq="90"] .maturity-future-band')).toHaveCount(1);
   await expect(page.locator('[data-widget-seq="91"] .maturity-future-band')).toHaveCount(1);
+  for (const widgetSeq of [90, 91]) {
+    const maturityTrendWidget = page.locator(`[data-widget-seq="${widgetSeq}"]`);
+    expect(await maturityTrendWidget.locator("svg polyline").count()).toBeGreaterThan(0);
+    await expect(maturityTrendWidget.locator('svg polyline[stroke-dasharray]')).toHaveCount(0);
+    expect(await maturityTrendWidget.locator(`rect[data-business-change-month="${futureMonthLabels[0]}"]`).count()).toBeGreaterThan(0);
+  }
   const maturityStructureWidget = page.locator('article[data-widget-seq="96"]');
   await expect(maturityStructureWidget.getByRole("tab", { name: "\u5386\u53f2\u5b9e\u9645\u5230\u671f", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(maturityStructureWidget.getByRole("tab", { name: "\u672a\u6765\u5408\u540c\u5230\u671f", exact: true })).toBeVisible();
   await expect(maturityStructureWidget.locator('select[data-inline-date-filter][data-month-end-only="true"]')).toHaveCount(2);
   const maturityRanges = await page.evaluate(() => {
-    const cutoff = getLatestCompletedBusinessMonthEnd();
+    const cutoff = getLatestCompletedBusinessMonthEnd(getDefaultGlobalEndDate());
     const historyRange = normalizeWidgetBusinessStructureDateRange(96, [], null, "\u5386\u53f2\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09");
     const futureRange = normalizeWidgetBusinessStructureDateRange(96, [], null, "\u672a\u6765\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09");
     const isMonthEnd = (value) => {
       const date = parseDateValue(value);
       return Boolean(date) && date.getDate() === new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     };
-    return { cutoff, historyRange, futureRange, allMonthEnds: [...historyRange, ...futureRange].every(isMonthEnd) };
+    return {
+      cutoff,
+      historyRange,
+      futureRange,
+      historyAllMonthEnds: historyRange.every(isMonthEnd),
+      futureStartsOnNextDay: futureRange[0] === addDays(cutoff, 1),
+    };
   });
   expect(maturityRanges.historyRange.every((value) => value <= maturityRanges.cutoff)).toBeTruthy();
   expect(maturityRanges.futureRange.every((value) => value > maturityRanges.cutoff)).toBeTruthy();
-  expect(maturityRanges.allMonthEnds).toBeTruthy();
+  expect(maturityRanges.historyAllMonthEnds).toBeTruthy();
+  expect(maturityRanges.futureStartsOnNextDay).toBeTruthy();
+  const maturityHistoryControls = maturityStructureWidget.locator('select[data-inline-date-filter][data-month-end-only="true"]');
+  const maturityHistoryOptions = await maturityHistoryControls.nth(0).locator("option").evaluateAll((options) => options.map((option) => option.value));
+  const localMaturityHistoryRange = [
+    maturityHistoryOptions[Math.max(0, maturityHistoryOptions.length - 3)],
+    maturityHistoryOptions[Math.max(0, maturityHistoryOptions.length - 2)],
+  ];
+  await maturityHistoryControls.nth(0).selectOption(localMaturityHistoryRange[0]);
+  await maturityHistoryControls.nth(1).selectOption(localMaturityHistoryRange[1]);
+  await maturityStructureWidget.getByRole("button", { name: "\u67e5\u770b\u660e\u7ec6", exact: true }).first().click();
+  await expect(page.locator('[data-widget-seq="97"] .business-detail-context__meta')).toContainText(`${localMaturityHistoryRange[0]} \u81f3 ${localMaturityHistoryRange[1]}`);
+  const sharedEndBeforeMaturityRangeAudit = await page.locator("#globalEndDate").inputValue();
+  const sharedEndAfterMaturityRangeAudit = await page.evaluate(() => addClampedMonthsDateValue(appState.globalEndDate, -1));
+  await page.locator("#globalEndDate").fill(sharedEndAfterMaturityRangeAudit);
+  await page.locator("#globalEndDate").evaluate((element) => {
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(sharedEndAfterMaturityRangeAudit).not.toBe(sharedEndBeforeMaturityRangeAudit);
+  await expect(maturityHistoryControls.nth(0)).toHaveValue(localMaturityHistoryRange[0]);
+  await expect(maturityHistoryControls.nth(1)).toHaveValue(localMaturityHistoryRange[1]);
+  await expect(page.locator('[data-widget-seq="97"] .business-detail-context__meta')).toContainText(`${localMaturityHistoryRange[0]} \u81f3 ${localMaturityHistoryRange[1]}`);
   await maturityStructureWidget.getByRole("tab", { name: "\u672a\u6765\u5408\u540c\u5230\u671f", exact: true }).click();
   await expect(maturityStructureWidget.getByRole("tab", { name: "\u672a\u6765\u5408\u540c\u5230\u671f", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(maturityStructureWidget.locator('select[data-inline-date-filter][data-month-end-only="true"]')).toHaveCount(2);
-  const crossBoundaryRange = await page.evaluate(() => {
+  await expect(maturityStructureWidget.locator('select[data-inline-date-filter][data-month-end-only="true"]')).toHaveCount(0);
+  const maturityFutureControls = maturityStructureWidget.locator('input[type="date"][data-inline-date-filter][data-date-granularity="day"]');
+  await expect(maturityFutureControls).toHaveCount(2);
+  await expect(maturityStructureWidget.locator('[data-daily-date-range="true"]')).toContainText("\u5f00\u59cb\u65e5\u671f");
+  await expect(maturityStructureWidget.locator('[data-daily-date-range="true"]')).toContainText("\u7ed3\u675f\u65e5\u671f");
+  const futureDailySelection = await page.evaluate(() => {
+    const dateRange = normalizeWidgetBusinessStructureDateRange(96, [], null, "\u672a\u6765\u65f6\u95f4\u533a\u95f4\uff08\u8d77\u6b62\uff09");
+    const chartContext = {
+      analysisPerspective: getActiveAnalysisPerspective(),
+      filterState: { \u673a\u6784: ["\u6cd5\u4eba\u6c47\u603b"], \u5e01\u79cd: ["\u5168\u6298\u4eba\u6c11\u5e01"] },
+      signature: 1,
+    };
+    const facts = buildBusinessChangeFactsForDateRange("maturity", chartContext, dateRange, { future: true });
+    const selected = facts.find((row) => {
+      const date = parseDateValue(row.contractMaturityDate);
+      return date && date.getDate() !== new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    }) || facts[0];
+    return {
+      date: selected?.contractMaturityDate || dateRange[0],
+      businessType: selected?.businessType || "\u81ea\u8425\u8d37\u6b3e",
+      allFactsWithinRange: facts.every((row) => row.contractMaturityDate >= dateRange[0] && row.contractMaturityDate <= dateRange[1]),
+    };
+  });
+  expect(futureDailySelection.allFactsWithinRange).toBeTruthy();
+  for (let index = 0; index < 2; index += 1) {
+    await maturityFutureControls.nth(index).fill(futureDailySelection.date);
+    await maturityFutureControls.nth(index).evaluate((element) => element.dispatchEvent(new Event("change", { bubbles: true })));
+  }
+  const selectedMaturityFutureRange = await maturityFutureControls.evaluateAll((controls) => controls.map((control) => control.value));
+  expect(selectedMaturityFutureRange).toEqual([futureDailySelection.date, futureDailySelection.date]);
+  await maturityStructureWidget.locator(`[data-open-business-detail][data-business-type="${futureDailySelection.businessType}"]`).click();
+  await expect(page.locator('[data-widget-seq="97"] .business-detail-context__meta')).toContainText(`${selectedMaturityFutureRange[0]} \u81f3 ${selectedMaturityFutureRange[1]}`);
+  await expect(page.locator('[data-widget-seq="97"] tbody')).toContainText(futureDailySelection.date);
+  const crossBoundaryAudit = await page.evaluate(() => {
     const cutoff = getDefaultGlobalEndDate();
     const futureStart = addDays(cutoff, 1);
-    return normalizeWidgetBusinessStructureDateRange(96, [futureStart, cutoff], 0);
+    return {
+      futureStart,
+      range: normalizeWidgetBusinessStructureDateRange(96, [futureStart, cutoff], 0),
+    };
   });
-  expect(crossBoundaryRange[0]).toBe(crossBoundaryRange[1]);
-  expect(crossBoundaryRange.every((value) => isIsoMonthEnd(value))).toBeTruthy();
+  expect(crossBoundaryAudit.range[0]).toBe(crossBoundaryAudit.range[1]);
+  expect(crossBoundaryAudit.range[0]).toBe(crossBoundaryAudit.futureStart);
   await page.evaluate(() => {
     appState.businessDrilldowns = {
       "80": { businessType: "\u6295\u8d44\u7c7b\u8d44\u4ea7", category: "\u751f\u606f\u8d44\u4ea7", sourceWidgetSeq: 79 },

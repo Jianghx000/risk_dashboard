@@ -1350,6 +1350,14 @@ body { min-height: 100vh; overflow-x: hidden; }
   filter: drop-shadow(0 5px 10px rgba(48, 106, 170, 0.18));
 }
 
+.future-funding-flow-segment.is-detail-disabled {
+  cursor: default;
+}
+
+.future-funding-flow-segment.is-detail-disabled:hover {
+  filter: none;
+}
+
 .funding-flow-detail {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -2979,6 +2987,17 @@ body::before {
   cursor: pointer;
 }
 
+.eve-point-popover__hint {
+  padding: 8px 10px;
+  border: 1px solid rgba(94, 143, 205, 0.24);
+  border-radius: 10px;
+  background: rgba(238, 246, 255, 0.92);
+  color: #4d6f98;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .eve-process-modal {
   position: fixed;
   inset: 28px;
@@ -3611,7 +3630,7 @@ body::before {
   width: max-content;
 }
 
-.eve-process-scenario-strip:not(.repricing-duration-gap-component-strip):not(.eve-process-scenario-strip--horizontal) > .eve-process-node {
+.eve-process-scenario-strip:not(.eve-process-scenario-strip--horizontal) > .eve-process-node {
   width: 300px;
   min-width: 300px;
   max-width: 300px;
@@ -3633,140 +3652,6 @@ body::before {
   min-width: 276px;
   max-width: 276px;
   min-height: 236px;
-}
-
-.repricing-duration-gap-component-strip {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 4px 2px 8px;
-}
-
-.repricing-duration-business-card {
-  flex: 0 0 276px;
-  width: 276px;
-  min-width: 276px;
-  max-width: 276px;
-  min-height: 274px;
-  align-content: start;
-  gap: 7px;
-  cursor: default;
-}
-
-.repricing-duration-business-card:hover {
-  transform: none;
-}
-
-.repricing-duration-business-card__values {
-  display: grid;
-  gap: 7px;
-}
-
-.repricing-duration-business-card__metric {
-  display: grid;
-  gap: 6px;
-  padding: 7px 9px;
-  border: 1px solid rgba(151, 190, 228, 0.42);
-  border-radius: 10px;
-  background: rgba(244, 249, 255, 0.96);
-}
-
-.repricing-duration-business-card__metric-current,
-.repricing-duration-business-card__metric-comparisons {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.repricing-duration-business-card__metric-current {
-  color: #537294;
-  font-size: 11px;
-  font-weight: 850;
-}
-
-.repricing-duration-business-card__metric-current strong {
-  color: #185baa;
-  font-size: 15px;
-  font-weight: 950;
-}
-
-.repricing-duration-business-card__metric-comparisons em {
-  min-width: 0;
-  color: #6f89aa;
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.repricing-duration-business-card__metric-comparisons em.is-up {
-  color: #ad5f38;
-}
-
-.repricing-duration-business-card__metric-comparisons em.is-down {
-  color: #2f6fa3;
-}
-
-.repricing-duration-business-card .eve-process-sparkline {
-  margin-top: 1px;
-}
-
-.repricing-duration-business-card.repricing-gap-attribution-card .repricing-duration-dual-sparkline {
-  height: 72px;
-  min-height: 72px;
-  border: 1px solid rgba(151, 190, 228, 0.34);
-  background: linear-gradient(180deg, #fbfdff, #f1f7fd);
-}
-
-.repricing-duration-business-card.repricing-gap-attribution-card .repricing-duration-dual-sparkline svg {
-  height: 70px;
-}
-
-.repricing-duration-business-card .repricing-duration-dual-sparkline::after {
-  top: auto;
-  right: 50%;
-  bottom: 3px;
-  transform: translate(50%, 3px);
-}
-
-.repricing-duration-business-card .repricing-duration-dual-sparkline:hover::after,
-.repricing-duration-business-card .repricing-duration-dual-sparkline:focus-visible::after {
-  transform: translate(50%, 0);
-}
-
-.repricing-duration-business-card__value,
-.repricing-duration-business-card__value.eve-process-node__impact {
-  display: flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 10px;
-  border: 1px solid rgba(151, 190, 228, 0.42);
-  border-radius: 10px;
-  background: rgba(244, 249, 255, 0.96);
-  color: #537294;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.repricing-duration-business-card__value.is-up {
-  border-color: rgba(225, 161, 110, 0.42);
-  background: rgba(255, 244, 232, 0.98);
-  color: #ad5f38;
-}
-
-.repricing-duration-business-card__value.is-down {
-  border-color: rgba(126, 177, 220, 0.42);
-  background: rgba(231, 244, 255, 0.98);
-  color: #2f6fa3;
-}
-
-.repricing-duration-business-card__value.eve-process-node__impact {
-  border-color: rgba(103, 157, 211, 0.58);
-  background: rgba(237, 246, 255, 0.98);
-  color: #245b91;
 }
 
 .eve-process-capital-strip {

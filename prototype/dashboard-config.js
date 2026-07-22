@@ -2,7 +2,9 @@ window.dashboardConfig = {
   "filters": {
     "singleSelect": [
       "机构",
-      "币种"
+      "币种",
+      "活期存款",
+      "表外衍生品"
     ],
     "options": {
       "机构": [
@@ -105,7 +107,7 @@ window.dashboardConfig = {
     },
     "业务变动分析": {
       "analysisPerspective": "interestBalanceStructure",
-      "dateRangeMode": "independentMonthEnd",
+      "dateRangeMode": "sharedGlobal",
       "analysisPerspectiveOptions": [
         "interestBalanceStructure",
         "liquidityBalanceStructure"
@@ -272,6 +274,10 @@ window.dashboardConfig = {
     "9": {
       "chartKind": "repricingGapRate",
       "frequencyToggle": true,
+      "inlineFilters": [
+        "活期存款",
+        "表外衍生品"
+      ],
       "simulationBehavior": {
         "sensitivity": 0.16
       }
@@ -281,7 +287,7 @@ window.dashboardConfig = {
     },
     "15": {
       "chartKind": "repricingDurationGap",
-      "yAxisLabel": "久期缺口"
+      "yAxisLabel": "重定价久期（年）"
     },
     "42": {
       "chartKind": "liquidityDiagnosticRatio",
@@ -324,10 +330,12 @@ window.dashboardConfig = {
       "yAxisLabel": "久期"
     },
     "72": {
-      "chartKind": "balanceScaleGrowth"
+      "chartKind": "balanceScaleGrowth",
+      "frequencyToggle": true
     },
     "73": {
       "chartKind": "businessScaleGrowth",
+      "frequencyToggle": true,
       "maxSeries": 12
     },
     "79": {
@@ -392,6 +400,14 @@ window.dashboardConfig = {
     }
   },
   "widgetFilters": {
+    "9": [
+      {
+        "presetRef": "repricingDemandDepositSelector"
+      },
+      {
+        "presetRef": "repricingDerivativeScopeSelector"
+      }
+    ],
     "4": [
       {
         "presetRef": "interestScenarioLegend"
@@ -465,6 +481,31 @@ window.dashboardConfig = {
     "defaultMaxSeries": 8
   },
   "widgetFilterPresets": {
+    "repricingDemandDepositSelector": {
+      "name": "活期存款",
+      "label": "活期存款",
+      "options": [
+        "含",
+        "不含"
+      ],
+      "defaultValues": [
+        "不含"
+      ],
+      "multi": false
+    },
+    "repricingDerivativeScopeSelector": {
+      "name": "表外衍生品",
+      "label": "表外衍生品",
+      "options": [
+        "不含",
+        "仅含银行账簿",
+        "含银行账簿和交易账簿"
+      ],
+      "defaultValues": [
+        "含银行账簿和交易账簿"
+      ],
+      "multi": false
+    },
     "interestScenarioLegend": {
       "name": "利率情景",
       "options": [

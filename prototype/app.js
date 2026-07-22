@@ -81,8 +81,6 @@ const appState = {
   openFilterKey: null,
   globalStartDate: null,
   globalEndDate: null,
-  businessStartDate: null,
-  businessEndDate: null,
   pageSimulations: {},
   simulationModalPageId: null,
   simulationModalWidgetSeq: null,
@@ -97,7 +95,6 @@ const appState = {
   repricingGapPointPopover: null,
   repricingGapProcessModal: null,
   repricingDurationGapPointPopover: null,
-  repricingDurationGapProcessModal: null,
   processSparklinePreview: null,
   repricingMaturityDrilldowns: {},
   futureFundingFlowDrilldowns: {},
@@ -110,15 +107,12 @@ const dashboardViewEl = document.getElementById("dashboardView");
 const globalFilterBarEl = document.getElementById("globalFilterBar");
 const filterPopoverEl = document.getElementById("filterModal");
 const globalEndInputEl = document.getElementById("globalEndDate");
-const riskDateControlsEl = document.getElementById("riskDateControls");
-const businessDateControlsEl = document.getElementById("businessDateControls");
-const businessEndInputEl = document.getElementById("businessEndDate");
+const sharedDateControlsEl = document.getElementById("sharedDateControls");
 const simulationModalEl = ensureOverlayRoot("simulationModal");
 const insightModalEl = ensureOverlayRoot("insightModal");
 const eveProcessModalEl = ensureOverlayRoot("eveProcessModal");
 const liquidityProcessModalEl = ensureOverlayRoot("liquidityProcessModal");
 const repricingGapProcessModalEl = ensureOverlayRoot("repricingGapProcessModal");
-const repricingDurationGapProcessModalEl = ensureOverlayRoot("repricingDurationGapProcessModal");
 const processSparklinePreviewEl = ensureOverlayRoot("processSparklinePreview");
 const businessMethodologyModalEl = ensureOverlayRoot("businessMethodologyModal");
 
@@ -133,7 +127,6 @@ function render() {
   renderEveProcessModal();
   renderLiquidityProcessModal();
   renderRepricingGapProcessModal();
-  renderRepricingDurationGapProcessModal();
   renderProcessSparklinePreview();
   renderBusinessChangeMethodologyModal();
 }
@@ -1442,25 +1435,12 @@ function renderGlobalDateRangeControl() {
   globalEndInputEl.value = appState.globalEndDate || defaultEndDate;
 }
 
-function usesIndependentMonthEndDateRange(page = getCurrentPage()) {
-  return getPageBehavior(page).dateRangeMode === "independentMonthEnd";
-}
-
 function renderPageDateRangeControl() {
-  const usesBusinessRange = usesIndependentMonthEndDateRange();
-  if (riskDateControlsEl) riskDateControlsEl.hidden = usesBusinessRange;
-  if (businessDateControlsEl) businessDateControlsEl.hidden = !usesBusinessRange;
-  if (usesBusinessRange && typeof renderBusinessAnalysisDateRangeControl === "function") {
-    renderBusinessAnalysisDateRangeControl();
-    return;
-  }
+  if (sharedDateControlsEl) sharedDateControlsEl.hidden = false;
   renderGlobalDateRangeControl();
 }
 
 function getCurrentPageDateRange() {
-  if (usesIndependentMonthEndDateRange() && isDateValue(appState.businessStartDate) && isDateValue(appState.businessEndDate)) {
-    return [appState.businessStartDate, appState.businessEndDate];
-  }
   return [appState.globalStartDate, appState.globalEndDate];
 }
 
@@ -1488,7 +1468,10 @@ function applyGlobalDateRangeToLabels(widget, labels, filterState = {}) {
   if (isMaturityTrendWidget(widget)) {
     return applyMaturityTrendDateRangeToLabels(widget, labels, filterState);
   }
-  const [rangeStart, rangeEnd] = getCurrentPageDateRange();
+  const businessRange = typeof getBusinessWidgetEffectiveDateRange === "function"
+    ? getBusinessWidgetEffectiveDateRange(widget, filterState)
+    : null;
+  const [rangeStart, rangeEnd] = Array.isArray(businessRange) ? businessRange : getCurrentPageDateRange();
   if (!rangeStart && !rangeEnd) return labels;
   const datedEntries = buildTimelineEntries(widget, labels, filterState).filter((entry) => entry.date);
   if (!datedEntries.length) return labels;
