@@ -99,12 +99,6 @@ window.dashboardConfig = {
     }
   },
   "pageBehavior": {
-    "利率风险": {
-      "simulationMode": "interest"
-    },
-    "流动性风险": {
-      "simulationMode": "liquidity"
-    },
     "业务变动分析": {
       "analysisPerspective": "interestBalanceStructure",
       "dateRangeMode": "sharedGlobal",
@@ -304,7 +298,6 @@ window.dashboardConfig = {
       "frequencyToggle": true,
       "caliberFilterTenor": "30D",
       "simulationBehavior": {
-        "directionMode": "gap",
         "sensitivity": 0.16
       },
       "inlineFilters": [
@@ -617,38 +610,12 @@ window.dashboardConfig = {
       "baseSensitivity": 0.11,
       "minAdjustmentRatio": -0.22,
       "maxAdjustmentRatio": 0.22,
-      "floatingRateMultiplier": 0.74,
-      "domesticFxSensitivityMultiplier": 0.45,
-      "foreignFxSensitivityMultiplier": 1.14,
-      "domesticFxDirection": 0.34,
-      "foreignFxDirection": 1,
-      "liabilityFxSeriesMultiplier": 0.82,
       "variationStep": 0.035
     },
-    "modes": {
-      "interest": {
-        "assetDirection": 1,
-        "liabilityDirection": -1,
-        "gapAssetDirection": 0.92,
-        "gapLiabilityDirection": -0.68
-      },
-      "liquidity": {
-        "default": {
-          "assetDirection": 0.74,
-          "wholesaleLiabilityDirection": 0.82,
-          "liabilityDirection": -0.42
-        },
-        "coverage": {
-          "assetDirection": -1,
-          "wholesaleLiabilityDirection": -0.72,
-          "liabilityDirection": 0.9
-        },
-        "gap": {
-          "assetDirection": 0.88,
-          "wholesaleLiabilityDirection": 1,
-          "liabilityDirection": -0.56
-        }
-      }
+    "liquidityGap": {
+      "assetDirection": 0.88,
+      "wholesaleLiabilityDirection": 1,
+      "liabilityDirection": -0.56
     }
   },
   "tableTemplates": {

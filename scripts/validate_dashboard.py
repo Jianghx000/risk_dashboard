@@ -60,6 +60,21 @@ FORBIDDEN_REMOVED_FEATURE_SNIPPETS = [
     "renderFxExposureMatrixTable",
     'getSimulationMode(page) === "fx"',
     '"simulationMode": "fx"',
+    "hedgeableItemOptions",
+    "simulationDefaultBusinessTypes",
+    "simulationModes",
+    "simulationDraftMode",
+    "hedgeSimulationDraft",
+    "getSimulationModeTabs",
+    "renderHedgeSimulationPanel",
+    "renderNewBusinessSimulationPanel",
+    "normalizeSimulationScenario",
+    "normalizeHedgeSimulationScenario",
+    "risk-dashboard:simulation-module-request",
+    "data-simulation-mode-tab",
+    "repricing-quick-config",
+    "repricing-upload-action",
+    "baseSource",
 ]
 
 EXPECTED_PAGE_IDS_BY_NAME = {
@@ -282,8 +297,6 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     widget_context = stats["widget_context"]
     page_names = stats["page_names"]
     area_names = stats["area_names"]
-    allowed_direction_modes = {"coverage", "gap", "default"}
-
     if not isinstance(filter_options, dict):
         errors.append("filters.options should be an object")
         filter_options = {}
@@ -344,7 +357,6 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(page_behavior, dict):
         errors.append("pageBehavior should be an object")
     else:
-        allowed_modes = {"interest", "liquidity", "generic"}
         allowed_date_range_modes = {"sharedGlobal"}
         allowed_analysis_perspectives = {"interestBalanceStructure", "liquidityBalanceStructure"}
         for page_name, behavior in page_behavior.items():
@@ -353,8 +365,8 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
             if not isinstance(behavior, dict):
                 errors.append(f"pageBehavior.{page_name} should be an object")
                 continue
-            if "simulationMode" in behavior and behavior.get("simulationMode") not in allowed_modes:
-                errors.append(f"pageBehavior.{page_name}.simulationMode should be one of: {', '.join(sorted(allowed_modes))}")
+            if "simulationMode" in behavior:
+                errors.append(f"pageBehavior.{page_name}.simulationMode is obsolete; simulation is widget-specific")
             if "dateRangeMode" in behavior and behavior.get("dateRangeMode") not in allowed_date_range_modes:
                 errors.append(
                     f"pageBehavior.{page_name}.dateRangeMode should be one of: "
@@ -443,10 +455,9 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                         sensitivity = simulation_behavior.get("sensitivity")
                         if not isinstance(sensitivity, (int, float)) or isinstance(sensitivity, bool):
                             errors.append(f"widgetBehavior.{seq_text}.simulationBehavior.sensitivity should be a number")
-                    if "directionMode" in simulation_behavior and simulation_behavior.get("directionMode") not in allowed_direction_modes:
+                    if "directionMode" in simulation_behavior:
                         errors.append(
-                            f"widgetBehavior.{seq_text}.simulationBehavior.directionMode should be one of: "
-                            + ", ".join(sorted(allowed_direction_modes))
+                            f"widgetBehavior.{seq_text}.simulationBehavior.directionMode is obsolete"
                         )
             if "seriesFilters" in behavior:
                 series_behavior = behavior.get("seriesFilters")
@@ -513,12 +524,6 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
                     f"widgetBehavior.{seq}.simulationBehavior.sensitivity is required for configured simulation widget: "
                     f"{context['title']}"
                 )
-            if context["page_name"] == "\u6d41\u52a8\u6027\u98ce\u9669" and simulation_behavior.get("directionMode") not in allowed_direction_modes:
-                errors.append(
-                    f"widgetBehavior.{seq}.simulationBehavior.directionMode is required for liquidity widget: "
-                    f"{context['title']}"
-                )
-
     if not isinstance(widget_filter_presets, dict):
         errors.append("widgetFilterPresets should be an object")
         widget_filter_presets = {}
@@ -640,10 +645,41 @@ def validate_dashboard_config(config: dict[str, Any], stats: dict[str, Any]) -> 
     if not isinstance(simulation_rules, dict):
         errors.append("simulationRules should be an object")
     else:
-        if "defaults" in simulation_rules and not isinstance(simulation_rules.get("defaults"), dict):
+        unknown_rule_keys = sorted(set(simulation_rules) - {"defaults", "liquidityGap"})
+        if unknown_rule_keys:
+            errors.append("simulationRules contains obsolete or unknown keys: " + ", ".join(unknown_rule_keys))
+        defaults_rules = simulation_rules.get("defaults")
+        liquidity_gap_rules = simulation_rules.get("liquidityGap")
+        if not isinstance(defaults_rules, dict):
             errors.append("simulationRules.defaults should be an object")
-        if "modes" in simulation_rules and not isinstance(simulation_rules.get("modes"), dict):
-            errors.append("simulationRules.modes should be an object")
+        else:
+            expected_default_keys = {"baseSensitivity", "minAdjustmentRatio", "maxAdjustmentRatio", "variationStep"}
+            unknown_default_keys = sorted(set(defaults_rules) - expected_default_keys)
+            if unknown_default_keys:
+                errors.append(
+                    "simulationRules.defaults contains obsolete or unknown keys: "
+                    + ", ".join(unknown_default_keys)
+                )
+            for key in sorted(expected_default_keys):
+                value = defaults_rules.get(key)
+                if not isinstance(value, (int, float)) or isinstance(value, bool):
+                    errors.append(f"simulationRules.defaults.{key} should be a number")
+        if not isinstance(liquidity_gap_rules, dict):
+            errors.append("simulationRules.liquidityGap should be an object")
+        else:
+            expected_liquidity_keys = {"assetDirection", "wholesaleLiabilityDirection", "liabilityDirection"}
+            unknown_liquidity_keys = sorted(set(liquidity_gap_rules) - expected_liquidity_keys)
+            if unknown_liquidity_keys:
+                errors.append(
+                    "simulationRules.liquidityGap contains obsolete or unknown keys: "
+                    + ", ".join(unknown_liquidity_keys)
+                )
+            for key in sorted(expected_liquidity_keys):
+                value = liquidity_gap_rules.get(key)
+                if not isinstance(value, (int, float)) or isinstance(value, bool):
+                    errors.append(f"simulationRules.liquidityGap.{key} should be a number")
+        if "modes" in simulation_rules:
+            errors.append("simulationRules.modes is obsolete")
         if "wholesaleLiabilityTypes" in simulation_rules:
             errors.append("simulationRules.wholesaleLiabilityTypes is deprecated; move it to dashboard-domain.js")
 
@@ -1030,6 +1066,8 @@ def validate_renderer_architecture(config: dict[str, Any]) -> list[str]:
             interest_renderers_text,
             liquidity_renderers_text,
             renderers_text,
+            events_text,
+            styles_text,
             CONFIG_FILE.read_text(encoding="utf-8"),
             DATA_FILE.read_text(encoding="utf-8"),
             DOMAIN_FILE.read_text(encoding="utf-8"),
@@ -1207,18 +1245,6 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
         if len(set(repricing_gap_keys)) != len(repricing_gap_keys):
             errors.append("repricingGapBusinessGroups contains duplicate keys")
 
-    simulation_default_business_types = domain.get("simulationDefaultBusinessTypes")
-    if not isinstance(simulation_default_business_types, dict):
-        errors.append("dashboardDomainConfig.simulationDefaultBusinessTypes should be an object")
-    else:
-        invalid_defaults = [
-            f"{role}:{business_type}"
-            for role, business_type in simulation_default_business_types.items()
-            if business_type not in business_options
-        ]
-        if invalid_defaults:
-            errors.append("simulationDefaultBusinessTypes has unknown business types: " + ", ".join(invalid_defaults))
-
     wholesale_liability_types = domain.get("wholesaleLiabilityTypes")
     if not isinstance(wholesale_liability_types, list) or not wholesale_liability_types:
         errors.append("dashboardDomainConfig.wholesaleLiabilityTypes should be a non-empty list")
@@ -1375,7 +1401,7 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
                 if not isinstance(methodology_item.get(key), str) or not methodology_item.get(key):
                     errors.append(f"businessChangeMethodology.{methodology_key}.{key} should be a non-empty string")
 
-    for key in ("liquidityGapTenorOptions", "rateTypeOptions", "simulationFundingRoleOptions"):
+    for key in ("liquidityGapTenorOptions", "simulationFundingRoleOptions"):
         values = domain.get(key)
         if not isinstance(values, list) or not values:
             errors.append(f"dashboardDomainConfig.{key} should be a non-empty list")
@@ -1396,17 +1422,17 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
         errors.append(
             "foreignBranchOrganizations should match the individual foreign branches in filters.options.机构"
         )
-    for role in ("资金来源", "资金运用"):
-        if role not in (domain.get("simulationFundingRoleOptions") or []):
-            errors.append(f"simulationFundingRoleOptions should include {role}")
+    if domain.get("simulationFundingRoleOptions") != ["资金来源", "资金运用"]:
+        errors.append("simulationFundingRoleOptions should be 资金来源, 资金运用")
 
-    simulation_modes = domain.get("simulationModes")
-    if not isinstance(simulation_modes, dict):
-        errors.append("dashboardDomainConfig.simulationModes should be an object")
-    else:
-        for key in ("newBusiness", "hedge", "netInterestIncome", "liquidityStress"):
-            if not isinstance(simulation_modes.get(key), str) or not simulation_modes.get(key):
-                errors.append(f"simulationModes.{key} should be a non-empty string")
+    for obsolete_key in (
+        "rateTypeOptions",
+        "simulationDefaultBusinessTypes",
+        "simulationModes",
+        "hedgeableItemOptions",
+    ):
+        if obsolete_key in domain:
+            errors.append(f"dashboardDomainConfig.{obsolete_key} is obsolete")
 
     scenarios = domain.get("eveScenarioDefinitions")
     if not isinstance(scenarios, list) or len(scenarios) < 2:
@@ -1419,19 +1445,6 @@ def validate_domain_config(domain: dict[str, Any], config: dict[str, Any]) -> tu
             for key in ("key", "name"):
                 if not isinstance(scenario.get(key), str) or not scenario.get(key):
                     errors.append(f"eveScenarioDefinitions[{index}].{key} should be a non-empty string")
-
-    hedge_items = domain.get("hedgeableItemOptions")
-    if not isinstance(hedge_items, list):
-        errors.append("dashboardDomainConfig.hedgeableItemOptions should be a list")
-    else:
-        for index, item in enumerate(hedge_items):
-            if not isinstance(item, dict):
-                errors.append(f"hedgeableItemOptions[{index}] should be an object")
-                continue
-            if item.get("businessType") not in business_options:
-                errors.append(f"hedgeableItemOptions[{index}].businessType is not in businessDurationOptions")
-            if item.get("rateType") and item.get("rateType") not in (domain.get("rateTypeOptions") or []):
-                errors.append(f"hedgeableItemOptions[{index}].rateType is not in rateTypeOptions")
 
     detail_scope_meta = domain.get("businessDetailScopeMeta")
     if not isinstance(detail_scope_meta, dict):

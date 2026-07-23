@@ -42,13 +42,8 @@ const SEMANTIC_COLORS = {
 };
 const SIMULATION_COLOR = VISUAL_RULE_CONFIG.palette?.semantic?.simulationLine || "#2F6FA3";
 const SIMULATION_FILL = VISUAL_RULE_CONFIG.palette?.semantic?.simulationFill || "rgba(47, 111, 163, 0.16)";
-const RATE_TYPE_OPTIONS = DOMAIN_CONFIG.rateTypeOptions || [];
 const FUTURE_MATURITY_MONTH_COUNT = Number(DOMAIN_CONFIG.futureMaturityMonthCount) || 6;
 const SIMULATION_FUNDING_ROLE_OPTIONS = DOMAIN_CONFIG.simulationFundingRoleOptions || [];
-const SIMULATION_MODE_NEW_BUSINESS = DOMAIN_CONFIG.simulationModes?.newBusiness || "newBusiness";
-const SIMULATION_MODE_HEDGE = DOMAIN_CONFIG.simulationModes?.hedge || "hedge";
-const SIMULATION_MODULE_NET_INTEREST_INCOME = DOMAIN_CONFIG.simulationModes?.netInterestIncome || "netInterestIncome";
-const SIMULATION_MODULE_LIQUIDITY_STRESS = DOMAIN_CONFIG.simulationModes?.liquidityStress || "liquidityStress";
 const EVE_RATIO_WIDGET_SEQ = Number(DOMAIN_CONFIG.eveRatioWidgetSeq) || 1;
 const EVE_SCENARIO_DEFINITIONS = DOMAIN_CONFIG.eveScenarioDefinitions || [];
 const EVE_COLOR_PRIMARY = DOMAIN_CONFIG.eveColors?.primary || "#4289EE";
@@ -59,14 +54,11 @@ const DOMAIN_OPTION_LISTS = {
   liquidityBusinessTypes: DOMAIN_CONFIG.liquidityBusinessTypes || [],
   liquidityBusinessTypeDefaultValues: DOMAIN_CONFIG.liquidityBusinessTypeDefaultValues || [],
   liquidityGapTenorOptions: DOMAIN_CONFIG.liquidityGapTenorOptions || [],
-  rateTypeOptions: DOMAIN_CONFIG.rateTypeOptions || [],
   simulationFundingRoleOptions: DOMAIN_CONFIG.simulationFundingRoleOptions || [],
 };
 const BUSINESS_SIDE_MAP = DOMAIN_CONFIG.businessSideMap || {};
 const REPRICING_GAP_BUSINESS_GROUPS = DOMAIN_CONFIG.repricingGapBusinessGroups || { assets: [], liabilities: [] };
-const SIMULATION_DEFAULT_BUSINESS_TYPES = DOMAIN_CONFIG.simulationDefaultBusinessTypes || {};
 const WHOLESALE_LIABILITY_TYPES = DOMAIN_CONFIG.wholesaleLiabilityTypes || [];
-const HEDGEABLE_ITEM_OPTIONS = DOMAIN_CONFIG.hedgeableItemOptions || [];
 const BUSINESS_STRUCTURE_GROUPS = DOMAIN_CONFIG.businessStructureGroups || [];
 const BUSINESS_ANALYSIS_PERSPECTIVES = DOMAIN_CONFIG.businessAnalysisPerspectives || {};
 const BUSINESS_DETAIL_SCOPE_META = DOMAIN_CONFIG.businessDetailScopeMeta || {};
@@ -84,9 +76,7 @@ const appState = {
   pageSimulations: {},
   simulationModalPageId: null,
   simulationModalWidgetSeq: null,
-  simulationDraftMode: SIMULATION_MODE_NEW_BUSINESS,
   simulationDraft: null,
-  hedgeSimulationDraft: null,
   insightWidgetSeq: null,
   evePointPopover: null,
   eveProcessModal: null,
@@ -140,10 +130,6 @@ function ensureOverlayRoot(id) {
   node.setAttribute("aria-hidden", "true");
   document.body.appendChild(node);
   return node;
-}
-
-function isSimulationPage(page = getCurrentPage()) {
-  return Boolean(getPageBehavior(page).simulationMode);
 }
 
 function getActiveAnalysisPerspective(page = getCurrentPage()) {

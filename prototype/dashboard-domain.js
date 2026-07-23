@@ -71,19 +71,11 @@ window.dashboardDomainConfig = {
     "31日至90日",
     "91日至1年"
   ],
-  "rateTypeOptions": [
-    "固定利率",
-    "浮动利率"
-  ],
   "futureMaturityMonthCount": 6,
   "simulationFundingRoleOptions": [
     "资金来源",
     "资金运用"
   ],
-  "simulationDefaultBusinessTypes": {
-    "资金来源": "定期存款",
-    "资金运用": "自营贷款"
-  },
   "wholesaleLiabilityTypes": [
     "同业负债",
     "发行债券",
@@ -91,12 +83,6 @@ window.dashboardDomainConfig = {
     "租赁负债",
     "表外衍生品应付"
   ],
-  "simulationModes": {
-    "newBusiness": "newBusiness",
-    "hedge": "hedge",
-    "netInterestIncome": "netInterestIncome",
-    "liquidityStress": "liquidityStress"
-  },
   "eveRatioWidgetSeq": 1,
   "eveColors": {
     "primary": "#4289EE",
@@ -181,80 +167,6 @@ window.dashboardDomainConfig = {
       { "key": "internal-transaction-liabilities", "label": "内部交易负债", "internalTransaction": true }
     ]
   },
-  "hedgeableItemOptions": [
-    {
-      "id": "HT-LOAN-2026-001",
-      "type": "贷款",
-      "businessType": "自营贷款",
-      "org": "香港分行",
-      "currency": "美元",
-      "balance": 168.5,
-      "rateType": "浮动利率",
-      "rateBenchmark": "SOFR 3M",
-      "couponRate": "4.38%",
-      "repricingCycle": "3M",
-      "repricingMonths": "3",
-      "originalTerm": "5年",
-      "remainingTerm": "3.2年",
-      "remainingTermMonths": 38,
-      "nextRepricingDate": "2026/08/01"
-    },
-    {
-      "id": "HT-BOND-2026-014",
-      "type": "债券",
-      "businessType": "投资类资产",
-      "org": "纽约分行",
-      "currency": "美元",
-      "balance": 92.8,
-      "rateType": "固定利率",
-      "rateBenchmark": "UST 5Y",
-      "couponRate": "3.75%",
-      "ytm": "3.92%",
-      "modifiedDuration": "4.6",
-      "repricingCycle": "到期一次",
-      "repricingMonths": "24",
-      "originalTerm": "7年",
-      "remainingTerm": "4.6年",
-      "remainingTermMonths": 55,
-      "nextRepricingDate": "2030/02/15"
-    },
-    {
-      "id": "HT-LOAN-2026-027",
-      "type": "贷款",
-      "businessType": "自营贷款",
-      "org": "新加坡分行",
-      "currency": "新加坡元",
-      "balance": 74.2,
-      "rateType": "浮动利率",
-      "rateBenchmark": "SORA 1M",
-      "couponRate": "3.18%",
-      "repricingCycle": "1M",
-      "repricingMonths": "1",
-      "originalTerm": "3年",
-      "remainingTerm": "1.7年",
-      "remainingTermMonths": 20,
-      "nextRepricingDate": "2026/07/28"
-    },
-    {
-      "id": "HT-BOND-2026-038",
-      "type": "债券",
-      "businessType": "投资类资产",
-      "org": "卢森堡分行",
-      "currency": "欧元",
-      "balance": 128.6,
-      "rateType": "固定利率",
-      "rateBenchmark": "EUR Swap 5Y",
-      "couponRate": "2.86%",
-      "ytm": "3.04%",
-      "modifiedDuration": "5.1",
-      "repricingCycle": "到期一次",
-      "repricingMonths": "24",
-      "originalTerm": "10年",
-      "remainingTerm": "5.4年",
-      "remainingTermMonths": 65,
-      "nextRepricingDate": "2031/01/20"
-    }
-  ],
   "businessStructureGroups": [
     {
       "category": "生息资产",

@@ -41,13 +41,6 @@ globalFilterBarEl.addEventListener("click", (event) => {
     return;
   }
 
-  const openSimulationButton = event.target.closest("[data-open-simulation]");
-  if (openSimulationButton) {
-    const pageId = openSimulationButton.dataset.openSimulation || getCurrentPage()?.id;
-    openSimulationModal(pageId, openSimulationButton.dataset.simulationWidget);
-    render();
-    return;
-  }
 });
 
 if (globalEndInputEl) {
@@ -471,25 +464,6 @@ simulationModalEl.addEventListener("input", (event) => {
     appState.simulationDraft = { ...draft, entries };
     return;
   }
-  const field = event.target.closest("[data-simulation-field]");
-  if (field) {
-    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
-    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
-    const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
-    appState.simulationDraft = {
-      entries: updateSimulationEntryField(page, entries, entryIndex, field.dataset.simulationField, field.value),
-    };
-    return;
-  }
-  const hedgeField = event.target.closest("[data-hedge-simulation-field]");
-  if (!hedgeField) return;
-  appState.hedgeSimulationDraft = {
-    ...getHedgeDraft(),
-    [hedgeField.dataset.hedgeSimulationField]: hedgeField.value,
-  };
-  if (hedgeField.dataset.hedgeSimulationField === "query") {
-    window.setTimeout(renderSimulationModal, 0);
-  }
 });
 
 simulationModalEl.addEventListener("change", (event) => {
@@ -502,26 +476,6 @@ simulationModalEl.addEventListener("change", (event) => {
   if (repricingField) {
     renderSimulationModal();
     return;
-  }
-  const field = event.target.closest("[data-simulation-field]");
-  if (field) {
-    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
-    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
-    const entryIndex = Number(field.dataset.simulationEntryIndex || 0);
-    appState.simulationDraft = {
-      entries: updateSimulationEntryField(page, entries, entryIndex, field.dataset.simulationField, field.value),
-    };
-    if (["fundingRole", "scale"].includes(field.dataset.simulationField)) window.setTimeout(renderSimulationModal, 0);
-    return;
-  }
-  const hedgeField = event.target.closest("[data-hedge-simulation-field]");
-  if (!hedgeField) return;
-  appState.hedgeSimulationDraft = {
-    ...getHedgeDraft(),
-    [hedgeField.dataset.hedgeSimulationField]: hedgeField.value,
-  };
-  if (hedgeField.dataset.hedgeSimulationField === "query") {
-    window.setTimeout(renderSimulationModal, 0);
   }
 });
 
@@ -614,66 +568,12 @@ simulationModalEl.addEventListener("click", (event) => {
     renderSimulationModal();
     return;
   }
-  const moduleLink = event.target.closest("[data-simulation-module-link]");
-  if (moduleLink) {
-    window.dispatchEvent(new CustomEvent("risk-dashboard:simulation-module-request", {
-      detail: {
-        module: moduleLink.dataset.simulationModuleLink,
-        pageId: appState.simulationModalPageId,
-      },
-    }));
-    return;
-  }
-  const modeTab = event.target.closest("[data-simulation-mode-tab]");
-  if (modeTab) {
-    appState.simulationDraftMode = modeTab.dataset.simulationModeTab;
-    renderSimulationModal();
-    return;
-  }
-  const selectHedgeItemButton = event.target.closest("[data-select-hedge-item]");
-  if (selectHedgeItemButton) {
-    const selectedItem = HEDGEABLE_ITEM_OPTIONS.find((item) => item.id === selectHedgeItemButton.dataset.selectHedgeItem);
-    if (!selectedItem) return;
-    const draft = getHedgeDraft();
-    const hedgeAmount = clampNumber(Number(draft.hedgeAmount || Math.min(50, selectedItem.balance)), 1, selectedItem.balance);
-    appState.hedgeSimulationDraft = {
-      ...draft,
-      query: selectedItem.id,
-      selectedItemId: selectedItem.id,
-      hedgeAmount: String(hedgeAmount),
-      hedgeTermMonths: String(draft.hedgeTermMonths || selectedItem.remainingTermMonths || 12),
-    };
-    renderSimulationModal();
-    return;
-  }
-  const addEntryButton = event.target.closest("[data-add-simulation-entry]");
-  if (addEntryButton) {
-    const page = data.pages.find((item) => item.id === addEntryButton.dataset.addSimulationEntry) || getCurrentPage();
-    const entries = getSimulationDraftEntries(appState.simulationDraft, page);
-    const fundingRole = addEntryButton.dataset.simulationEntryRole || getDefaultSimulationFundingRole(entries.length);
-    appState.simulationDraft = { entries: [...entries, createDefaultSimulationEntry(page, entries.length, fundingRole)] };
-    renderSimulationModal();
-    return;
-  }
-  const removeEntryButton = event.target.closest("[data-remove-simulation-entry]");
-  if (removeEntryButton) {
-    const page = data.pages.find((item) => item.id === appState.simulationModalPageId) || getCurrentPage();
-    const removeIndex = Number(removeEntryButton.dataset.removeSimulationEntry);
-    const entries = getSimulationDraftEntries(appState.simulationDraft, page).filter((_, index) => index !== removeIndex);
-    appState.simulationDraft = { entries: ensureMinimumSimulationEntries(page, entries) };
-    renderSimulationModal();
-    return;
-  }
   const applyButton = event.target.closest("[data-apply-simulation]");
   if (applyButton) {
     const page = data.pages.find((item) => item.id === applyButton.dataset.applySimulation) || getCurrentPage();
     appState.pageSimulations[page.id] = isRepricingGapSimulationWidget(appState.simulationModalWidgetSeq)
       ? normalizeRepricingGapSimulationScenario(page)
-      : isLiquidityGapSimulationWidget(appState.simulationModalWidgetSeq)
-        ? normalizeLiquidityGapSimulationScenario(page)
-        : getSimulationDraftMode(page) === SIMULATION_MODE_HEDGE
-          ? normalizeHedgeSimulationScenario(page, getHedgeDraft(page))
-          : normalizeSimulationScenario(page, appState.simulationDraft || createDefaultSimulationDraft(page));
+      : normalizeLiquidityGapSimulationScenario(page);
     closeSimulationModal();
     render();
   }

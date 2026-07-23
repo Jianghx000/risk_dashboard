@@ -1568,14 +1568,6 @@ body { min-height: 100vh; overflow-x: hidden; }
   font-size: 16px;
 }
 
-.repricing-simulation-baseline-controls {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .simulation-baseline-date {
   display: inline-flex;
   align-items: center;
@@ -1596,70 +1588,6 @@ body { min-height: 100vh; overflow-x: hidden; }
 .simulation-baseline-date strong {
   color: var(--primary-deep);
   font-size: 14px;
-}
-
-.simulation-form__field--inline {
-  display: grid;
-  grid-template-columns: auto 145px;
-  align-items: center;
-  gap: 8px;
-}
-
-.simulation-form__field--inline .simulation-form__control {
-  min-height: 36px;
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.repricing-quick-config {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  padding: 3px;
-  border: 1px solid #cfdbea;
-  border-radius: 6px;
-  background: #f5f8fc;
-}
-
-.repricing-quick-config > span {
-  padding: 0 7px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.repricing-quick-config button {
-  min-height: 28px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--primary-deep);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 9px;
-}
-
-.repricing-quick-config button.is-active {
-  background: #dfeeff;
-  color: #1f62b3;
-}
-
-.repricing-upload-action {
-  position: relative;
-  min-height: 36px;
-  padding: 7px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.repricing-upload-action input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
 }
 
 .repricing-simulation-source {
@@ -1968,40 +1896,6 @@ body { min-height: 100vh; overflow-x: hidden; }
   margin-top: 20px;
 }
 
-.simulation-mode-tabs {
-  display: inline-flex;
-  gap: 6px;
-  padding: 4px;
-  margin-bottom: 14px;
-  border: 1px solid rgba(66, 141, 255, 0.16);
-  border-radius: 18px;
-  background: rgba(238, 246, 255, 0.72);
-}
-
-.simulation-mode-tab {
-  appearance: none;
-  border: none;
-  border-radius: 14px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 9px 16px;
-}
-
-.simulation-mode-tab.is-active {
-  background: linear-gradient(135deg, var(--primary), #6aaeff);
-  box-shadow: 0 8px 18px rgba(66, 141, 255, 0.2);
-  color: #fff;
-}
-
-.simulation-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
-}
-
 .simulation-entry-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2106,153 +2000,6 @@ body { min-height: 100vh; overflow-x: hidden; }
   padding-left: 0;
   border-top: 1px solid #dce5f0;
   border-left: 0;
-}
-
-.hedge-simulation-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.hedge-simulation-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.25fr);
-  gap: 12px;
-}
-
-.hedge-input-card,
-.hedge-selected-card,
-.hedge-search-results {
-  border: 1px solid rgba(84, 127, 194, 0.18);
-  border-radius: 16px;
-  background: rgba(247, 251, 255, 0.76);
-  padding: 14px;
-}
-
-.hedge-input-card {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-}
-
-.hedge-selected-card--empty {
-  color: var(--muted);
-}
-
-.hedge-selected-card--empty p {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.hedge-selected-card__title {
-  color: var(--primary-deep);
-  font-size: 16px;
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.hedge-info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.hedge-info-grid__item {
-  min-width: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 9px 10px;
-}
-
-.hedge-info-grid__item span {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.hedge-info-grid__item strong {
-  display: block;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 850;
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-}
-
-.hedge-search-results__header {
-  display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
-.hedge-search-results__list {
-  display: grid;
-  gap: 8px;
-}
-
-.hedge-search-result {
-  appearance: none;
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(160px, 1.1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  border: 1px solid rgba(84, 127, 194, 0.16);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 10px 12px;
-  text-align: left;
-}
-
-.hedge-search-result.is-selected {
-  border-color: rgba(66, 141, 255, 0.42);
-  background: rgba(232, 243, 255, 0.9);
-  box-shadow: 0 8px 20px rgba(66, 141, 255, 0.12);
-}
-
-.hedge-search-result__id {
-  color: var(--primary-deep);
-  font-weight: 900;
-}
-
-.hedge-search-results__empty {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 10px;
-}
-
-.simulation-entry {
-  border: 1px solid rgba(84, 127, 194, 0.18);
-  border-radius: 12px;
-  background: rgba(247, 251, 255, 0.72);
-  padding: 14px;
-}
-
-.simulation-entry__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.simulation-entry__title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--primary-deep);
-  font-size: 15px;
-  font-weight: 800;
 }
 
 .simulation-entry__remove {
@@ -2371,8 +2118,7 @@ body { min-height: 100vh; overflow-x: hidden; }
 }
 
 @media (max-width: 860px) {
-  .repricing-simulation-section__header,
-  .repricing-simulation-baseline-controls {
+  .repricing-simulation-section__header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -2410,15 +2156,6 @@ body { min-height: 100vh; overflow-x: hidden; }
     grid-template-columns: 1fr;
   }
 
-  .hedge-simulation-grid,
-  .hedge-info-grid,
-  .hedge-search-result {
-    grid-template-columns: 1fr;
-  }
-
-  .simulation-form {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Component presentation layer */
@@ -4054,7 +3791,6 @@ body::before {
   flex: 0 0 42px;
 }
 
-.liquidity-process-component-strip--branch,
 .liquidity-gap-process-strip--branch {
   display: grid;
   grid-template-columns: minmax(300px, 540px);
@@ -4064,13 +3800,11 @@ body::before {
   overflow: visible;
 }
 
-.liquidity-process-component-strip--branch .eve-process-node,
 .liquidity-gap-process-strip--branch .eve-process-node {
   width: 100%;
   min-height: 126px;
 }
 
-.liquidity-process-component-strip--branch .eve-process-mini-operator,
 .liquidity-gap-process-strip--branch .eve-process-mini-operator {
   justify-self: center;
 }

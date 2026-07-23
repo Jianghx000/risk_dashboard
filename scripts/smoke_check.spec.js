@@ -1377,7 +1377,12 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
       bankBookDerivativeGap: Number((repricingModel.bankBookReceivable[repricingIndex] - repricingModel.bankBookPayable[repricingIndex]).toFixed(1)),
       tradingBookDerivativeGap: Number((repricingModel.tradingBookReceivable[repricingIndex] - repricingModel.tradingBookPayable[repricingIndex]).toFixed(1)),
     };
-    const scopeMatrix = createEmptyRepricingGapMatrix();
+    const scopeMatrix = Object.fromEntries(
+      getRepricingGapSimulationBusinessTypes().map((businessType) => [
+        businessType,
+        REPRICING_GAP_BUCKETS.map(() => 0),
+      ])
+    );
     scopeMatrix["自营贷款"][0] = 100;
     scopeMatrix["内部交易资产"][0] = 20;
     scopeMatrix["内部交易负债"][0] = 10;
@@ -2007,6 +2012,8 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(simulationModal.locator('[data-repricing-base-upload]')).toHaveCount(0);
   await expect(simulationModal.getByText("\u57fa\u51c6\u751f\u6210\u65b9\u5f0f", { exact: true })).toHaveCount(0);
   await expect(simulationModal.getByText("\u4e0a\u4f20\u7f3a\u53e3\u8868", { exact: true })).toHaveCount(0);
+  await expect(simulationModal.locator("[data-simulation-mode-tab]")).toHaveCount(0);
+  await expect(simulationModal.getByText("套期交易模拟测算", { exact: true })).toHaveCount(0);
   await expect(baselineTable.locator("input")).toHaveCount(0);
   const repricingBaselineAudit = await page.evaluate(() => ({
     baseDate: getRepricingGapSimulationDraft().baseDate,
