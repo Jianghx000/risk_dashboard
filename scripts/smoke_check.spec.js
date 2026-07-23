@@ -1377,7 +1377,7 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
       bankBookDerivativeGap: Number((repricingModel.bankBookReceivable[repricingIndex] - repricingModel.bankBookPayable[repricingIndex]).toFixed(1)),
       tradingBookDerivativeGap: Number((repricingModel.tradingBookReceivable[repricingIndex] - repricingModel.tradingBookPayable[repricingIndex]).toFixed(1)),
     };
-    const scopeMatrix = buildSubjectiveRepricingGapMatrix();
+    const scopeMatrix = createEmptyRepricingGapMatrix();
     scopeMatrix["自营贷款"][0] = 100;
     scopeMatrix["内部交易资产"][0] = 20;
     scopeMatrix["内部交易负债"][0] = 10;
@@ -1985,7 +1985,7 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(simulationModal).toContainText("当前机构口径剔除内部交易；负债端不含活期存款");
   await expect(baselineTable.locator('[data-repricing-base-row="\u6d3b\u671f\u5b58\u6b3e"]')).toHaveClass(/is-excluded-from-metric/);
   await expect(baselineTable.locator('[data-repricing-base-row="\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7"]')).toHaveClass(/is-excluded-from-metric/);
-  await expect(simulationModal.locator("[data-repricing-base-upload]").locator("..")).toContainText("\u4e0a\u4f20\u7f3a\u53e3\u8868");
+  await expect(simulationModal).toContainText("\u5f53\u524d\u57fa\u51c6\uff1a\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
   await expect(baselineTable.locator("thead th").nth(0)).toHaveText("\u4e1a\u52a1\u7c7b\u522b");
   await expect(baselineTable.locator("thead th:not(:first-child)")).toHaveCount(14);
   await expect(simulationModal.locator('[data-repricing-base-total="\u751f\u606f\u8d44\u4ea7"]')).toBeVisible();
@@ -2000,56 +2000,52 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
     await expect(baselineTable.locator(`[data-repricing-base-row="${derivativeType}"]`)).toBeVisible();
   }
 
-  const targetDateInput = simulationModal.locator('[data-repricing-base-date]');
-  await targetDateInput.fill("2026-08-31");
-  await targetDateInput.blur();
+  const currentEndDate = await page.locator("#globalEndDate").inputValue();
+  await expect(simulationModal.locator('[data-simulation-base-date="repricing"]')).toContainText(currentEndDate);
+  await expect(simulationModal.locator('[data-repricing-base-date]')).toHaveCount(0);
+  await expect(simulationModal.locator('[data-repricing-quick-config]')).toHaveCount(0);
+  await expect(simulationModal.locator('[data-repricing-base-upload]')).toHaveCount(0);
+  await expect(simulationModal.getByText("\u57fa\u51c6\u751f\u6210\u65b9\u5f0f", { exact: true })).toHaveCount(0);
+  await expect(simulationModal.getByText("\u4e0a\u4f20\u7f3a\u53e3\u8868", { exact: true })).toHaveCount(0);
+  await expect(baselineTable.locator("input")).toHaveCount(0);
+  const repricingBaselineAudit = await page.evaluate(() => ({
+    baseDate: getRepricingGapSimulationDraft().baseDate,
+    baseMatrix: getRepricingGapSimulationDraft().baseMatrix,
+    currentMatrix: buildCurrentRepricingGapMatrix(),
+  }));
+  expect(repricingBaselineAudit.baseDate).toBe(currentEndDate);
+  expect(repricingBaselineAudit.baseMatrix).toEqual(repricingBaselineAudit.currentMatrix);
   await expect(simulationModal).toContainText("\u57fa\u51c6\u7f3a\u53e3\u7387");
-  const repricingBaseOptions = simulationModal.locator("[data-repricing-quick-config]");
-  await expect(repricingBaseOptions).toHaveCount(2);
-  await expect(repricingBaseOptions).toHaveText([
-    "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c",
-    "\u81ea\u4e3b\u7f16\u5236",
-  ]);
-  await expect(simulationModal.getByRole("button", { name: "\u5f53\u524d\u7f3a\u53e3\u8868\u5e73\u79fb", exact: true })).toHaveCount(0);
-  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
-  await expect(simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true })).toHaveClass(/is-active/);
-  await expect(simulationModal).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
-  await simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true }).click();
-  await expect(simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true })).toHaveClass(/is-active/);
-  await expect(simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first()).toHaveValue("0");
-
-  const firstBaseCell = simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first();
-  await firstBaseCell.fill("88.8");
-  await firstBaseCell.blur();
-  await expect(simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first()).toHaveValue("88.8");
-  const csvHeader = ["\u4e1a\u52a1\u7c7b\u522b", "\u6c47\u603b", "\u9694\u591c", "\u9694\u591c~1\u4e2a\u6708", ...Array.from({ length: 11 }, (_, index) => `${index + 1}~${index + 2}\u4e2a\u6708`)];
-  const csvValues = ["\u81ea\u8425\u8d37\u6b3e", "91", ...Array.from({ length: 13 }, (_, index) => String(index + 1))];
-  await simulationModal.locator('[data-repricing-base-upload]').setInputFiles({
-    name: "repricing-gap.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(`${csvHeader.join(",")}\n${csvValues.join(",")}`, "utf8"),
-  });
-  await expect(simulationModal).toContainText("repricing-gap.csv");
-  await expect(simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').first()).toHaveValue("1");
-  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
-
-  await expect(simulationModal.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
-  await expect(simulationModal.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u91cd\u5b9a\u4ef7\u9891\u7387", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u4e0b\u6b21\u91cd\u5b9a\u4ef7\u65f6\u95f4", { exact: true })).toBeVisible();
-  const scaleField = simulationModal.locator('[data-repricing-simulation-field="scale"]');
+  await expect(simulationModal.locator('[data-repricing-simulation-entry]')).toHaveCount(2);
+  const repricingUseSection = simulationModal.locator('[data-simulation-funding-role="\u8d44\u91d1\u8fd0\u7528"]');
+  const repricingSourceSection = simulationModal.locator('[data-simulation-funding-role="\u8d44\u91d1\u6765\u6e90"]');
+  await expect(repricingUseSection).toContainText("\u8d44\u91d1\u8fd0\u7528");
+  await expect(repricingSourceSection).toContainText("\u8d44\u91d1\u6765\u6e90");
+  await expect(repricingUseSection.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
+  await expect(repricingSourceSection.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
+  await expect(repricingUseSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u8fd0\u7528\u4e1a\u52a1", exact: true })).toBeVisible();
+  await expect(repricingSourceSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u6765\u6e90\u4e1a\u52a1", exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("\u91cd\u5b9a\u4ef7\u9891\u7387", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("\u4e0b\u6b21\u91cd\u5b9a\u4ef7\u65f6\u95f4", { exact: true })).toBeVisible();
+  const scaleField = repricingUseSection.locator('[data-repricing-simulation-field="scale"]');
   await scaleField.fill("-25.5");
   await expect(scaleField).toHaveValue("-25.5");
-  await simulationModal.locator('[data-repricing-simulation-field="occurrenceDate"]').fill("2026-08-20");
-  await simulationModal.locator('[data-repricing-simulation-field="repricingMonths"]').selectOption("3");
-  await simulationModal.locator('[data-repricing-simulation-field="nextRepricingDate"]').fill("2026-11-20");
-  await simulationModal.locator('[data-repricing-simulation-field="scale"]').fill("100");
-  await simulationModal.locator('[data-repricing-simulation-field="scale"]').blur();
-  await expect(simulationModal.locator('[data-repricing-simulation-entry="0"]')).not.toContainText("\u8ba1\u5165");
-  const baseBucketValue = Number(await simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] [data-repricing-base-cell]').nth(3).inputValue());
-  const resultBucketValue = Number(await simulationModal.locator('[data-repricing-result-row="\u81ea\u8425\u8d37\u6b3e"] td').nth(4).textContent());
+  const repricingOccurrenceDate = await page.evaluate((date) => addDays(date, 30), currentEndDate);
+  const repricingNextDate = await page.evaluate((date) => addMonthsDateValue(date, 3), repricingOccurrenceDate);
+  await repricingUseSection.locator('[data-repricing-simulation-field="occurrenceDate"]').fill(repricingOccurrenceDate);
+  await repricingUseSection.locator('[data-repricing-simulation-field="repricingMonths"]').selectOption("3");
+  await repricingUseSection.locator('[data-repricing-simulation-field="nextRepricingDate"]').fill(repricingNextDate);
+  await repricingUseSection.locator('[data-repricing-simulation-field="scale"]').fill("100");
+  await repricingUseSection.locator('[data-repricing-simulation-field="scale"]').blur();
+  const repricingBucketIndex = await page.evaluate(
+    ({ baseDate, nextDate }) => getRepricingGapBucketIndex(baseDate, nextDate),
+    { baseDate: currentEndDate, nextDate: repricingNextDate }
+  );
+  const baseBucketValue = Number(await simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] td').nth(repricingBucketIndex + 1).textContent());
+  const resultBucketValue = Number(await simulationModal.locator('[data-repricing-result-row="\u81ea\u8425\u8d37\u6b3e"] td').nth(repricingBucketIndex + 1).textContent());
   expect(Number((resultBucketValue - baseBucketValue).toFixed(1))).toBe(100);
   await expect(simulationModal.getByRole("heading", { name: "\u6d4b\u7b97\u540e\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   for (const derivativeType of repricingDerivativeTypes) {
@@ -2061,8 +2057,9 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   const simulatedRatioText = await simulationModal.locator(".repricing-simulation-result-metrics strong").nth(1).textContent();
   expect(simulatedRatioText).not.toBe(baselineRatioText);
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
-  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
-  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u89c4\u6a21\u51c0\u989d\uff1a100\u4ebf\u5143");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u4e1a\u52a1\uff1a2\u7b14");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u589e\u89c4\u6a21\u5408\u8ba1\uff1a150\u4ebf\u5143");
   await expect(repricingGapWidget).toContainText("\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
   await expect(repricingGapWidget).toContainText("\u6d4b\u7b97\u540e\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
   expect(await repricingGapWidget.locator("svg polyline").count()).toBeGreaterThanOrEqual(2);
@@ -2074,19 +2071,19 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await liquidityGapWidget.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const liquidityBaselineTable = simulationModal.locator(".liquidity-gap-base-table").first();
-  const liquidityBaseOptions = simulationModal.locator("[data-liquidity-gap-quick-config]");
-  await expect(liquidityBaseOptions).toHaveCount(2);
-  await expect(liquidityBaseOptions).toHaveText([
-    "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c",
-    "\u81ea\u4e3b\u7f16\u5236",
-  ]);
-  await expect(simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true })).toHaveClass(/is-active/);
-  await expect(simulationModal.getByRole("button", { name: "\u5f53\u524d\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toHaveCount(0);
-  await simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true }).click();
-  await expect(simulationModal.getByRole("button", { name: "\u81ea\u4e3b\u7f16\u5236", exact: true })).toHaveClass(/is-active/);
-  await simulationModal.getByRole("button", { name: "\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c", exact: true }).click();
-  await expect(simulationModal.locator("[data-liquidity-gap-base-upload]").locator("..")).toContainText("\u4e0a\u4f20\u7f3a\u53e3\u8868");
-  await expect(simulationModal).not.toContainText("\u4e0a\u4f20\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868");
+  await expect(simulationModal).toContainText("\u5f53\u524d\u57fa\u51c6\uff1a\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
+  await expect(simulationModal.locator('[data-simulation-base-date="liquidity"]')).toContainText(currentEndDate);
+  await expect(simulationModal.locator('[data-liquidity-gap-base-date]')).toHaveCount(0);
+  await expect(simulationModal.locator('[data-liquidity-gap-quick-config]')).toHaveCount(0);
+  await expect(simulationModal.locator('[data-liquidity-gap-base-upload]')).toHaveCount(0);
+  await expect(liquidityBaselineTable.locator("input")).toHaveCount(0);
+  const liquidityBaselineAudit = await page.evaluate(() => ({
+    baseDate: getLiquidityGapSimulationDraft().baseDate,
+    baseMatrix: getLiquidityGapSimulationDraft().baseMatrix,
+    currentMatrix: buildCurrentLiquidityCashFlowGapMatrix(),
+  }));
+  expect(liquidityBaselineAudit.baseDate).toBe(currentEndDate);
+  expect(liquidityBaselineAudit.baseMatrix).toEqual(liquidityBaselineAudit.currentMatrix);
   await expect(liquidityBaselineTable.locator("thead th")).toHaveText([
     "\u4e1a\u52a1\u7c7b\u522b",
     ...TEXT.liquidityCashFlowBuckets,
@@ -2094,13 +2091,30 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(liquidityBaselineTable.locator("tbody tr")).toHaveCount(TEXT.liquidityBusinessTableCategories.length);
   await expect(liquidityBaselineTable.locator('[data-liquidity-gap-base-total="\u8d44\u4ea7"]')).toContainText("\u8d44\u4ea7\u5408\u8ba1");
   await expect(liquidityBaselineTable.locator('[data-liquidity-gap-base-total="\u8d1f\u503a"]')).toContainText("\u8d1f\u503a\u5408\u8ba1");
-  await expect(simulationModal.locator('[data-liquidity-gap-simulation-field="businessType"] option')).toHaveCount(TEXT.liquidityBusinessTypes.length);
-  await expect(simulationModal.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u65e5\u671f", { exact: true })).toBeVisible();
-  await expect(simulationModal.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u91d1\u989d\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
-  await expect(simulationModal.locator('[data-liquidity-gap-simulation-entry="0"] [data-liquidity-cash-flow-row]')).toHaveCount(1);
+  await expect(simulationModal.locator('[data-liquidity-gap-simulation-entry]')).toHaveCount(2);
+  const liquidityUseSection = simulationModal.locator('[data-simulation-funding-role="\u8d44\u91d1\u8fd0\u7528"]');
+  const liquiditySourceSection = simulationModal.locator('[data-simulation-funding-role="\u8d44\u91d1\u6765\u6e90"]');
+  await expect(liquidityUseSection.locator('[data-liquidity-gap-simulation-entry]')).toHaveCount(1);
+  await expect(liquiditySourceSection.locator('[data-liquidity-gap-simulation-entry]')).toHaveCount(1);
+  await expect(liquidityUseSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u8fd0\u7528\u4e1a\u52a1", exact: true })).toBeVisible();
+  await expect(liquiditySourceSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u6765\u6e90\u4e1a\u52a1", exact: true })).toBeVisible();
+  const liquidityRoleOptionAudit = await page.evaluate(() => {
+    const draft = getLiquidityGapSimulationDraft();
+    return draft.entries.map((entry) => ({
+      role: entry.fundingRole,
+      businessType: entry.businessType,
+      derivedRole: getLiquiditySimulationFundingRoleByBusinessType(entry.businessType),
+    }));
+  });
+  expect(liquidityRoleOptionAudit.every((item) => item.role === item.derivedRole)).toBeTruthy();
+  await expect(liquidityUseSection.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u65e5\u671f", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u91d1\u989d\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
+  const liquidityUseEntry = liquidityUseSection.locator('[data-liquidity-gap-simulation-entry]').first();
+  const liquidityUseEntryIndex = await liquidityUseEntry.getAttribute("data-liquidity-gap-simulation-entry");
+  await expect(liquidityUseEntry.locator('[data-liquidity-cash-flow-row]')).toHaveCount(1);
   const liquidityGapRatioDenominatorAudit = await page.evaluate(() => {
     const businessTypes = getLiquidityGapSimulationBusinessTypes();
     const matrix = Object.fromEntries(businessTypes.map((businessType) => [
@@ -2119,20 +2133,21 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
     )
   );
   expect(liquidityGapRatioDenominatorAudit.gapRatios[0]).toBe(60);
-  await simulationModal.getByRole("button", { name: "\u589e\u52a0\u73b0\u91d1\u6d41", exact: true }).click();
-  await expect(simulationModal.locator('[data-liquidity-gap-simulation-entry="0"] [data-liquidity-cash-flow-row]')).toHaveCount(2);
-  const liquidityBaseDate = await simulationModal.locator("[data-liquidity-gap-base-date]").inputValue();
-  const secondCashFlowDate = await page.evaluate((date) => addDays(date, 10), liquidityBaseDate);
-  await simulationModal.locator('[data-liquidity-gap-entry-index="0"][data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="date"]').fill(secondCashFlowDate);
-  await simulationModal.locator('[data-liquidity-gap-entry-index="0"][data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="amount"]').fill("25");
-  await simulationModal.locator('[data-liquidity-gap-entry-index="0"][data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="amount"]').blur();
-  const liquidityBaseBucketValue = Number(await liquidityBaselineTable.locator('[data-liquidity-gap-base-row="\u5404\u9879\u8d37\u6b3e"] [data-liquidity-gap-base-cell]').nth(2).inputValue());
+  await liquidityUseSection.getByRole("button", { name: "\u589e\u52a0\u73b0\u91d1\u6d41", exact: true }).click();
+  const refreshedLiquidityUseEntry = simulationModal.locator(`[data-liquidity-gap-simulation-entry="${liquidityUseEntryIndex}"]`);
+  await expect(refreshedLiquidityUseEntry.locator('[data-liquidity-cash-flow-row]')).toHaveCount(2);
+  const secondCashFlowDate = await page.evaluate((date) => addDays(date, 10), currentEndDate);
+  await refreshedLiquidityUseEntry.locator('[data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="date"]').fill(secondCashFlowDate);
+  await refreshedLiquidityUseEntry.locator('[data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="amount"]').fill("25");
+  await refreshedLiquidityUseEntry.locator('[data-liquidity-cash-flow-index="1"][data-liquidity-cash-flow-field="amount"]').blur();
+  const liquidityBaseBucketValue = Number(await liquidityBaselineTable.locator('[data-liquidity-gap-base-row="\u5404\u9879\u8d37\u6b3e"] td').nth(2).textContent());
   const liquidityResultBucketValue = Number(await simulationModal.locator('[data-liquidity-gap-result-row="\u5404\u9879\u8d37\u6b3e"] td').nth(2).textContent());
   expect(Number((liquidityResultBucketValue - liquidityBaseBucketValue).toFixed(1))).toBe(25);
   await expect(simulationModal.getByRole("heading", { name: "\u6d4b\u7b97\u540e\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
-  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u5b58\u91cf\u5230\u671f\u4e0d\u7eed\u4f5c");
-  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u73b0\u91d1\u6d41\uff1a2\u7b14");
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u4e1a\u52a1\uff1a2\u7b14");
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u73b0\u91d1\u6d41\uff1a3\u7b14");
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u57fa\u51c61\u5e74\u7d2f\u8ba1\u7f3a\u53e3");
   await expect(liquidityGapWidget.locator('[data-liquidity-gap-simulation-point="true"]')).toHaveCount(1);
   await expect(liquidityGapWidget.locator('[data-liquidity-gap-simulation-bar="true"]')).toHaveCount(1);

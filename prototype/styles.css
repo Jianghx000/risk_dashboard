@@ -1576,6 +1576,28 @@ body { min-height: 100vh; overflow-x: hidden; }
   flex-wrap: wrap;
 }
 
+.simulation-baseline-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  border: 1px solid #cfdbea;
+  border-radius: 6px;
+  background: #f5f8fc;
+  padding: 6px 12px;
+}
+
+.simulation-baseline-date span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.simulation-baseline-date strong {
+  color: var(--primary-deep);
+  font-size: 14px;
+}
+
 .simulation-form__field--inline {
   display: grid;
   grid-template-columns: auto 145px;
@@ -2048,6 +2070,42 @@ body { min-height: 100vh; overflow-x: hidden; }
 .simulation-role-section__actions {
   display: flex;
   justify-content: flex-start;
+}
+
+.repricing-simulation-role-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: min(52vh, 560px);
+}
+
+.repricing-simulation-role-list .repricing-simulation-entry {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.repricing-simulation-role-list .repricing-simulation-entry__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.repricing-simulation-role-list .repricing-simulation-entry__header h5 {
+  margin-bottom: 0;
+}
+
+.repricing-simulation-role-list .repricing-simulation-entry__fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.repricing-simulation-role-list .liquidity-gap-simulation-entry__body {
+  grid-template-columns: 1fr;
+}
+
+.repricing-simulation-role-list .liquidity-cash-flow-list {
+  padding-top: 12px;
+  padding-left: 0;
+  border-top: 1px solid #dce5f0;
+  border-left: 0;
 }
 
 .hedge-simulation-panel {

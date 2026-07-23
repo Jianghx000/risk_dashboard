@@ -414,16 +414,6 @@ dashboardViewEl.addEventListener("change", (event) => {
 });
 
 simulationModalEl.addEventListener("input", (event) => {
-  const liquidityBaseCell = event.target.closest("[data-liquidity-gap-base-cell]");
-  if (liquidityBaseCell) {
-    const draft = getLiquidityGapSimulationDraft();
-    const businessType = liquidityBaseCell.dataset.businessType;
-    const bucketIndex = Number(liquidityBaseCell.dataset.bucketIndex || 0);
-    const nextMatrix = cloneLiquidityCashFlowGapMatrix(draft.baseMatrix);
-    nextMatrix[businessType][bucketIndex] = Number(liquidityBaseCell.value || 0);
-    appState.simulationDraft = { ...draft, baseEdited: true, baseMatrix: nextMatrix };
-    return;
-  }
   const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field]");
   if (liquidityField) {
     const draft = getLiquidityGapSimulationDraft();
@@ -460,16 +450,6 @@ simulationModalEl.addEventListener("input", (event) => {
       : entry
     );
     appState.simulationDraft = { ...draft, entries };
-    return;
-  }
-  const baseCell = event.target.closest("[data-repricing-base-cell]");
-  if (baseCell) {
-    const draft = getRepricingGapSimulationDraft();
-    const businessType = baseCell.dataset.businessType;
-    const bucketIndex = Number(baseCell.dataset.bucketIndex || 0);
-    const nextMatrix = cloneRepricingGapMatrix(draft.baseMatrix);
-    nextMatrix[businessType][bucketIndex] = Number(baseCell.value || 0);
-    appState.simulationDraft = { ...draft, baseEdited: true, baseMatrix: nextMatrix };
     return;
   }
   const repricingField = event.target.closest("[data-repricing-simulation-field]");
@@ -513,68 +493,8 @@ simulationModalEl.addEventListener("input", (event) => {
 });
 
 simulationModalEl.addEventListener("change", (event) => {
-  const liquidityBaseDate = event.target.closest("[data-liquidity-gap-base-date]");
-  if (liquidityBaseDate) {
-    const draft = getLiquidityGapSimulationDraft();
-    const nextBaseDate = liquidityBaseDate.value || getLiquidityGapSimulationCurrentDate();
-    const shouldRegenerateBase = draft.baseSource === "runoff" && !draft.baseEdited;
-    appState.simulationDraft = {
-      ...draft,
-      baseDate: nextBaseDate,
-      baseMatrix: shouldRegenerateBase
-        ? buildLiquidityCashFlowGapBaseMatrix(draft.baseSource, nextBaseDate)
-        : draft.baseMatrix,
-    };
-    renderSimulationModal();
-    return;
-  }
-  const liquidityBaseUpload = event.target.closest("[data-liquidity-gap-base-upload]");
-  if (liquidityBaseUpload) {
-    const file = liquidityBaseUpload.files?.[0];
-    if (!file) return;
-    file.text().then((text) => {
-      applyLiquidityGapUploadedCsv(text, file.name);
-      renderSimulationModal();
-    });
-    return;
-  }
-  const liquidityBaseCell = event.target.closest("[data-liquidity-gap-base-cell]");
-  if (liquidityBaseCell) {
-    renderSimulationModal();
-    return;
-  }
   const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field], [data-liquidity-cash-flow-field]");
   if (liquidityField) {
-    renderSimulationModal();
-    return;
-  }
-  const baseDate = event.target.closest("[data-repricing-base-date]");
-  if (baseDate) {
-    const draft = getRepricingGapSimulationDraft();
-    const nextBaseDate = getMonthEndDateValue(baseDate.value || getDefaultRepricingGapTargetDate());
-    const shouldRegenerateBase = draft.baseSource === "runoff" && !draft.baseEdited;
-    appState.simulationDraft = {
-      ...draft,
-      baseDate: nextBaseDate,
-      baseMatrix: shouldRegenerateBase
-        ? buildRepricingGapBaseMatrix(draft.baseSource, nextBaseDate)
-        : draft.baseMatrix,
-    };
-    renderSimulationModal();
-    return;
-  }
-  const baseUpload = event.target.closest("[data-repricing-base-upload]");
-  if (baseUpload) {
-    const file = baseUpload.files?.[0];
-    if (!file) return;
-    file.text().then((text) => {
-      applyRepricingGapUploadedCsv(text, file.name);
-      renderSimulationModal();
-    });
-    return;
-  }
-  const baseCell = event.target.closest("[data-repricing-base-cell]");
-  if (baseCell) {
     renderSimulationModal();
     return;
   }
@@ -612,26 +532,13 @@ simulationModalEl.addEventListener("click", (event) => {
     render();
     return;
   }
-  const liquidityQuickConfigButton = event.target.closest("[data-liquidity-gap-quick-config]");
-  if (liquidityQuickConfigButton) {
-    const source = normalizeLiquidityGapBaseSource(liquidityQuickConfigButton.dataset.liquidityGapQuickConfig);
-    const draft = getLiquidityGapSimulationDraft();
-    appState.simulationDraft = {
-      ...draft,
-      baseSource: source,
-      baseMatrix: buildLiquidityCashFlowGapBaseMatrix(source, draft.baseDate),
-      uploadFileName: "",
-      baseEdited: false,
-    };
-    renderSimulationModal();
-    return;
-  }
   const addLiquidityEntryButton = event.target.closest("[data-add-liquidity-gap-entry]");
   if (addLiquidityEntryButton) {
     const draft = getLiquidityGapSimulationDraft();
+    const fundingRole = addLiquidityEntryButton.dataset.addLiquidityGapEntry;
     appState.simulationDraft = {
       ...draft,
-      entries: [...draft.entries, createDefaultLiquidityGapSimulationEntry(draft.baseDate)],
+      entries: [...draft.entries, createDefaultLiquidityGapSimulationEntry(draft.baseDate, fundingRole)],
     };
     renderSimulationModal();
     return;
@@ -640,7 +547,13 @@ simulationModalEl.addEventListener("click", (event) => {
   if (removeLiquidityEntryButton) {
     const draft = getLiquidityGapSimulationDraft();
     const removeIndex = Number(removeLiquidityEntryButton.dataset.removeLiquidityGapEntry);
-    appState.simulationDraft = { ...draft, entries: draft.entries.filter((_, index) => index !== removeIndex) };
+    appState.simulationDraft = {
+      ...draft,
+      entries: ensureMinimumLiquidityGapSimulationEntries(
+        draft.baseDate,
+        draft.entries.filter((_, index) => index !== removeIndex)
+      ),
+    };
     renderSimulationModal();
     return;
   }
@@ -676,26 +589,13 @@ simulationModalEl.addEventListener("click", (event) => {
     renderSimulationModal();
     return;
   }
-  const quickConfigButton = event.target.closest("[data-repricing-quick-config]");
-  if (quickConfigButton) {
-    const source = normalizeRepricingGapBaseSource(quickConfigButton.dataset.repricingQuickConfig);
-    const draft = getRepricingGapSimulationDraft();
-    appState.simulationDraft = {
-      ...draft,
-      baseSource: source,
-      baseMatrix: buildRepricingGapBaseMatrix(source, draft.baseDate),
-      uploadFileName: "",
-      baseEdited: false,
-    };
-    renderSimulationModal();
-    return;
-  }
   const addRepricingEntryButton = event.target.closest("[data-add-repricing-simulation-entry]");
   if (addRepricingEntryButton) {
     const draft = getRepricingGapSimulationDraft();
+    const fundingRole = addRepricingEntryButton.dataset.addRepricingSimulationEntry;
     appState.simulationDraft = {
       ...draft,
-      entries: [...draft.entries, createDefaultRepricingGapSimulationEntry(draft.baseDate)],
+      entries: [...draft.entries, createDefaultRepricingGapSimulationEntry(draft.baseDate, fundingRole)],
     };
     renderSimulationModal();
     return;
@@ -704,7 +604,13 @@ simulationModalEl.addEventListener("click", (event) => {
   if (removeRepricingEntryButton) {
     const draft = getRepricingGapSimulationDraft();
     const removeIndex = Number(removeRepricingEntryButton.dataset.removeRepricingSimulationEntry);
-    appState.simulationDraft = { ...draft, entries: draft.entries.filter((_, index) => index !== removeIndex) };
+    appState.simulationDraft = {
+      ...draft,
+      entries: ensureMinimumRepricingGapSimulationEntries(
+        draft.baseDate,
+        draft.entries.filter((_, index) => index !== removeIndex)
+      ),
+    };
     renderSimulationModal();
     return;
   }
