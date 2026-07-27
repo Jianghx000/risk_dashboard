@@ -78,6 +78,7 @@ const appState = {
   simulationModalWidgetSeq: null,
   simulationDraft: null,
   insightWidgetSeq: null,
+  insightConversation: [],
   evePointPopover: null,
   eveProcessModal: null,
   liquidityMetricPointPopover: null,
@@ -486,7 +487,8 @@ function renderWidgetCard(areaGroup, widget, areaState, options = {}) {
   const widgetCardClass = `${shouldSpanFullWidth(widget) ? " widget-card--full" : ""}${options.flatMode ? " widget-card--flat" : ""}${isRepricingMaturityDistributionWidget(widget) ? " widget-card--repricing-maturity" : ""}`;
   const methodologyButton = renderBusinessChangeMethodologyButton(widget);
   const simulationButton = renderWidgetSimulationButton(widget);
-  const insightButton = `<button class="widget-action widget-action--ai" type="button" data-open-insight="${widget.sourceSeq || widget.seq}">AI</button>`;
+  const isRepricingGapAi = Number(widget.sourceSeq || widget.seq) === 9;
+  const insightButton = `<button class="widget-action widget-action--ai ${isRepricingGapAi ? "widget-action--ai-only" : ""}" type="button" data-open-insight="${widget.sourceSeq || widget.seq}">AI</button>`;
   const modeSwitch = supportsDisplayToggle(widget)
     ? `
       <div class="widget-display-switch" role="tablist" aria-label="图表显示方式">

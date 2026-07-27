@@ -305,6 +305,7 @@ dashboardViewEl.addEventListener("click", (event) => {
   const openInsightButton = event.target.closest("[data-open-insight]");
   if (openInsightButton) {
     appState.insightWidgetSeq = Number(openInsightButton.dataset.openInsight);
+    appState.insightConversation = [];
     render();
     return;
   }
@@ -407,6 +408,17 @@ dashboardViewEl.addEventListener("change", (event) => {
 });
 
 simulationModalEl.addEventListener("input", (event) => {
+  const targetDateField = event.target.closest("[data-simulation-target-date]");
+  if (targetDateField) {
+    const draft = targetDateField.dataset.simulationTargetDate === "repricing"
+      ? getRepricingGapSimulationDraft()
+      : getLiquidityGapSimulationDraft();
+    appState.simulationDraft = {
+      ...draft,
+      simulationDate: normalizeSimulationDate(draft.baseDate, targetDateField.value),
+    };
+    return;
+  }
   const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field]");
   if (liquidityField) {
     const draft = getLiquidityGapSimulationDraft();
@@ -414,13 +426,34 @@ simulationModalEl.addEventListener("input", (event) => {
     const fieldName = liquidityField.dataset.liquidityGapSimulationField;
     const entries = draft.entries.map((entry, index) => {
       if (index !== entryIndex) return entry;
-      const nextEntry = { ...entry, [fieldName]: liquidityField.value };
+      const previousScale = getSimulationScaleMagnitude(entry.scale);
+      const keepsDefaultCashFlowInSync = fieldName === "scale"
+        && (entry.cashFlows || []).length === 1
+        && Math.abs(Number(entry.cashFlows?.[0]?.amount || 0)) === previousScale;
+      const nextValue = fieldName === "scale"
+        ? String(getSimulationScaleMagnitude(liquidityField.value))
+        : liquidityField.value;
+      const nextEntry = { ...entry, [fieldName]: nextValue };
+      const fixedRole = entry.fundingRole;
+      nextEntry.changeDirection = getSimulationChangeDirectionForFundingRole(
+        nextEntry.businessType,
+        fixedRole,
+        "liquidityGap"
+      );
+      nextEntry.fundingRole = fixedRole;
       if (fieldName === "occurrenceDate") {
         const minimumCashFlowDate = [addDays(draft.baseDate, 1), liquidityField.value].filter(Boolean).sort().at(-1);
         nextEntry.cashFlows = (entry.cashFlows || []).map((cashFlow) => ({
           ...cashFlow,
           date: cashFlow.date && cashFlow.date >= minimumCashFlowDate ? cashFlow.date : minimumCashFlowDate,
         }));
+      }
+      if (keepsDefaultCashFlowInSync) {
+        const scale = getSimulationScaleMagnitude(nextEntry.scale);
+        nextEntry.cashFlows = (entry.cashFlows || []).map((cashFlow, cashFlowIndex) => cashFlowIndex === 0
+          ? { ...cashFlow, amount: String(nextEntry.fundingRole === "资金来源" ? scale : -scale) }
+          : cashFlow
+        );
       }
       return nextEntry;
     });
@@ -452,7 +485,17 @@ simulationModalEl.addEventListener("input", (event) => {
     const fieldName = repricingField.dataset.repricingSimulationField;
     const entries = draft.entries.map((entry, index) => {
       if (index !== entryIndex) return entry;
-      const nextEntry = { ...entry, [fieldName]: repricingField.value };
+      const nextValue = fieldName === "scale"
+        ? String(getSimulationScaleMagnitude(repricingField.value))
+        : repricingField.value;
+      const nextEntry = { ...entry, [fieldName]: nextValue };
+      const fixedRole = entry.fundingRole;
+      nextEntry.changeDirection = getSimulationChangeDirectionForFundingRole(
+        nextEntry.businessType,
+        fixedRole,
+        "repricingGap"
+      );
+      nextEntry.fundingRole = fixedRole;
       if (["occurrenceDate", "repricingMonths"].includes(fieldName) && nextEntry.occurrenceDate) {
         nextEntry.nextRepricingDate = addMonthsDateValue(
           nextEntry.occurrenceDate,
@@ -467,6 +510,10 @@ simulationModalEl.addEventListener("input", (event) => {
 });
 
 simulationModalEl.addEventListener("change", (event) => {
+  if (event.target.closest("[data-simulation-target-date]")) {
+    renderSimulationModal();
+    return;
+  }
   const liquidityField = event.target.closest("[data-liquidity-gap-simulation-field], [data-liquidity-cash-flow-field]");
   if (liquidityField) {
     renderSimulationModal();
@@ -579,11 +626,54 @@ simulationModalEl.addEventListener("click", (event) => {
   }
 });
 
+function submitInsightQuestion(question) {
+  const normalizedQuestion = String(question || "").trim();
+  if (!normalizedQuestion) return;
+  const target = findWidgetBySeq(appState.insightWidgetSeq);
+  if (!target?.widget || !isRepricingGapAiWidget(target.widget)) return;
+  const conversation = Array.isArray(appState.insightConversation)
+    ? appState.insightConversation
+    : [];
+  appState.insightConversation = [
+    ...conversation,
+    { role: "user", content: normalizedQuestion },
+    { role: "assistant", content: buildRepricingGapAiReply(normalizedQuestion, target) },
+  ];
+  renderInsightModal();
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const drawerBody = insightModalEl.querySelector(".repricing-ai-drawer__body");
+      if (drawerBody) drawerBody.scrollTo({ top: drawerBody.scrollHeight, behavior: "auto" });
+      insightModalEl.querySelector("[data-insight-input]")?.focus({ preventScroll: true });
+    });
+  });
+}
+
 insightModalEl.addEventListener("click", (event) => {
+  const promptButton = event.target.closest("[data-insight-prompt]");
+  if (promptButton) {
+    let prompt = promptButton.dataset.insightPrompt || "";
+    try {
+      prompt = decodeURIComponent(prompt);
+    } catch (error) {
+      prompt = promptButton.textContent || prompt;
+    }
+    submitInsightQuestion(prompt);
+    return;
+  }
   const closeButton = event.target.closest("[data-close-overlay='insightModal']");
   if (!closeButton) return;
   appState.insightWidgetSeq = null;
+  appState.insightConversation = [];
   render();
+});
+
+insightModalEl.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-insight-form]");
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector("[data-insight-input]");
+  submitInsightQuestion(input?.value);
 });
 
 function updateProcessDateRangeState(state, slider) {
@@ -853,6 +943,7 @@ document.addEventListener("keydown", (event) => {
     }
     if (appState.insightWidgetSeq != null) {
       appState.insightWidgetSeq = null;
+      appState.insightConversation = [];
       render();
       return;
     }

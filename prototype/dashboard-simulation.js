@@ -22,6 +22,7 @@ const REPRICING_FREQUENCY_OPTIONS = [
   { label: "按年重定价", value: "12" },
   { label: "到期一次性重定价", value: "24" },
 ];
+const SIMULATION_CHANGE_DIRECTION_OPTIONS = ["增加", "减少"];
 
 function isRepricingGapSimulationWidget(widgetOrSeq) {
   const seq = Number(typeof widgetOrSeq === "object" ? (widgetOrSeq?.sourceSeq || widgetOrSeq?.seq) : widgetOrSeq);
@@ -50,6 +51,27 @@ function getRepricingGapSimulationBusinessTypesByFundingRole(fundingRole) {
   return getRepricingGapSimulationBusinessTypes().filter((businessType) =>
     getSimulationFundingRoleByBusinessType(businessType) === fundingRole
   );
+}
+
+function normalizeSimulationChangeDirection(entry = {}) {
+  if (SIMULATION_CHANGE_DIRECTION_OPTIONS.includes(entry.changeDirection)) {
+    return entry.changeDirection;
+  }
+  return Number(entry.scale || 0) < 0 ? "减少" : "增加";
+}
+
+function getSimulationScaleMagnitude(value) {
+  const scale = Number(value || 0);
+  return Number.isFinite(scale) ? Math.abs(scale) : 0;
+}
+
+function getSimulationSignedScale(entry = {}) {
+  const scale = getSimulationScaleMagnitude(entry.scale);
+  return normalizeSimulationChangeDirection(entry) === "减少" ? -scale : scale;
+}
+
+function getOppositeSimulationFundingRole(fundingRole) {
+  return fundingRole === "资金来源" ? "资金运用" : "资金来源";
 }
 
 function getRepricingGapSimulationIncludesInternalTransactions(scenarioOrDraft = {}) {
@@ -100,6 +122,20 @@ function isRepricingGapBusinessInMetricScope(businessType, includesInternalTrans
 
 function getRepricingGapCurrentDate() {
   return appState.globalEndDate || getDefaultGlobalEndDate();
+}
+
+function getSimulationMonthEndDate(baseDateValue) {
+  const baseDate = parseDateValue(baseDateValue);
+  if (!baseDate) return baseDateValue || "";
+  return formatDateValue(new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0));
+}
+
+function normalizeSimulationDate(baseDateValue, simulationDateValue) {
+  const defaultDate = getSimulationMonthEndDate(baseDateValue);
+  const baseDate = parseDateValue(baseDateValue);
+  const simulationDate = parseDateValue(simulationDateValue);
+  if (!simulationDate || (baseDate && simulationDate < baseDate)) return defaultDate;
+  return formatDateValue(simulationDate);
 }
 
 function getRepricingGapBucketIndex(targetDateValue, repricingDateValue) {
@@ -213,7 +249,7 @@ function applyNewBusinessToRepricingGapMatrix(baseMatrix, entries = [], targetDa
   const supportedBusinessTypes = new Set(getRepricingGapSimulationBusinessTypes());
   const horizonEnd = addDays(targetDateValue, 365);
   const entryImpacts = entries.map((entry, entryIndex) => {
-    const scale = Number(entry.scale || 0);
+    const requestedScale = getSimulationSignedScale(entry);
     if (!supportedBusinessTypes.has(entry.businessType)) {
       return { entryIndex, included: false, reason: "业务类型不属于重定价缺口表" };
     }
@@ -229,12 +265,23 @@ function applyNewBusinessToRepricingGapMatrix(baseMatrix, entries = [], targetDa
     );
     const bucketIndex = getRepricingGapBucketIndex(targetDateValue, effectiveRepricingDate);
     const currentValue = Number(simulatedMatrix[entry.businessType]?.[bucketIndex] || 0);
-    simulatedMatrix[entry.businessType][bucketIndex] = Number((currentValue + scale).toFixed(1));
+    const appliedScale = requestedScale < 0
+      ? -Math.min(Math.abs(requestedScale), Math.max(0, currentValue))
+      : requestedScale;
+    simulatedMatrix[entry.businessType][bucketIndex] = Number((currentValue + appliedScale).toFixed(1));
     return {
       entryIndex,
       included: true,
       businessType: entry.businessType,
-      scale,
+      changeDirection: normalizeSimulationChangeDirection(entry),
+      fundingRole: SIMULATION_FUNDING_ROLE_OPTIONS.includes(entry.fundingRole)
+        ? entry.fundingRole
+        : getSimulationFundingRoleByBusinessType(
+          entry.businessType,
+          normalizeSimulationChangeDirection(entry)
+        ),
+      requestedScale,
+      scale: appliedScale,
       effectiveRepricingDate,
       bucketIndex,
       bucket: REPRICING_GAP_BUCKETS[bucketIndex],
@@ -276,6 +323,7 @@ function createDefaultRepricingGapSimulationEntry(baseDate = getRepricingGapCurr
     : businessTypes[0] || "";
   return {
     fundingRole: normalizedRole,
+    changeDirection: "增加",
     occurrenceDate,
     businessType: preferredBusinessType,
     scale: "50",
@@ -286,18 +334,28 @@ function createDefaultRepricingGapSimulationEntry(baseDate = getRepricingGapCurr
 
 function ensureMinimumRepricingGapSimulationEntries(baseDate, entries = []) {
   const normalizedEntries = (Array.isArray(entries) ? entries : []).map((entry, entryIndex) => {
-    const derivedRole = entry?.businessType
-      ? getSimulationFundingRoleByBusinessType(entry.businessType)
-      : SIMULATION_FUNDING_ROLE_OPTIONS[entryIndex % SIMULATION_FUNDING_ROLE_OPTIONS.length];
-    const fundingRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(derivedRole) ? derivedRole : "资金运用";
-    const businessTypes = getRepricingGapSimulationBusinessTypesByFundingRole(fundingRole);
+    const preferredRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(entry?.fundingRole)
+      ? entry.fundingRole
+      : SIMULATION_FUNDING_ROLE_OPTIONS[entryIndex % SIMULATION_FUNDING_ROLE_OPTIONS.length] || "资金运用";
+    const businessTypes = getRepricingGapSimulationBusinessTypes();
+    const defaultBusinessTypes = getRepricingGapSimulationBusinessTypesByFundingRole(preferredRole);
+    const businessType = businessTypes.includes(entry?.businessType)
+      ? entry.businessType
+      : defaultBusinessTypes[0] || businessTypes[0] || "";
+    const fundingRole = preferredRole;
+    const changeDirection = getSimulationChangeDirectionForFundingRole(
+      businessType,
+      fundingRole,
+      "repricingGap"
+    );
     const occurrenceDate = entry?.occurrenceDate || addDays(baseDate, 1);
     const repricingMonths = String(entry?.repricingMonths || "3");
     return {
       fundingRole,
+      changeDirection,
       occurrenceDate,
-      businessType: businessTypes.includes(entry?.businessType) ? entry.businessType : businessTypes[0] || "",
-      scale: String(entry?.scale ?? 50),
+      businessType,
+      scale: String(getSimulationScaleMagnitude(entry?.scale ?? 50)),
       repricingMonths,
       nextRepricingDate: entry?.nextRepricingDate || addMonthsDateValue(occurrenceDate, Number(repricingMonths)),
     };
@@ -317,6 +375,7 @@ function createRepricingGapSimulationDraftFromScenario(scenario) {
   return {
     simulationKind: "repricingGap",
     baseDate,
+    simulationDate: normalizeSimulationDate(baseDate, scenario?.simulationDate),
     includesInternalTransactions: getRepricingGapSimulationIncludesInternalTransactions(scenario),
     ...getRepricingGapCaliberOptions(scenario),
     baseMatrix: cloneRepricingGapMatrix(buildCurrentRepricingGapMatrix()),
@@ -334,14 +393,16 @@ function getRepricingGapSimulationDraft() {
 function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSimulationDraft()) {
   const pageFilters = ensurePageFilterState(page);
   const entries = ensureMinimumRepricingGapSimulationEntries(draft.baseDate, draft.entries || []).map((entry) => {
-    const scale = Number(entry.scale || 0);
+    const scale = getSimulationScaleMagnitude(entry.scale);
+    const changeDirection = normalizeSimulationChangeDirection(entry);
     return {
       occurrenceDate: entry.occurrenceDate || addDays(draft.baseDate, 1),
       businessType: entry.businessType,
+      changeDirection,
       fundingRole: entry.fundingRole,
       org: pageFilters.机构?.[0] || "法人汇总",
       currency: pageFilters.币种?.[0] || "全折人民币",
-      scale: Number.isFinite(scale) ? scale : 0,
+      scale,
       repricingMonths: String(entry.repricingMonths || "3"),
       nextRepricingDate: entry.nextRepricingDate || addMonthsDateValue(entry.occurrenceDate || addDays(draft.baseDate, 1), Number(entry.repricingMonths || 3)),
       termMonths: Math.max(1, Number(entry.repricingMonths || 3)),
@@ -350,6 +411,7 @@ function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSi
   const caliberOptions = getRepricingGapCaliberOptions(draft);
   const result = buildRepricingGapSimulationResult({
     baseDate: draft.baseDate,
+    simulationDate: draft.simulationDate,
     baseMatrix: draft.baseMatrix,
     entries,
   }, caliberOptions);
@@ -357,6 +419,7 @@ function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSi
     simulationKind: "repricingGap",
     sourceWidgetSeq: REPRICING_GAP_SIMULATION_WIDGET_SEQ,
     baseDate: draft.baseDate,
+    simulationDate: normalizeSimulationDate(draft.baseDate, draft.simulationDate),
     includesInternalTransactions: getRepricingGapSimulationIncludesInternalTransactions(draft),
     ...caliberOptions,
     baseMatrix: cloneRepricingGapMatrix(draft.baseMatrix),
@@ -365,7 +428,7 @@ function normalizeRepricingGapSimulationScenario(page, draft = getRepricingGapSi
     simulatedMetrics: result.simulatedMetrics,
     entryImpacts: result.entryImpacts,
     entries,
-    scale: entries.reduce((sum, entry) => sum + entry.scale, 0),
+    scale: entries.reduce((sum, entry) => sum + getSimulationScaleMagnitude(entry.scale), 0),
     businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
     fundingRole: getSharedSimulationValue(entries, "fundingRole", "来源/运用组合"),
   };
@@ -547,12 +610,15 @@ function createDefaultLiquidityGapSimulationEntry(baseDateValue = getLiquidityGa
   const normalizedRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(fundingRole) ? fundingRole : "资金运用";
   const occurrenceDate = addDays(baseDateValue, 1);
   const businessTypes = getLiquidityGapSimulationBusinessTypesByFundingRole(normalizedRole);
-  const preferredBusinessType = normalizedRole === "资金运用" && businessTypes.includes("各项贷款")
-    ? "各项贷款"
-    : businessTypes[0] || "";
-  const defaultCashFlowAmount = normalizedRole === "资金来源" ? "-50" : "50";
+  const preferredBusinessType = normalizedRole === "资金来源" && businessTypes.includes("定期存款")
+    ? "定期存款"
+    : normalizedRole === "资金运用" && businessTypes.includes("各项贷款")
+      ? "各项贷款"
+      : businessTypes[0] || "";
+  const defaultCashFlowAmount = normalizedRole === "资金来源" ? "50" : "-50";
   return {
     fundingRole: normalizedRole,
+    changeDirection: "增加",
     occurrenceDate,
     businessType: preferredBusinessType,
     scale: "50",
@@ -562,24 +628,36 @@ function createDefaultLiquidityGapSimulationEntry(baseDateValue = getLiquidityGa
 
 function ensureMinimumLiquidityGapSimulationEntries(baseDate, entries = []) {
   const normalizedEntries = (Array.isArray(entries) ? entries : []).map((entry, entryIndex) => {
-    const derivedRole = entry?.businessType
-      ? getLiquiditySimulationFundingRoleByBusinessType(entry.businessType)
-      : SIMULATION_FUNDING_ROLE_OPTIONS[entryIndex % SIMULATION_FUNDING_ROLE_OPTIONS.length];
-    const fundingRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(derivedRole) ? derivedRole : "资金运用";
-    const businessTypes = getLiquidityGapSimulationBusinessTypesByFundingRole(fundingRole);
+    const preferredRole = SIMULATION_FUNDING_ROLE_OPTIONS.includes(entry?.fundingRole)
+      ? entry.fundingRole
+      : SIMULATION_FUNDING_ROLE_OPTIONS[entryIndex % SIMULATION_FUNDING_ROLE_OPTIONS.length] || "资金运用";
+    const businessTypes = getLiquidityGapSimulationBusinessTypes();
+    const defaultBusinessTypes = getLiquidityGapSimulationBusinessTypesByFundingRole(preferredRole);
+    const businessType = businessTypes.includes(entry?.businessType)
+      ? entry.businessType
+      : defaultBusinessTypes[0] || businessTypes[0] || "";
+    const fundingRole = preferredRole;
+    const changeDirection = getSimulationChangeDirectionForFundingRole(
+      businessType,
+      fundingRole,
+      "liquidityGap"
+    );
     const occurrenceDate = entry?.occurrenceDate || addDays(baseDate, 1);
-    const defaultAmount = fundingRole === "资金来源" ? -50 : 50;
+    const defaultAmount = fundingRole === "资金来源"
+      ? getSimulationScaleMagnitude(entry?.scale ?? 50)
+      : -getSimulationScaleMagnitude(entry?.scale ?? 50);
     return {
       fundingRole,
+      changeDirection,
       occurrenceDate,
-      businessType: businessTypes.includes(entry?.businessType) ? entry.businessType : businessTypes[0] || "",
-      scale: String(entry?.scale ?? 50),
+      businessType,
+      scale: String(getSimulationScaleMagnitude(entry?.scale ?? 50)),
       cashFlows: Array.isArray(entry?.cashFlows) && entry.cashFlows.length
         ? entry.cashFlows.map((cashFlow) => ({
           date: cashFlow.date || occurrenceDate,
           amount: String(cashFlow.amount ?? 0),
         }))
-        : [createDefaultLiquidityGapCashFlow(baseDate, occurrenceDate, entry?.scale ?? defaultAmount)],
+        : [createDefaultLiquidityGapCashFlow(baseDate, occurrenceDate, defaultAmount)],
     };
   });
   const nextEntries = [...normalizedEntries];
@@ -597,6 +675,7 @@ function createLiquidityGapSimulationDraftFromScenario(scenario) {
   return {
     simulationKind: "liquidityGap",
     baseDate,
+    simulationDate: normalizeSimulationDate(baseDate, scenario?.simulationDate),
     baseMatrix: cloneLiquidityCashFlowGapMatrix(buildCurrentLiquidityCashFlowGapMatrix()),
     entries,
   };
@@ -609,15 +688,17 @@ function getLiquidityGapSimulationDraft() {
   return appState.simulationDraft;
 }
 
-function getLiquiditySimulationFundingRoleByBusinessType(businessType) {
+function getLiquiditySimulationFundingRoleByBusinessType(businessType, changeDirection = "增加") {
   const side = getLiquidityGapSimulationPerspective().sideMap?.[businessType];
-  return ["liability", "offBalanceOutflow"].includes(side) ? "资金来源" : "资金运用";
+  const increaseRole = ["liability", "offBalanceInflow"].includes(side) ? "资金来源" : "资金运用";
+  return changeDirection === "减少" ? getOppositeSimulationFundingRole(increaseRole) : increaseRole;
 }
 
 function normalizeLiquidityGapSimulationScenario(page, draft = getLiquidityGapSimulationDraft()) {
   const pageFilters = ensurePageFilterState(page);
   const entries = ensureMinimumLiquidityGapSimulationEntries(draft.baseDate, draft.entries || []).map((entry) => {
-    const scale = Number(entry.scale || 0);
+    const scale = getSimulationScaleMagnitude(entry.scale);
+    const changeDirection = normalizeSimulationChangeDirection(entry);
     const cashFlows = (entry.cashFlows || []).map((cashFlow) => {
       const amount = Number(cashFlow.amount || 0);
       return {
@@ -632,16 +713,18 @@ function normalizeLiquidityGapSimulationScenario(page, draft = getLiquidityGapSi
     return {
       occurrenceDate: entry.occurrenceDate || addDays(draft.baseDate, 1),
       businessType: entry.businessType || getLiquidityGapSimulationBusinessTypes()[0] || "",
+      changeDirection,
       fundingRole: entry.fundingRole,
       org: pageFilters.机构?.[0] || "法人汇总",
       currency: pageFilters.币种?.[0] || "全折人民币",
-      scale: Number.isFinite(scale) ? scale : 0,
+      scale,
       termMonths,
       cashFlows,
     };
   });
   const result = buildLiquidityGapSimulationResult({
     baseDate: draft.baseDate,
+    simulationDate: draft.simulationDate,
     baseMatrix: draft.baseMatrix,
     entries,
   });
@@ -652,16 +735,17 @@ function normalizeLiquidityGapSimulationScenario(page, draft = getLiquidityGapSi
     simulationKind: "liquidityGap",
     sourceWidgetSeq: LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ,
     baseDate: draft.baseDate,
+    simulationDate: normalizeSimulationDate(draft.baseDate, draft.simulationDate),
     baseMatrix: cloneLiquidityCashFlowGapMatrix(draft.baseMatrix),
     simulatedMatrix: cloneLiquidityCashFlowGapMatrix(result.simulatedMatrix),
     baseMetrics: result.baseMetrics,
     simulatedMetrics: result.simulatedMetrics,
     entryImpacts: result.entryImpacts,
     entries,
-    scale: Number(entries.reduce((sum, entry) => sum + Number(entry.scale || 0), 0).toFixed(1)),
+    scale: Number(entries.reduce((sum, entry) => sum + getSimulationScaleMagnitude(entry.scale), 0).toFixed(1)),
     totalCashFlow: Number(totalCashFlow.toFixed(1)),
     businessType: getSharedSimulationValue(entries, "businessType", "组合业务"),
-    fundingRole: totalCashFlow < 0 ? "资金来源" : "资金运用",
+    fundingRole: getSharedSimulationValue(entries, "fundingRole", "来源/运用组合"),
     termMonths: Math.max(1, ...entries.map((entry) => Number(entry.termMonths || 1))),
   };
 }
@@ -682,15 +766,19 @@ function renderWidgetSimulationSummary(widget) {
   const simulation = getPageSimulation(pageId);
   if (!simulation) return "";
   if (isRepricingGapSimulationWidget(widget) && Number(simulation.sourceWidgetSeq) === REPRICING_GAP_SIMULATION_WIDGET_SEQ) {
-    const totalScale = getSimulationEntries(simulation).reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
+    const totalScale = getSimulationEntries(simulation).reduce(
+      (sum, entry) => sum + getSimulationScaleMagnitude(entry.scale),
+      0
+    );
     const result = buildRepricingGapSimulationResult(simulation);
     const ratioDelta = Number((result.simulatedMetrics.ratio - result.baseMetrics.ratio).toFixed(2));
     return `
       <div class="simulation-summary simulation-summary--widget">
         <span class="simulation-summary__item">测算基准：${simulation.baseDate}</span>
+        <span class="simulation-summary__item">模拟测算日期：${normalizeSimulationDate(simulation.baseDate, simulation.simulationDate)}</span>
         <span class="simulation-summary__item">${SIMULATION_BASELINE_LABEL}</span>
-        <span class="simulation-summary__item">新业务：${getSimulationEntries(simulation).length}笔</span>
-        <span class="simulation-summary__item">新增规模合计：${Number(totalScale.toFixed(1))}亿元</span>
+        <span class="simulation-summary__item">业务变动：${getSimulationEntries(simulation).length}笔</span>
+        <span class="simulation-summary__item">业务变动规模合计：${Number(totalScale.toFixed(1))}亿元</span>
         <span class="simulation-summary__item">基准：${result.baseMetrics.ratio.toFixed(2)}%</span>
         <span class="simulation-summary__item">测算后：${result.simulatedMetrics.ratio.toFixed(2)}%</span>
         <span class="simulation-summary__item">变化：${ratioDelta >= 0 ? "+" : ""}${ratioDelta.toFixed(2)}pct</span>
@@ -701,16 +789,20 @@ function renderWidgetSimulationSummary(widget) {
   }
   if (isLiquidityGapSimulationWidget(widget) && Number(simulation.sourceWidgetSeq) === LIQUIDITY_GAP_SIMULATION_WIDGET_SEQ) {
     const result = buildLiquidityGapSimulationResult(simulation);
-    const totalScale = getSimulationEntries(simulation).reduce((sum, entry) => sum + Number(entry.scale || 0), 0);
+    const totalScale = getSimulationEntries(simulation).reduce(
+      (sum, entry) => sum + getSimulationScaleMagnitude(entry.scale),
+      0
+    );
     const cashFlowCount = getSimulationEntries(simulation).reduce((sum, entry) => sum + (entry.cashFlows || []).length, 0);
     const gapDelta = Number((result.simulatedMetrics.oneYearGap - result.baseMetrics.oneYearGap).toFixed(1));
     return `
       <div class="simulation-summary simulation-summary--widget">
         <span class="simulation-summary__item">测算基准：${simulation.baseDate}</span>
+        <span class="simulation-summary__item">模拟测算日期：${normalizeSimulationDate(simulation.baseDate, simulation.simulationDate)}</span>
         <span class="simulation-summary__item">${SIMULATION_BASELINE_LABEL}</span>
-        <span class="simulation-summary__item">新业务：${getSimulationEntries(simulation).length}笔</span>
+        <span class="simulation-summary__item">业务变动：${getSimulationEntries(simulation).length}笔</span>
         <span class="simulation-summary__item">现金流：${cashFlowCount}笔</span>
-        <span class="simulation-summary__item">业务规模：${Number(totalScale.toFixed(1))}亿元</span>
+        <span class="simulation-summary__item">业务变动规模：${Number(totalScale.toFixed(1))}亿元</span>
         <span class="simulation-summary__item">基准1年累计缺口：${result.baseMetrics.oneYearGap.toFixed(1)}亿元</span>
         <span class="simulation-summary__item">测算后：${result.simulatedMetrics.oneYearGap.toFixed(1)}亿元</span>
         <span class="simulation-summary__item">变化：${gapDelta >= 0 ? "+" : ""}${gapDelta.toFixed(1)}亿元</span>
@@ -733,9 +825,41 @@ function getSimulationEntries(simulation) {
   return [simulation];
 }
 
-function getSimulationFundingRoleByBusinessType(businessType) {
+function getSimulationFundingRoleByBusinessType(businessType, changeDirection = "增加") {
   const side = REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] || BUSINESS_SIDE_MAP[businessType];
-  return side === "liability" ? "资金来源" : "资金运用";
+  const increaseRole = side === "liability" ? "资金来源" : "资金运用";
+  return changeDirection === "减少" ? getOppositeSimulationFundingRole(increaseRole) : increaseRole;
+}
+
+function getSimulationChangeDirectionForFundingRole(
+  businessType,
+  fundingRole,
+  simulationKind = "repricingGap"
+) {
+  const increaseRole = simulationKind === "liquidityGap"
+    ? getLiquiditySimulationFundingRoleByBusinessType(businessType, "增加")
+    : getSimulationFundingRoleByBusinessType(businessType, "增加");
+  return increaseRole === fundingRole ? "增加" : "减少";
+}
+
+function getSimulationBusinessSideLabel(businessType, simulationKind = "repricingGap") {
+  const side = simulationKind === "liquidityGap"
+    ? getLiquidityGapSimulationPerspective().sideMap?.[businessType]
+    : REPRICING_GAP_DERIVATIVE_SIDE_MAP[businessType] || BUSINESS_SIDE_MAP[businessType];
+  return {
+    asset: "资产端",
+    liability: "负债端",
+    offBalanceInflow: "表外流入",
+    offBalanceOutflow: "表外流出",
+  }[side] || "其他业务";
+}
+
+function getSimulationEntryRoleDescription(entry, simulationKind = "repricingGap") {
+  const changeDirection = normalizeSimulationChangeDirection(entry);
+  const fundingRole = simulationKind === "liquidityGap"
+    ? getLiquiditySimulationFundingRoleByBusinessType(entry.businessType, changeDirection)
+    : getSimulationFundingRoleByBusinessType(entry.businessType, changeDirection);
+  return `${getSimulationBusinessSideLabel(entry.businessType, simulationKind)}${changeDirection} → ${fundingRole}`;
 }
 
 function getSharedSimulationValue(entries, key, mixedLabel) {
@@ -862,12 +986,21 @@ function renderRepricingGapResultTable(matrix, includesInternalTransactions = fa
 }
 
 function renderRepricingGapSimulationEntry(entry, entryIndex, roleEntryIndex, roleEntryCount) {
-  const businessTypes = getRepricingGapSimulationBusinessTypesByFundingRole(entry.fundingRole);
+  const businessTypes = getRepricingGapSimulationBusinessTypes();
   const draft = getRepricingGapSimulationDraft();
+  const allowedDirection = getSimulationChangeDirectionForFundingRole(
+    entry.businessType,
+    entry.fundingRole,
+    "repricingGap"
+  );
+  const directionConstraint = `${entry.fundingRole}卡片固定归属；${getSimulationBusinessSideLabel(entry.businessType)}业务仅可选择“${allowedDirection}”。`;
   return `
     <section class="repricing-simulation-entry" data-repricing-simulation-entry="${entryIndex}">
       <div class="repricing-simulation-entry__header">
-        <h5>业务 ${roleEntryIndex + 1}</h5>
+        <div>
+          <h5>业务 ${roleEntryIndex + 1}</h5>
+          <span class="simulation-entry__role-badge">固定归属：${getSimulationEntryRoleDescription(entry)}</span>
+        </div>
         ${roleEntryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-repricing-simulation-entry="${entryIndex}">删除业务</button>` : ""}
       </div>
       <div class="repricing-simulation-entry__fields">
@@ -882,8 +1015,15 @@ function renderRepricingGapSimulationEntry(entry, entryIndex, roleEntryIndex, ro
           </select>
         </label>
         <label class="simulation-form__field">
-          <span class="simulation-form__label">规模（亿元）</span>
-          <input class="simulation-form__control" type="number" step="0.1" value="${entry.scale ?? ""}" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="scale">
+          <span class="simulation-form__label">变动方向</span>
+          <select class="simulation-form__control" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="changeDirection" disabled aria-label="变动方向（由资金角色和业务类型自动确定）">
+            ${SIMULATION_CHANGE_DIRECTION_OPTIONS.map((option) => `<option value="${option}" ${option === allowedDirection ? "selected" : ""} ${option !== allowedDirection ? "disabled" : ""}>${option}</option>`).join("")}
+          </select>
+          <span class="simulation-form__hint">${directionConstraint}</span>
+        </label>
+        <label class="simulation-form__field">
+          <span class="simulation-form__label">变动规模（亿元）</span>
+          <input class="simulation-form__control" type="number" min="0" step="0.1" value="${getSimulationScaleMagnitude(entry.scale)}" data-repricing-simulation-entry-index="${entryIndex}" data-repricing-simulation-field="scale">
         </label>
         <label class="simulation-form__field">
           <span class="simulation-form__label">重定价频率</span>
@@ -904,20 +1044,27 @@ function renderRepricingGapSimulationRoleSection(entries, fundingRole) {
   const roleEntries = entries
     .map((entry, entryIndex) => ({ entry, entryIndex }))
     .filter((item) => item.entry.fundingRole === fundingRole);
-  const roleScale = roleEntries.reduce((sum, item) => sum + Number(item.entry.scale || 0), 0);
+  const roleScale = roleEntries.reduce((sum, item) => sum + getSimulationScaleMagnitude(item.entry.scale), 0);
   const roleClass = fundingRole === "资金来源" ? "source" : "use";
   return `
     <section class="simulation-role-section simulation-role-section--${roleClass}" data-simulation-funding-role="${fundingRole}">
       <div class="simulation-role-section__header">
         <div>
           <h4 class="simulation-role-section__title">${fundingRole}</h4>
-          <div class="simulation-role-section__meta">共 ${roleEntries.length} 笔 / 合计 ${Number(roleScale.toFixed(1))} 亿元</div>
+          <div class="simulation-role-section__meta">共 ${roleEntries.length} 笔 / 变动规模合计 ${Number(roleScale.toFixed(1))} 亿元</div>
         </div>
       </div>
       <div class="simulation-role-section__body">
-        ${roleEntries.map((item, roleEntryIndex) =>
-          renderRepricingGapSimulationEntry(item.entry, item.entryIndex, roleEntryIndex, roleEntries.length)
-        ).join("")}
+        ${roleEntries.length
+          ? roleEntries.map((item, roleEntryIndex) =>
+            renderRepricingGapSimulationEntry(item.entry, item.entryIndex, roleEntryIndex, roleEntries.length)
+          ).join("")
+          : `
+            <div class="simulation-role-section__empty">
+              <strong>暂无${fundingRole}业务</strong>
+              <span>请在该区域新增对应的业务。</span>
+            </div>
+          `}
       </div>
       <div class="simulation-role-section__actions">
         <button class="toolbar-action" type="button" data-add-repricing-simulation-entry="${fundingRole}">新增${fundingRole}业务</button>
@@ -943,14 +1090,23 @@ function renderRepricingGapSimulationModal(page) {
       <section class="repricing-simulation-section">
         <div class="repricing-simulation-section__header">
           <h4>基准重定价缺口表</h4>
-          <div class="simulation-baseline-date" data-simulation-base-date="repricing">
-            <span>当前时点</span>
-            <strong>${draft.baseDate}</strong>
-          </div>
+          <label class="simulation-target-date" for="repricingSimulationDate">
+            <span>模拟测算日期</span>
+            <input
+              id="repricingSimulationDate"
+              class="simulation-form__control"
+              type="date"
+              min="${draft.baseDate}"
+              max="${addDays(draft.baseDate, 365)}"
+              value="${normalizeSimulationDate(draft.baseDate, draft.simulationDate)}"
+              data-simulation-target-date="repricing"
+            >
+            <small>默认取当前基准日期所在月月末</small>
+          </label>
         </div>
         <div class="repricing-simulation-source">
-          <span>
-            当前基准：${SIMULATION_BASELINE_LABEL}；
+          <span data-simulation-base-date="repricing">
+            当前基准：沿用当前时点（${draft.baseDate}）缺口表；
             ${result.includesInternalTransactions ? "单个境外分行含内部交易" : "当前机构口径剔除内部交易"}；负债端${result.includeDemandDeposits ? "含" : "不含"}活期存款；表外衍生品${result.derivativeScope}
           </span>
           <strong>基准缺口率 ${result.baseMetrics.ratio.toFixed(2)}%</strong>
@@ -959,7 +1115,10 @@ function renderRepricingGapSimulationModal(page) {
       </section>
       <section class="repricing-simulation-section repricing-simulation-section--business">
         <div class="repricing-simulation-section__header">
-          <h4>新业务录入</h4>
+          <div>
+            <h4>业务变动录入</h4>
+            <div class="simulation-role-rule">资金角色按录入区域固定：资金来源仅允许资产减少或负债增加；资金运用仅允许资产增加或负债减少。</div>
+          </div>
         </div>
         <div class="simulation-entry-list repricing-simulation-entry-list repricing-simulation-role-list">
           ${SIMULATION_FUNDING_ROLE_OPTIONS.map((fundingRole) =>
@@ -1074,14 +1233,29 @@ function renderLiquidityGapCashFlow(cashFlow, entryIndex, cashFlowIndex, cashFlo
 
 function renderLiquidityGapSimulationEntry(entry, entryIndex, roleEntryIndex, roleEntryCount) {
   const draft = getLiquidityGapSimulationDraft();
-  const businessTypes = getLiquidityGapSimulationBusinessTypesByFundingRole(entry.fundingRole);
+  const businessTypes = getLiquidityGapSimulationBusinessTypes();
+  const allowedDirection = getSimulationChangeDirectionForFundingRole(
+    entry.businessType,
+    entry.fundingRole,
+    "liquidityGap"
+  );
+  const directionConstraint = `${entry.fundingRole}卡片固定归属；${getSimulationBusinessSideLabel(entry.businessType, "liquidityGap")}业务仅可选择“${allowedDirection}”。`;
   const cashFlows = Array.isArray(entry.cashFlows) && entry.cashFlows.length
     ? entry.cashFlows
-    : [createDefaultLiquidityGapCashFlow(draft.baseDate, entry.occurrenceDate, entry.fundingRole === "资金来源" ? "-50" : "50")];
+    : [createDefaultLiquidityGapCashFlow(
+      draft.baseDate,
+      entry.occurrenceDate,
+      entry.fundingRole === "资金来源"
+        ? getSimulationScaleMagnitude(entry.scale)
+        : -getSimulationScaleMagnitude(entry.scale)
+    )];
   return `
     <section class="repricing-simulation-entry liquidity-gap-simulation-entry" data-liquidity-gap-simulation-entry="${entryIndex}">
       <div class="repricing-simulation-entry__header">
-        <h5>业务 ${roleEntryIndex + 1}</h5>
+        <div>
+          <h5>业务 ${roleEntryIndex + 1}</h5>
+          <span class="simulation-entry__role-badge">固定归属：${getSimulationEntryRoleDescription(entry, "liquidityGap")}</span>
+        </div>
         ${roleEntryCount > 1 ? `<button class="simulation-entry__remove" type="button" data-remove-liquidity-gap-entry="${entryIndex}">删除业务</button>` : ""}
       </div>
       <div class="liquidity-gap-simulation-entry__body">
@@ -1097,14 +1271,21 @@ function renderLiquidityGapSimulationEntry(entry, entryIndex, roleEntryIndex, ro
             </select>
           </label>
           <label class="simulation-form__field">
-            <span class="simulation-form__label">规模（亿元）</span>
-            <input class="simulation-form__control" type="number" step="0.1" value="${entry.scale ?? ""}" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="scale">
+            <span class="simulation-form__label">变动方向</span>
+            <select class="simulation-form__control" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="changeDirection" disabled aria-label="变动方向（由资金角色和业务类型自动确定）">
+              ${SIMULATION_CHANGE_DIRECTION_OPTIONS.map((option) => `<option value="${option}" ${option === allowedDirection ? "selected" : ""} ${option !== allowedDirection ? "disabled" : ""}>${option}</option>`).join("")}
+            </select>
+            <span class="simulation-form__hint">${directionConstraint}</span>
+          </label>
+          <label class="simulation-form__field">
+            <span class="simulation-form__label">变动规模（亿元）</span>
+            <input class="simulation-form__control" type="number" min="0" step="0.1" value="${getSimulationScaleMagnitude(entry.scale)}" data-liquidity-gap-entry-index="${entryIndex}" data-liquidity-gap-simulation-field="scale">
           </label>
         </div>
         <div class="liquidity-cash-flow-list">
           <div class="liquidity-cash-flow-list__header">
             <span>现金流计划</span>
-            <span>正数为流入，负数为流出</span>
+            <span>首笔按资金角色带入；正数为流入，负数为流出</span>
           </div>
           ${cashFlows.map((cashFlow, cashFlowIndex) =>
             renderLiquidityGapCashFlow(cashFlow, entryIndex, cashFlowIndex, cashFlows.length, entry)
@@ -1120,20 +1301,27 @@ function renderLiquidityGapSimulationRoleSection(entries, fundingRole) {
   const roleEntries = entries
     .map((entry, entryIndex) => ({ entry, entryIndex }))
     .filter((item) => item.entry.fundingRole === fundingRole);
-  const roleScale = roleEntries.reduce((sum, item) => sum + Number(item.entry.scale || 0), 0);
+  const roleScale = roleEntries.reduce((sum, item) => sum + getSimulationScaleMagnitude(item.entry.scale), 0);
   const roleClass = fundingRole === "资金来源" ? "source" : "use";
   return `
     <section class="simulation-role-section simulation-role-section--${roleClass}" data-simulation-funding-role="${fundingRole}">
       <div class="simulation-role-section__header">
         <div>
           <h4 class="simulation-role-section__title">${fundingRole}</h4>
-          <div class="simulation-role-section__meta">共 ${roleEntries.length} 笔 / 合计 ${Number(roleScale.toFixed(1))} 亿元</div>
+          <div class="simulation-role-section__meta">共 ${roleEntries.length} 笔 / 变动规模合计 ${Number(roleScale.toFixed(1))} 亿元</div>
         </div>
       </div>
       <div class="simulation-role-section__body">
-        ${roleEntries.map((item, roleEntryIndex) =>
-          renderLiquidityGapSimulationEntry(item.entry, item.entryIndex, roleEntryIndex, roleEntries.length)
-        ).join("")}
+        ${roleEntries.length
+          ? roleEntries.map((item, roleEntryIndex) =>
+            renderLiquidityGapSimulationEntry(item.entry, item.entryIndex, roleEntryIndex, roleEntries.length)
+          ).join("")
+          : `
+            <div class="simulation-role-section__empty">
+              <strong>暂无${fundingRole}业务</strong>
+              <span>请在该区域新增对应的业务。</span>
+            </div>
+          `}
       </div>
       <div class="simulation-role-section__actions">
         <button class="toolbar-action" type="button" data-add-liquidity-gap-entry="${fundingRole}">新增${fundingRole}业务</button>
@@ -1159,20 +1347,32 @@ function renderLiquidityGapSimulationModal(page) {
       <section class="repricing-simulation-section">
         <div class="repricing-simulation-section__header">
           <h4>基准现金流缺口表</h4>
-          <div class="simulation-baseline-date" data-simulation-base-date="liquidity">
-            <span>当前时点</span>
-            <strong>${draft.baseDate}</strong>
-          </div>
+          <label class="simulation-target-date" for="liquiditySimulationDate">
+            <span>模拟测算日期</span>
+            <input
+              id="liquiditySimulationDate"
+              class="simulation-form__control"
+              type="date"
+              min="${draft.baseDate}"
+              max="${addDays(draft.baseDate, 365)}"
+              value="${normalizeSimulationDate(draft.baseDate, draft.simulationDate)}"
+              data-simulation-target-date="liquidity"
+            >
+            <small>默认取当前基准日期所在月月末</small>
+          </label>
         </div>
         <div class="repricing-simulation-source">
-          <span>当前基准：${SIMULATION_BASELINE_LABEL}；金额正数为流入，负数为流出</span>
+          <span data-simulation-base-date="liquidity">当前基准：沿用当前时点（${draft.baseDate}）缺口表；金额正数为流入，负数为流出</span>
           <strong>基准1年累计缺口 ${result.baseMetrics.oneYearGap.toFixed(1)}亿元</strong>
         </div>
         ${renderLiquidityCashFlowGapTable(draft.baseMatrix, "base")}
       </section>
       <section class="repricing-simulation-section repricing-simulation-section--business">
         <div class="repricing-simulation-section__header">
-          <h4>新业务录入</h4>
+          <div>
+            <h4>业务变动录入</h4>
+            <div class="simulation-role-rule">资金角色按录入区域固定：资金来源仅允许资产减少、负债增加或表外流入；资金运用仅允许资产增加、负债减少或表外流出。</div>
+          </div>
         </div>
         <div class="simulation-entry-list repricing-simulation-entry-list repricing-simulation-role-list liquidity-gap-simulation-entry-list">
           ${SIMULATION_FUNDING_ROLE_OPTIONS.map((fundingRole) =>
@@ -1214,70 +1414,6 @@ function renderSimulationModal() {
     : renderLiquidityGapSimulationModal(page);
   simulationModalEl.classList.add("is-open");
   simulationModalEl.setAttribute("aria-hidden", "false");
-}
-
-function buildInsightTrendSeries(widget) {
-  const labels = inferXAxisLabels(widget);
-  const values = buildMetricValues(widget.seq, labels.length, widget.seq * 7);
-  return labels.map((label, index) => ({ label, value: Number(values[index] || 0) }));
-}
-
-function formatInsightRateText(value) {
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
-}
-
-function buildTrendInsightStats(series) {
-  const values = series.map((item) => Number(item.value || 0));
-  const current = values[values.length - 1] || 0;
-  const prev = values[Math.max(0, values.length - 2)] || current;
-  const yearStart = values[0] || current;
-  const mom = prev ? ((current - prev) / Math.abs(prev)) * 100 : 0;
-  const ytd = yearStart ? ((current - yearStart) / Math.abs(yearStart)) * 100 : 0;
-  const cumulative = values.length > 1 ? ((current - values[0]) / Math.abs(values[0] || 1)) * 100 : 0;
-  return {
-    current,
-    momText: formatInsightRateText(mom),
-    yoyText: "同比可比样本暂不完整，建议后续接入真实历史同期数据后补充。",
-    ytdText: formatInsightRateText(ytd),
-    cumulativeText: formatInsightRateText(cumulative),
-  };
-}
-
-function buildWidgetInsight(context) {
-  const series = buildInsightTrendSeries(context.widget);
-  const primaryStats = buildTrendInsightStats(series);
-  return `${context.widget.title}当前取值约为 ${primaryStats.current.toFixed(1)}。环比变动 ${primaryStats.momText}，较年初变动 ${primaryStats.ytdText}，区间累计增速 ${primaryStats.cumulativeText}。${primaryStats.yoyText} 综合来看，当前指标位于近期波动区间内，建议结合机构、币种和业务结构进一步定位主要驱动项。`;
-}
-
-function renderInsightModal() {
-  const target = findWidgetBySeq(appState.insightWidgetSeq);
-  if (!target?.widget) {
-    insightModalEl.innerHTML = "";
-    insightModalEl.classList.remove("is-open");
-    insightModalEl.setAttribute("aria-hidden", "true");
-    return;
-  }
-  insightModalEl.innerHTML = `
-    <div class="overlay-scrim" data-close-overlay="insightModal"></div>
-    <section class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="insightModalTitle">
-      <div class="overlay-panel__header">
-        <div>
-          <div class="overlay-panel__eyebrow">AI智能分析</div>
-          <h3 id="insightModalTitle">${target.widget.title}</h3>
-        </div>
-        <button class="overlay-panel__close" type="button" data-close-overlay="insightModal">关闭</button>
-      </div>
-      <div class="insight-panel insight-panel--single">
-        <div class="insight-panel__section">
-          <h4>智能结论</h4>
-          <p>${buildWidgetInsight(target)}</p>
-        </div>
-      </div>
-    </section>
-  `;
-  insightModalEl.classList.add("is-open");
-  insightModalEl.setAttribute("aria-hidden", "false");
 }
 
 function getLiquidityGapSimulationProfile(simulation) {

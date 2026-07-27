@@ -241,7 +241,7 @@
         <h3>2.6 从两层 Owen 到项目中的嵌套 Owen</h3>
         <div class="grid">
           <div class="card"><h4>两层分组 Owen</h4><p>枚举一级业务组顺序，并在每个组间环境中直接计算组内因素边际贡献。△EVE 的分子/资本组、LCR 的 HQLA/净现金流出组、流动性缺口率的调整后负债/资产组均属于这一类；其中线性组可按共同系数等价折叠组内顺序。</p></div>
-          <div class="card"><h4>三层嵌套 Owen</h4><p>在一级组下继续保留二级业务类别，并在二级类别内继续拆因素。重定价缺口率依次保持“四大业务组→资产业务类别→一年内联合因素/一年外部分”三层结构。</p></div>
+          <div class="card"><h4>三层嵌套 Owen</h4><p>在一级组下继续保留二级业务类别，并在二级类别内继续拆因素。重定价缺口率依次保持“四大业务组→资产业务类别→一年内重定价/一年外重定价”三层结构。</p></div>
         </div>
         <p>第10节完整代码包含可复用的 <code>calculateTwoLevelOwen</code> 标准两层函数，并对上述8条路径数值例子执行内置勾稽测试；各业务指标再基于相同原则采用针对其层级和线性结构优化后的实现。</p>
 
@@ -268,12 +268,12 @@
             <tr><td>流动性比例</td><td>100×[A+max(N,0)]÷[L+max(-N,0)]</td><td>其他资产/其他负债/同业净头寸三组 Owen；同业跨零桥接为资产端与负债端两段</td><td>pct</td></tr>
             <tr><td>流动性缺口</td><td>A-L+D+P</td><td>直接带符号线性分解</td><td>亿元</td></tr>
             <tr><td>流动性缺口率</td><td>100×(1-N/A)</td><td>调整后负债/资产两组 Owen；负债组线性折叠，资产末级在两个组间环境中执行组内 Shapley</td><td>pct</td></tr>
-            <tr><td>重定价缺口率</td><td>100×(资产经期限调整重定价-负债经期限调整重定价+两账簿缺口)÷总生息资产</td><td>四大业务组→六类资产业务→一年内期限桶联合因素/一年外及无明确重定价期限部分</td><td>pct</td></tr>
+            <tr><td>重定价缺口率</td><td>100×(资产经期限调整重定价-负债经期限调整重定价+两账簿缺口)÷总生息资产</td><td>四大业务组→六类资产业务→一年内重定价/一年外重定价</td><td>pct</td></tr>
           </tbody>
         </table></div>
         <div class="callout callout--important"><strong>逐项复核后的统一判断：</strong>页面有父子卡片，不等于每一层都必须新增一轮 Owen。线性顶层可以精确折叠，联合业务状态不能拆成可自由排列的玩家；只有真正影响边际贡献、且具有正式业务边界的非线性层级才保留顺序。按此原则，流动性缺口金额直接线性分解，同业净头寸保持联合因素，重定价缺口率保留必要的三层嵌套。</div>
         <div class="callout callout--ok"><strong>完整性结论：</strong>上述七类构成当前正式归因指标范围。资产负债重定价久期缺口仅保留指标趋势和取值展示，不纳入因素归因范围。</div>
-        <div class="callout callout--ok"><strong>实施状态：</strong>当前项目页面已同步采用重定价缺口率的最新正式口径——“一年内期限桶联合替换＋一年外部分”；<code>repricingScale</code> 与 <code>totalScale</code> 不再作为两个可独立替换的归因因素。页面展示、参考代码与本说明使用同一口径。</div>
+        <div class="callout callout--ok"><strong>实施状态：</strong>当前项目页面已同步采用重定价缺口率的最新正式口径——“一年内重定价＋一年外重定价”；<code>repricingScale</code> 与 <code>totalScale</code> 不再作为两个可独立替换的归因因素。页面展示、参考代码与本说明使用同一口径。</div>
       </section>
 
       <section id="eve">
@@ -439,47 +439,47 @@
       </section>
 
       <section id="repricing-gap">
-        <h2>8. 重定价缺口率：一年内期限桶在分子、分母中联动替换</h2>
+        <h2>8. 重定价缺口率：一年内重定价与一年外重定价</h2>
         <h3>8.1 业务公式</h3>
         <div class="formula">r<sub>i</sub> = Σ<sub>k</sub>w<sub>k</sub>b<sub>ik</sub>　　u<sub>i</sub> = Σ<sub>k</sub>b<sub>ik</sub>　　o<sub>i</sub> = t<sub>i</sub>-u<sub>i</sub><br>R = 100 × [Σr<sub>i</sub> - Σl<sub>j</sub> + G<sub>B</sub> + G<sub>T</sub>] ÷ Σ(u<sub>i</sub>+o<sub>i</sub>)</div>
-        <p><code>b<sub>ik</sub></code>是第 i 类资产业务在一年内第 k 个重定价期限桶的原始规模，<code>w<sub>k</sub></code>是该期限桶的调整权重；<code>r<sub>i</sub></code>是进入分子的经期限调整重定价规模，<code>u<sub>i</sub></code>是进入分母的一年内原始规模，<code>o<sub>i</sub></code>是一年外及无明确重定价期限规模，<code>t<sub>i</sub></code>是总生息资产规模。<code>l<sub>j</sub></code>是第 j 类负债业务经期限调整重定价规模；G<sub>B</sub>、G<sub>T</sub>分别为银行账簿、交易账簿表外衍生品重定价缺口（应收－应付）。</p>
+        <p><code>b<sub>ik</sub></code>是第 i 类资产业务在一年内第 k 个重定价期限桶的原始规模，<code>w<sub>k</sub></code>是该期限桶的调整权重；<code>r<sub>i</sub></code>是进入分子的经期限调整重定价规模，<code>u<sub>i</sub></code>是页面所称的“一年内重定价”，<code>o<sub>i</sub></code>是页面所称的“一年外重定价”，<code>t<sub>i</sub></code>是总生息资产规模。<code>l<sub>j</sub></code>是第 j 类负债业务经期限调整重定价规模；G<sub>B</sub>、G<sub>T</sub>分别为银行账簿、交易账簿表外衍生品重定价缺口（应收－应付）。</p>
         <ul>
           <li>法人汇总剔除内部交易；单个境外分行包含内部交易；</li>
           <li>负债端不含活期存款；</li>
           <li>资产端业务：自营贷款、投资类资产、同业资产、自营非标投资、存放央行、内部交易资产；</li>
           <li>负债端业务：定期存款、同业负债、发行债券、向央行借款、租赁负债、内部交易负债。</li>
         </ul>
-        <div class="callout callout--important"><strong>一年外部分不能用“总规模－经期限调整规模”计算：</strong><code>oᵢ=tᵢ-uᵢ</code>，而不是 <code>tᵢ-rᵢ</code>。分子中的 <code>rᵢ</code> 已乘期限权重；只有未加权的一年内原始规模 <code>uᵢ</code> 才能与一年外部分共同还原总生息资产。</div>
+        <div class="callout callout--important"><strong>两个页面名称对应两项原始规模：</strong>“一年内重定价”取 <code>uᵢ=Σbᵢₖ</code>；“一年外重定价”取 <code>oᵢ=tᵢ-uᵢ</code>，而不是 <code>tᵢ-rᵢ</code>。分子中的 <code>rᵢ</code> 已乘期限权重，不能拿它从总规模中相减。按项目现行数据口径，“一年外重定价”同时承接一年外及无明确重定价期限部分，但页面统一使用用户确认的名称。</div>
         <h3>8.2 正式因素定义：同一组期限桶只替换一次</h3>
-        <p>一年内原始规模 <code>uᵢ</code> 和分子端经期限调整规模 <code>rᵢ</code> 都来自同一组期限桶 <code>Bᵢ={bᵢ₁,…,bᵢₖ}</code>。它们不是两个可以自由排列的因素：轮到一年内业务变化时，必须一次性把整组期限桶由基期替换为本期，并同时重算分子端 <code>rᵢ</code> 和分母端 <code>uᵢ</code>。因此，正式末级因素不是“重定价规模/总规模”，而是：</p>
+        <p>一年内重定价 <code>uᵢ</code> 和分子端经期限调整规模 <code>rᵢ</code> 都来自同一组期限桶 <code>Bᵢ={bᵢ₁,…,bᵢₖ}</code>。它们不是两个可以自由排列的因素：轮到“一年内重定价”变化时，必须一次性把整组期限桶由基期替换为本期，并同时重算分子端 <code>rᵢ</code> 和分母端 <code>uᵢ</code>。因此，正式末级因素及页面名称为：</p>
         <div class="tree">
           <div>第1层：资产端业务｜负债端业务｜银行账簿衍生品｜交易账簿衍生品</div>
           <div class="l2">第2层（资产端）：自营贷款｜投资类资产｜同业资产｜自营非标投资｜存放央行｜内部交易资产</div>
-          <div class="l3">第3层（每类资产业务）：一年内重定价资产联合因素 Bᵢ｜一年外及无明确重定价期限规模 oᵢ</div>
+          <div class="l3">第3层（每类资产业务）：一年内重定价 Bᵢ｜一年外重定价 oᵢ</div>
           <div class="l3">Bᵢ替换时：分子 rᵢ=Σwₖbᵢₖ 与分母 uᵢ=Σbᵢₖ 同步更新</div>
           <div class="l3">oᵢ替换时：只更新分母，不改变分子</div>
         </div>
-        <div class="callout callout--important"><strong>联合因素不是两个字段组成的内部联盟：</strong><code>rᵢ</code>和<code>uᵢ</code>只是同一底层期限桶状态的两个派生结果，内部不存在“谁先替换”。只有一年内联合因素 <code>Bᵢ</code> 与一年外部分 <code>oᵢ</code>之间存在两种允许顺序。</div>
+        <div class="callout callout--important"><strong>“一年内重定价”是联合因素，不是单一汇总数：</strong>卡片当前值、增量和增速按 <code>uᵢ=Σbᵢₖ</code> 展示；归因影响则通过联合替换完整期限桶向量 <code>Bᵢ</code> 计算，从而同步反映 <code>rᵢ</code> 与 <code>uᵢ</code> 的变化。<code>rᵢ</code>和<code>uᵢ</code>内部不存在“谁先替换”，只有“一年内重定价” <code>Bᵢ</code> 与“一年外重定价” <code>oᵢ</code>之间存在两种允许顺序。</div>
         <p>四大业务组、资产业务类别和业务内部两个正式因素依次保持为联盟结构，使用三层嵌套 Owen：</p>
         <ol>
           <li>枚举资产、负债、两类衍生品四个一级组的外部环境；</li>
           <li>在每个一级环境中枚举有效资产业务类别的联盟状态；</li>
-          <li>在每类资产业务内部，对“一年内联合因素→一年外部分”和“一年外部分→一年内联合因素”两种顺序取平均；</li>
+          <li>在每类资产业务内部，对“一年内重定价→一年外重定价”和“一年外重定价→一年内重定价”两种顺序取平均；</li>
           <li>业务类别合计影响等于两个末级影响之和，资产端合计影响等于全部有效资产业务类别影响之和。</li>
         </ol>
         <p>负债和衍生品只线性进入分子，不再枚举其内部顺序，统一使用平均分母系数 <code>½(100/T₀+100/T₁)</code> 分配。</p>
         <h3>8.3 反事实状态与业务解释</h3>
-        <p>业务内部只会形成 <code>{B₀,o₀}</code>、<code>{B₁,o₀}</code>、<code>{B₀,o₁}</code>、<code>{B₁,o₁}</code> 四种状态。每一种状态的总规模都由“一年内原始规模＋一年外部分”重新计算，不再出现“本期分子规模配基期总规模”这类重复或不一致状态。只要各期限桶及一年外部分均非负，任一混合状态仍保持总生息资产构成完整。</p>
-        <div class="callout callout--warn"><strong>生产计算必须校验：</strong>基期、本期使用相同的期限桶顺序和权重；期限桶与源系统总生息资产均为有限非负数；程序按 <code>oᵢ=tᵢ-Σ期限桶</code> 计算一年外部分并校验其非负，从输入层消除无法勾稽的独立残余值；全部真实及Owen混合状态的总分母必须大于0。</div>
+        <p>业务内部只会形成 <code>{B₀,o₀}</code>、<code>{B₁,o₀}</code>、<code>{B₀,o₁}</code>、<code>{B₁,o₁}</code> 四种状态。每一种状态的总规模都由“一年内重定价＋一年外重定价”重新计算，不再出现“本期分子规模配基期总规模”这类重复或不一致状态。只要各期限桶及一年外重定价均非负，任一混合状态仍保持总生息资产构成完整。</p>
+        <div class="callout callout--warn"><strong>生产计算必须校验：</strong>基期、本期使用相同的期限桶顺序和权重；期限桶与源系统总生息资产均为有限非负数；程序按 <code>oᵢ=tᵢ-Σ期限桶</code> 计算一年外重定价并校验其非负，从输入层消除无法勾稽的独立残余值；全部真实及Owen混合状态的总分母必须大于0。</div>
         <h3>8.4 计算量</h3>
         <p>使用子集权重实现，不生成完整排列。若有效资产业务数为 n：</p>
         <div class="formula">资产末级归因边际差 = 16 × n × 2<sup>n</sup><br>四个一级组控制边际差 = 32<br>边际差合计 = 16 × n × 2<sup>n</sup> + 32<br>指标函数求值次数（未缓存） = 32 × n × 2<sup>n</sup> + 64</div>
         <div class="table-wrap"><table><thead><tr><th>范围</th><th>有效资产业务 n</th><th>边际差合计</th><th>未缓存函数求值</th></tr></thead><tbody><tr><td>法人汇总（内部交易置零并从运算剔除）</td><td>5</td><td>2,592</td><td>5,184</td></tr><tr><td>单个境外分行</td><td>6</td><td>6,176</td><td>12,352</td></tr></tbody></table></div>
-        <p>因素数量与原“双字段”方法相同，因此计算量不增加；但一年内因素现在是期限桶向量的联合替换，业务解释更严格。基期、本期总规模都为0的资产业务是理论上的“虚拟玩家”，参考实现会在完成两期业务编码一致性校验后从有效运算集合剔除，不改变其他因素影响。该数量对单机构、单币种、单时点计算很小；批量回溯时按“机构×币种×日期”并行，并缓存重复联盟状态即可。</p>
+        <p>因素数量与原“双字段”方法相同，因此计算量不增加；但“一年内重定价”现在是期限桶向量的联合替换，业务解释更严格。基期、本期总规模都为0的资产业务是理论上的“虚拟玩家”，参考实现会在完成两期业务编码一致性校验后从有效运算集合剔除，不改变其他因素影响。该数量对单机构、单币种、单时点计算很小；批量回溯时按“机构×币种×日期”并行，并缓存重复联盟状态即可。</p>
         <h3>8.5 数值例子</h3>
-        <p>简化为两个一年内期限桶，权重为 <code>[1,0.5]</code>。贷款期限桶由[40,60]变为[50,70]，总生息资产由200变为210，故一年外部分由100变为90；投资期限桶由[30,50]变为[25,45]，总生息资产由150变为160，故一年外部分由70变为90。负债经期限调整重定价规模100→105，银行账簿缺口5→4，交易账簿缺口-2→0。</p>
+        <p>简化为两个一年内期限桶，权重为 <code>[1,0.5]</code>。贷款“一年内重定价”由100变为120，总生息资产由200变为210，故“一年外重定价”由100变为90；投资“一年内重定价”由80变为70，总生息资产由150变为160，故“一年外重定价”由70变为90。负债经期限调整重定价规模100→105，银行账簿缺口5→4，交易账簿缺口-2→0。</p>
         <div class="table-wrap"><table>
-          <thead><tr><th>因素</th><th>一年内联合影响</th><th>一年外部分影响</th><th>合计影响（pct）</th></tr></thead>
+          <thead><tr><th>因素</th><th>一年内重定价影响</th><th>一年外重定价影响</th><th>合计影响（pct）</th></tr></thead>
           <tbody>
             <tr><td>贷款</td><td>+3.709895</td><td>+0.227846</td><td>+3.937741</td></tr>
             <tr><td>投资</td><td>-1.857103</td><td>-0.455155</td><td>-2.312259</td></tr>
@@ -489,7 +489,7 @@
           </tbody>
         </table></div>
         <div class="reconcile">基期资产经期限调整规模=70+55=125，总生息资产=200+150=350，缺口率=28/350=8.000000%；本期资产经期限调整规模=85+47.5=132.5，总生息资产=210+160=370，缺口率=31.5/370=8.513514%；全部因素合计+0.513514pct，与指标变化完全一致。</div>
-        <p class="page-note">一年内联合影响已经同时包含同一期限桶变化对分子和分母的作用，不能再把它解释成单独的“分子影响”。一年外部分只进入分母。总规模仍可在页面展示为 <code>uᵢ+oᵢ</code>，但不再作为独立归因因素。</p>
+        <p class="page-note">“一年内重定价”的影响已经同时包含同一期限桶变化对分子和分母的作用，不能再把它解释成单独的“分子影响”。“一年外重定价”只进入分母。两项卡片的当前值、增量和增速分别来自 <code>uᵢ</code> 与 <code>oᵢ</code>；总规模 <code>uᵢ+oᵢ</code> 不再作为独立归因因素。</p>
       </section>
 
       <section id="interface">
@@ -538,8 +538,8 @@
           "label": "investment",
           "impact": -2.3122586872586868,
           "children": [
-            { "key": "investment.withinOneYear", "label": "一年内重定价资产（分子/分母联动）", "impact": -1.85710326093453 },
-            { "key": "investment.beyondOneYear", "label": "一年外及无明确重定价期限资产", "impact": -0.45515542632415684 }
+            { "key": "investment.withinOneYear", "label": "一年内重定价", "impact": -1.85710326093453 },
+            { "key": "investment.beyondOneYear", "label": "一年外重定价", "impact": -0.45515542632415684 }
           ]
         },
         {
@@ -547,8 +547,8 @@
           "label": "loan",
           "impact": 3.937741312741313,
           "children": [
-            { "key": "loan.withinOneYear", "label": "一年内重定价资产（分子/分母联动）", "impact": 3.709895017751055 },
-            { "key": "loan.beyondOneYear", "label": "一年外及无明确重定价期限资产", "impact": 0.22784629499025796 }
+            { "key": "loan.withinOneYear", "label": "一年内重定价", "impact": 3.709895017751055 },
+            { "key": "loan.beyondOneYear", "label": "一年外重定价", "impact": 0.22784629499025796 }
           ]
         }
       ]
@@ -614,17 +614,17 @@
             <tr><td><code>decomposeNsfr</code></td><td><code>asf/rsf</code></td><td>ASF非负，RSF必须大于0</td></tr>
             <tr><td><code>decomposeLiquidityRatio</code></td><td><code>assets/liabilities</code> 为剔除同业净额后的项目键值对象；另传 <code>interbankNetPosition</code></td><td>资产、负债项目非负且全部混合分母有效；同业净头寸允许有符号，跨零时按每条路径桥接</td></tr>
             <tr><td><code>decomposeLiquidityGap</code></td><td>10个监管报表末级项目</td><td>10项必须完整且非负，并使用同一期限T；缺口金额直接线性分解，缺口率采用N/A两组Owen</td></tr>
-            <tr><td><code>decomposeRepricingGapRate</code></td><td><code>repricingWeights</code>；每类资产传 <code>withinOneYearBuckets/totalInterestAssetScale</code>；另传 <code>liabilities/bankBook/tradingBook</code></td><td>程序按“总生息资产－一年内期限桶合计”派生并校验一年外部分；一年内期限桶作为一个联合因素，同时重算分子加权规模和分母原始规模</td></tr>
+            <tr><td><code>decomposeRepricingGapRate</code></td><td><code>repricingWeights</code>；每类资产传 <code>withinOneYearBuckets/totalInterestAssetScale</code>；另传 <code>liabilities/bankBook/tradingBook</code></td><td>程序按“总生息资产－一年内重定价”派生并校验一年外重定价；一年内期限桶作为一个联合因素，同时重算分子加权规模和分母原始规模</td></tr>
           </tbody>
         </table></div>
         <h3>9.4 页面字段映射</h3>
-        <p>结果指标卡只显示“当前值、较基期”；不再重复显示“影响”。分解因素卡显示“当前值、增量、增速、影响”。页面中的增量/增速来自原始因子本身，影响来自本文算法，两者不可互相替代。</p>
+        <p>结果指标卡只显示“当前值、较基期”；不再重复显示“影响”。分解因素卡显示“当前值、增量、增速、影响”。页面中的增量/增速来自原始因子本身，影响来自本文算法，两者不可互相替代。重定价缺口率资产卡固定使用“一年内重定价”和“一年外重定价”两个名称：前者的当前值、增量、增速按 <code>uᵢ</code> 计算，后者按 <code>oᵢ</code> 计算；前者的影响仍按完整期限桶向量 <code>Bᵢ</code> 联合替换计算。</p>
         <p class="page-note">参考代码对动态业务类别暂以稳定业务编码同时填充 <code>key</code> 和 <code>label</code>；生产服务应在计算完成后用统一数据字典补充中文 <code>label</code>，但不得用中文名称作为因素唯一键，也不得因名称变化改变两期因素对齐结果。</p>
       </section>
 
       <section id="implementation">
         <h2>10. 完整可执行 JavaScript 参考实现</h2>
-        <p>以下代码无第三方依赖，可直接复制到浏览器或 Node.js。它通过6个指标分解入口覆盖本文七类指标（流动性缺口入口同时返回金额和缺口率），默认原始精度计算、严格勾稽；重定价缺口率以一年内期限桶联合因素和由总规模派生的一年外部分构造全部混合状态。</p>
+        <p>以下代码无第三方依赖，可直接复制到浏览器或 Node.js。它通过6个指标分解入口覆盖本文七类指标（流动性缺口入口同时返回金额和缺口率），默认原始精度计算、严格勾稽；重定价缺口率以“一年内重定价”期限桶联合因素和由总规模派生的“一年外重定价”构造全部混合状态。</p>
         <div class="code-shell">
           <div class="code-toolbar"><span>risk-attribution-reference.js</span><span><button type="button" id="copy-code">复制全部代码</button> <button type="button" id="self-test">运行内置自测</button></span></div>
           <div class="code-scroll"><pre><code id="source-code">代码正在载入……</code></pre></div>
@@ -1518,8 +1518,8 @@
     const kLinear = 0.5 * (100 / D0 + 100 / D1);
     const assetChildren = assetKeys.map((key) => {
       const children = [
-        { key: key + ".withinOneYear", label: "一年内重定价资产（分子/分母联动）", impact: assetLeafImpact[key + ".withinOneYear"] },
-        { key: key + ".beyondOneYear", label: "一年外及无明确重定价期限资产", impact: assetLeafImpact[key + ".beyondOneYear"] },
+        { key: key + ".withinOneYear", label: "一年内重定价", impact: assetLeafImpact[key + ".withinOneYear"] },
+        { key: key + ".beyondOneYear", label: "一年外重定价", impact: assetLeafImpact[key + ".beyondOneYear"] },
       ];
       return { key, label: key, impact: sumImpacts(children), children };
     });
@@ -1864,7 +1864,7 @@
             <tr><td>分层勾稽</td><td>子项之和=父项影响；父项之和=总变化</td><td>定位到具体层级和因素编码</td></tr>
             <tr><td>集合一致</td><td>基期、本期业务编码完全一致</td><td>新增/退出业务补0后重算</td></tr>
             <tr><td>分母有效</td><td>全部真实和反事实状态分母&gt;0</td><td>报数据质量错误</td></tr>
-            <tr><td>重定价期限构成有效</td><td>期限桶顺序、权重一致；期限桶和总生息资产非负；程序派生的一年外部分非负并逐业务勾稽</td><td>中止归因，核查期限映射、权重和源系统总生息资产</td></tr>
+            <tr><td>重定价期限构成有效</td><td>期限桶顺序、权重一致；期限桶和总生息资产非负；程序派生的一年外重定价非负并逐业务勾稽</td><td>中止归因，核查期限映射、权重和源系统总生息资产</td></tr>
           </tbody>
         </table></div>
         <h3>11.2 max 与并列规则</h3>

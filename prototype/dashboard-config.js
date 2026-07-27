@@ -274,6 +274,16 @@ window.dashboardConfig = {
       ],
       "simulationBehavior": {
         "sensitivity": 0.16
+      },
+      "aiInsight": {
+        "mode": "rightDrawer",
+        "importantCurrencyThreshold": 5,
+        "suggestions": [
+          "重定价缺口率的变动是由什么导致的？",
+          "当前币种距离限额还有多大空间？",
+          "哪些币种属于重要币种？",
+          "当前重定价缺口率走势有什么特征？"
+        ]
       }
     },
     "14": {

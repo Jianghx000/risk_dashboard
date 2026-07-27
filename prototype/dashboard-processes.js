@@ -3098,12 +3098,38 @@ function buildRepricingGapDiagnosticModel(widget, chartContextOrState = {}) {
     tradingBookDerivativeGap[simulationTargetIndex] = simulationResult.baseMetrics.tradingBookDerivativeGap;
     numerator[simulationTargetIndex] = simulationResult.baseMetrics.repricingGap;
   }
+  const withinOneYearInterestAssets = Array(count).fill(0);
+  const beyondOneYearInterestAssets = Array(count).fill(0);
+  assetItems.forEach((item) => {
+    const totalItem = totalInterestAssetsByBusiness[item.key];
+    if (!totalItem) throw new RangeError(`${item.title}缺少总生息资产规模序列`);
+    item.withinOneYearValues = Array.from({ length: count }, (_, dateIndex) => {
+      const value = item.withinOneYearBucketSeries.reduce((sum, series) => (
+        sum + assertProcessFiniteNumber(series[dateIndex], `${item.title}一年内重定价`)
+      ), 0);
+      if (value < 0) throw new RangeError(`${item.title}一年内重定价不得为负数`);
+      withinOneYearInterestAssets[dateIndex] += value;
+      return value;
+    });
+    item.beyondOneYearValues = Array.from({ length: count }, (_, dateIndex) => {
+      const totalScale = assertProcessFiniteNumber(totalItem.values[dateIndex], `${item.title}总生息资产规模`);
+      const withinOneYearScale = item.withinOneYearValues[dateIndex];
+      const value = totalScale - withinOneYearScale;
+      const tolerance = 1e-9 * Math.max(1, totalScale, withinOneYearScale);
+      if (value < -tolerance) throw new RangeError(`${item.title}一年内重定价不能大于总生息资产规模`);
+      const normalized = Math.max(0, value);
+      beyondOneYearInterestAssets[dateIndex] += normalized;
+      return normalized;
+    });
+  });
   return {
     labels,
     displayLabels: buildEveDisplayLabels(labels),
     signature,
     limit: 38,
     totalInterestAssets,
+    withinOneYearInterestAssets,
+    beyondOneYearInterestAssets,
     adjustedInterestAssets,
     adjustedInterestLiabilities,
     bankBookReceivable,
@@ -3369,10 +3395,6 @@ function renderRepricingGapBusinessStrip(title, formula, cards = []) {
 function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, activeNode, detailExpandedNodes = [], impactMap = {}) {
   const expandedNodeKeys = Array.isArray(detailExpandedNodes) ? detailExpandedNodes : [];
   const isExpanded = (key) => expandedNodeKeys.includes(key);
-  const totalInterestAssetsByBusiness = Object.fromEntries(model.totalInterestAssetItems.map((item) => [
-    item.key.replace(/^total-/, ""),
-    item,
-  ]));
   const cardOptions = { selectedIndex, comparisonIndex, activeNode, labels: model.displayLabels };
   const branches = [
     {
@@ -3381,39 +3403,39 @@ function renderRepricingGapAttribution(model, selectedIndex, comparisonIndex, ac
       note: `口径：${model.scopeLabel}`,
       metrics: [
         {
-          label: "重定价规模",
-          values: model.adjustedInterestAssets,
+          label: "一年内重定价",
+          values: model.withinOneYearInterestAssets,
           impact: impactMap["adjusted-assets:withinOneYear"],
-          impactTitle: "一年内期限桶联合替换对分子重定价规模和分母一年内规模的共同影响",
+          impactTitle: "一年内重定价期限桶联合替换对分子加权重定价规模和分母一年内规模的共同影响",
         },
         {
-          label: "总规模",
-          values: model.totalInterestAssets,
+          label: "一年外重定价",
+          values: model.beyondOneYearInterestAssets,
           impact: impactMap["adjusted-assets:beyondOneYear"],
-          impactTitle: "一年外及无明确重定价期限资产规模变化的影响",
+          impactTitle: "一年外重定价规模变化对分母的影响",
         },
       ],
       children: renderRepricingGapBusinessStrip(
         "资产端业务类别",
-        "重定价规模 = Σ（一年内各期限桶 × 期限权重）；总规模 = 一年内期限桶合计 + 一年外及无明确重定价期限资产",
+        "一年内重定价 = 一年内各期限桶原始规模合计；一年外重定价 = 总生息资产规模 - 一年内重定价",
         model.assetItems.map((item) => renderRepricingGapAttributionCard({
-        ...cardOptions,
-        key: item.key,
-        title: item.title,
-        metrics: [
-          {
-            label: "重定价规模",
-            values: item.values,
-            impact: impactMap[`${item.key}:withinOneYear`],
-            impactTitle: "一年内期限桶联合替换对分子重定价规模和分母一年内规模的共同影响",
-          },
-          {
-            label: "总规模",
-            values: totalInterestAssetsByBusiness[item.key]?.values || [],
-            impact: impactMap[`${item.key}:beyondOneYear`],
-            impactTitle: "一年外及无明确重定价期限资产规模变化的影响",
-          },
-        ],
+          ...cardOptions,
+          key: item.key,
+          title: item.title,
+          metrics: [
+            {
+              label: "一年内重定价",
+              values: item.withinOneYearValues,
+              impact: impactMap[`${item.key}:withinOneYear`],
+              impactTitle: "一年内重定价期限桶联合替换对分子加权重定价规模和分母一年内规模的共同影响",
+            },
+            {
+              label: "一年外重定价",
+              values: item.beyondOneYearValues,
+              impact: impactMap[`${item.key}:beyondOneYear`],
+              impactTitle: "一年外重定价规模变化对分母的影响",
+            },
+          ],
           impact: impactMap[item.key],
         }))
       ),

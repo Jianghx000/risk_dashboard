@@ -536,6 +536,10 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     expect(model.totalInterestAssets[0]).toBe(Number(model.totalInterestAssetItems.reduce(
       (sum, item) => sum + item.values[0], 0
     ).toFixed(1)));
+    expect(model.totalInterestAssets[0]).toBeCloseTo(
+      model.withinOneYearInterestAssets[0] + model.beyondOneYearInterestAssets[0],
+      8
+    );
   }
   await repricingGapWidget.scrollIntoViewIfNeeded();
   await repricingGapWidget.locator('[data-repricing-gap-point="true"]').nth(3).click({ force: true });
@@ -554,14 +558,14 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="denominator"] .eve-process-node__impact')).toHaveCount(0);
   await expect(page.locator('#repricingGapProcessModal .repricing-gap-attribution-card--branch')).toHaveCount(4);
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u8d44\u4ea7\u7aef\u4e1a\u52a1");
-  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
-  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u603b\u89c4\u6a21");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("一年内重定价");
+  await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("一年外重定价");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).toContainText("\u5f71\u54cd");
   const assetBranchMetrics = page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"] .repricing-gap-attribution-card__metric');
   await expect(assetBranchMetrics).toHaveCount(2);
-  await expect(assetBranchMetrics.nth(0)).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
+  await expect(assetBranchMetrics.nth(0)).toContainText("一年内重定价");
   await expect(assetBranchMetrics.nth(0).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
-  await expect(assetBranchMetrics.nth(1)).toContainText("\u603b\u89c4\u6a21");
+  await expect(assetBranchMetrics.nth(1)).toContainText("一年外重定价");
   await expect(assetBranchMetrics.nth(1).locator(".repricing-gap-attribution-card__metric-impact")).toContainText("\u5f71\u54cd");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"] > .repricing-gap-attribution-card__select .repricing-gap-attribution-card__impact')).toContainText("\u5408\u8ba1\u5f71\u54cd");
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]')).not.toContainText("\u5f53\u524d\u91cd\u5b9a\u4ef7\u89c4\u6a21");
@@ -575,7 +579,7 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
   await expect(page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="trading-book-receivable"]')).toHaveCount(0);
   await page.locator('[data-repricing-gap-process-node="adjusted-assets"] .eve-process-node__action').click();
   await expect(page.locator("#repricingGapProcessModal .repricing-gap-business-expansion")).toHaveCount(1);
-  await expect(page.locator("#repricingGapProcessModal")).toContainText("重定价规模 = Σ（一年内各期限桶 × 期限权重）；总规模 = 一年内期限桶合计 + 一年外及无明确重定价期限资产");
+  await expect(page.locator("#repricingGapProcessModal")).toContainText("一年内重定价 = 一年内各期限桶原始规模合计；一年外重定价 = 总生息资产规模 - 一年内重定价");
   const numeratorNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="numerator"]').boundingBox();
   const assetNodeBox = await page.locator('#repricingGapProcessModal [data-repricing-gap-process-node="adjusted-assets"]').boundingBox();
   const assetLeafBox = await page.locator("#repricingGapProcessModal .repricing-gap-business-expansion").boundingBox();
@@ -592,8 +596,8 @@ test("\u5165\u53e3\u9875\u548c\u4e00\u7ea7\u5bfc\u822a\u5b58\u5728", async ({ pa
     nodes.map((node) => Math.round(node.getBoundingClientRect().width))
   );
   expect(new Set(repricingLeafWidths)).toEqual(new Set([276]));
-  await expect(loanRepricingCard).toContainText("\u91cd\u5b9a\u4ef7\u89c4\u6a21");
-  await expect(loanRepricingCard).toContainText("\u603b\u89c4\u6a21");
+  await expect(loanRepricingCard).toContainText("一年内重定价");
+  await expect(loanRepricingCard).toContainText("一年外重定价");
   await expect(loanRepricingCard).not.toContainText("\u5f53\u524d\u91cd\u5b9a\u4ef7\u89c4\u6a21");
   await expect(loanRepricingCard).not.toContainText("\u5f53\u524d\u603b\u751f\u606f\u8d44\u4ea7");
   await expect(loanRepricingCard).toContainText("\u589e\u91cf");
@@ -1283,8 +1287,14 @@ test("计算过程影响归因逐级加总一致", async ({ page }) => {
       ), 0);
       if (!totalItem
         || withinScale > Number(totalItem.values[selectedIndex]) + 1e-7
-        || Math.abs(adjustedScale - Number(item.values[selectedIndex])) > 1e-7) {
-        throw new Error(`重定价缺口率${item.title}期限桶未与重定价规模、总规模勾稽`);
+        || Math.abs(adjustedScale - Number(item.values[selectedIndex])) > 1e-7
+        || Math.abs(withinScale - Number(item.withinOneYearValues[selectedIndex])) > 1e-7
+        || Math.abs(
+          Number(totalItem.values[selectedIndex])
+          - Number(item.withinOneYearValues[selectedIndex])
+          - Number(item.beyondOneYearValues[selectedIndex])
+        ) > 1e-7) {
+        throw new Error(`重定价缺口率${item.title}期限桶未与一年内重定价、一年外重定价及总生息资产勾稽`);
       }
     });
     if (repricingImpacts.attributionMethod !== "three-level-nested-owen-with-joint-within-year-factor"
@@ -1407,6 +1417,8 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
     return {
       repricing: {
         targetIndex: repricingIndex,
+        simulationDate: repricingScenario.simulationDate,
+        expectedSimulationDate: getSimulationMonthEndDate(repricingScenario.baseDate),
         includesInternalTransactions: repricingScenario.includesInternalTransactions,
         metrics: repricingScenario.baseMetrics,
         branches: repricingBranches,
@@ -1419,6 +1431,8 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
       },
       liquidity: {
         targetIndex: liquidityIndex,
+        simulationDate: liquidityScenario.simulationDate,
+        expectedSimulationDate: getSimulationMonthEndDate(liquidityScenario.baseDate),
         expectedGap: liquidityScenario.baseMetrics.cumulativeTotals[bucketIndex],
         expectedRatio: liquidityScenario.baseMetrics.gapRatios[bucketIndex],
         expectedSimulatedGap: liquidityScenario.simulatedMetrics.cumulativeTotals[bucketIndex],
@@ -1444,6 +1458,7 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
   });
 
   expect(audit.repricing.targetIndex).toBeGreaterThanOrEqual(0);
+  expect(audit.repricing.simulationDate).toBe(audit.repricing.expectedSimulationDate);
   expect(audit.repricing.includesInternalTransactions).toBeFalsy();
   expect(audit.repricing.hasInternalAssetLeaf).toBeFalsy();
   expect(audit.repricing.hasInternalLiabilityLeaf).toBeFalsy();
@@ -1471,6 +1486,7 @@ test("模拟基准与计算过程各层数据保持闭合", async ({ page }) => 
     repricingGap: 110,
   });
   expect(audit.liquidity.targetIndex).toBeGreaterThanOrEqual(0);
+  expect(audit.liquidity.simulationDate).toBe(audit.liquidity.expectedSimulationDate);
   expect(audit.liquidity.gap).toBe(audit.liquidity.expectedGap);
   expect(audit.liquidity.ratio).toBe(audit.liquidity.expectedRatio);
   expect(audit.liquidity.simulatedGap).toBe(audit.liquidity.expectedSimulatedGap);
@@ -1987,10 +2003,12 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(simulationModal.getByRole("heading", { name: TEXT.simulationButton, exact: true })).toBeVisible();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const baselineTable = simulationModal.locator(".repricing-base-table").first();
+  const currentEndDate = await page.locator("#globalEndDate").inputValue();
+  const defaultSimulationDate = await page.evaluate((baseDate) => getSimulationMonthEndDate(baseDate), currentEndDate);
   await expect(simulationModal).toContainText("当前机构口径剔除内部交易；负债端不含活期存款");
   await expect(baselineTable.locator('[data-repricing-base-row="\u6d3b\u671f\u5b58\u6b3e"]')).toHaveClass(/is-excluded-from-metric/);
   await expect(baselineTable.locator('[data-repricing-base-row="\u5185\u90e8\u4ea4\u6613\u8d44\u4ea7"]')).toHaveClass(/is-excluded-from-metric/);
-  await expect(simulationModal).toContainText("\u5f53\u524d\u57fa\u51c6\uff1a\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
+  await expect(simulationModal).toContainText(`当前基准：沿用当前时点（${currentEndDate}）缺口表；`);
   await expect(baselineTable.locator("thead th").nth(0)).toHaveText("\u4e1a\u52a1\u7c7b\u522b");
   await expect(baselineTable.locator("thead th:not(:first-child)")).toHaveCount(14);
   await expect(simulationModal.locator('[data-repricing-base-total="\u751f\u606f\u8d44\u4ea7"]')).toBeVisible();
@@ -2005,8 +2023,16 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
     await expect(baselineTable.locator(`[data-repricing-base-row="${derivativeType}"]`)).toBeVisible();
   }
 
-  const currentEndDate = await page.locator("#globalEndDate").inputValue();
   await expect(simulationModal.locator('[data-simulation-base-date="repricing"]')).toContainText(currentEndDate);
+  const repricingSimulationDate = simulationModal.locator('[data-simulation-target-date="repricing"]');
+  await expect(repricingSimulationDate).toHaveValue(defaultSimulationDate);
+  await expect(repricingSimulationDate).toHaveAttribute("min", currentEndDate);
+  await expect(simulationModal).toContainText("默认取当前基准日期所在月月末");
+  const alternativeSimulationDate = await page.evaluate((date) => addDays(date, 7), defaultSimulationDate);
+  await repricingSimulationDate.fill(alternativeSimulationDate);
+  expect(await page.evaluate(() => getRepricingGapSimulationDraft().simulationDate)).toBe(alternativeSimulationDate);
+  await simulationModal.locator('[data-simulation-target-date="repricing"]').fill(defaultSimulationDate);
+  await expect(simulationModal.locator(".simulation-baseline-date")).toHaveCount(0);
   await expect(simulationModal.locator('[data-repricing-base-date]')).toHaveCount(0);
   await expect(simulationModal.locator('[data-repricing-quick-config]')).toHaveCount(0);
   await expect(simulationModal.locator('[data-repricing-base-upload]')).toHaveCount(0);
@@ -2017,10 +2043,12 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(baselineTable.locator("input")).toHaveCount(0);
   const repricingBaselineAudit = await page.evaluate(() => ({
     baseDate: getRepricingGapSimulationDraft().baseDate,
+    simulationDate: getRepricingGapSimulationDraft().simulationDate,
     baseMatrix: getRepricingGapSimulationDraft().baseMatrix,
     currentMatrix: buildCurrentRepricingGapMatrix(),
   }));
   expect(repricingBaselineAudit.baseDate).toBe(currentEndDate);
+  expect(repricingBaselineAudit.simulationDate).toBe(defaultSimulationDate);
   expect(repricingBaselineAudit.baseMatrix).toEqual(repricingBaselineAudit.currentMatrix);
   await expect(simulationModal).toContainText("\u57fa\u51c6\u7f3a\u53e3\u7387");
   await expect(simulationModal.locator('[data-repricing-simulation-entry]')).toHaveCount(2);
@@ -2030,16 +2058,28 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(repricingSourceSection).toContainText("\u8d44\u91d1\u6765\u6e90");
   await expect(repricingUseSection.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
   await expect(repricingSourceSection.locator('[data-repricing-simulation-entry]')).toHaveCount(1);
+  await expect(simulationModal.getByRole("heading", { name: "业务变动录入", exact: true })).toBeVisible();
+  await expect(simulationModal).toContainText("资金角色按录入区域固定");
   await expect(repricingUseSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u8fd0\u7528\u4e1a\u52a1", exact: true })).toBeVisible();
   await expect(repricingSourceSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u6765\u6e90\u4e1a\u52a1", exact: true })).toBeVisible();
   await expect(repricingUseSection.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
   await expect(repricingUseSection.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
-  await expect(repricingUseSection.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("变动方向", { exact: true })).toBeVisible();
+  await expect(repricingUseSection.getByText("变动规模（亿元）", { exact: true })).toBeVisible();
   await expect(repricingUseSection.getByText("\u91cd\u5b9a\u4ef7\u9891\u7387", { exact: true })).toBeVisible();
   await expect(repricingUseSection.getByText("\u4e0b\u6b21\u91cd\u5b9a\u4ef7\u65f6\u95f4", { exact: true })).toBeVisible();
+  const repricingSourceEntryIndex = await repricingSourceSection.locator('[data-repricing-simulation-entry]').first().getAttribute("data-repricing-simulation-entry");
+  await simulationModal.locator(`[data-repricing-simulation-entry="${repricingSourceEntryIndex}"] [data-repricing-simulation-field="businessType"]`).selectOption("同业资产");
+  const repricingAssetReductionEntry = simulationModal.locator(`[data-repricing-simulation-entry="${repricingSourceEntryIndex}"]`);
+  await expect(repricingSourceSection.locator(`[data-repricing-simulation-entry="${repricingSourceEntryIndex}"]`)).toBeVisible();
+  await expect(repricingAssetReductionEntry.locator('[data-repricing-simulation-field="changeDirection"]')).toHaveValue("减少");
+  await expect(repricingAssetReductionEntry.locator(".simulation-entry__role-badge")).toHaveText("固定归属：资产端减少 → 资金来源");
+  await expect(repricingAssetReductionEntry.locator(".simulation-form__hint")).toHaveText("资金来源卡片固定归属；资产端业务仅可选择“减少”。");
+  await expect(repricingAssetReductionEntry.locator('[data-repricing-simulation-field="changeDirection"]')).toBeDisabled();
+  await expect(repricingAssetReductionEntry.locator('[data-repricing-simulation-field="changeDirection"] option[value="增加"]')).toBeDisabled();
   const scaleField = repricingUseSection.locator('[data-repricing-simulation-field="scale"]');
-  await scaleField.fill("-25.5");
-  await expect(scaleField).toHaveValue("-25.5");
+  await scaleField.fill("25.5");
+  await expect(scaleField).toHaveValue("25.5");
   const repricingOccurrenceDate = await page.evaluate((date) => addDays(date, 30), currentEndDate);
   const repricingNextDate = await page.evaluate((date) => addMonthsDateValue(date, 3), repricingOccurrenceDate);
   await repricingUseSection.locator('[data-repricing-simulation-field="occurrenceDate"]').fill(repricingOccurrenceDate);
@@ -2054,6 +2094,14 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   const baseBucketValue = Number(await simulationModal.locator('[data-repricing-base-row="\u81ea\u8425\u8d37\u6b3e"] td').nth(repricingBucketIndex + 1).textContent());
   const resultBucketValue = Number(await simulationModal.locator('[data-repricing-result-row="\u81ea\u8425\u8d37\u6b3e"] td').nth(repricingBucketIndex + 1).textContent());
   expect(Number((resultBucketValue - baseBucketValue).toFixed(1))).toBe(100);
+  const repricingSourceNextDate = await repricingAssetReductionEntry.locator('[data-repricing-simulation-field="nextRepricingDate"]').inputValue();
+  const repricingSourceBucketIndex = await page.evaluate(
+    ({ baseDate, nextDate }) => getRepricingGapBucketIndex(baseDate, nextDate),
+    { baseDate: currentEndDate, nextDate: repricingSourceNextDate }
+  );
+  const sourceBaseBucketValue = Number(await simulationModal.locator('[data-repricing-base-row="同业资产"] td').nth(repricingSourceBucketIndex + 1).textContent());
+  const sourceResultBucketValue = Number(await simulationModal.locator('[data-repricing-result-row="同业资产"] td').nth(repricingSourceBucketIndex + 1).textContent());
+  expect(sourceResultBucketValue).toBeLessThan(sourceBaseBucketValue);
   await expect(simulationModal.getByRole("heading", { name: "\u6d4b\u7b97\u540e\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   for (const derivativeType of repricingDerivativeTypes) {
     await expect(simulationModal.locator(`[data-repricing-result-row="${derivativeType}"]`)).toBeVisible();
@@ -2064,9 +2112,10 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   const simulatedRatioText = await simulationModal.locator(".repricing-simulation-result-metrics strong").nth(1).textContent();
   expect(simulatedRatioText).not.toBe(baselineRatioText);
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText(`模拟测算日期：${defaultSimulationDate}`);
   await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
-  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u4e1a\u52a1\uff1a2\u7b14");
-  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u589e\u89c4\u6a21\u5408\u8ba1\uff1a150\u4ebf\u5143");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("业务变动：2笔");
+  await expect(repricingGapWidget.locator(".simulation-summary--widget")).toContainText("业务变动规模合计：150亿元");
   await expect(repricingGapWidget).toContainText("\u57fa\u51c6\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
   await expect(repricingGapWidget).toContainText("\u6d4b\u7b97\u540e\u91cd\u5b9a\u4ef7\u7f3a\u53e3\u7387");
   expect(await repricingGapWidget.locator("svg polyline").count()).toBeGreaterThanOrEqual(2);
@@ -2078,18 +2127,27 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await liquidityGapWidget.getByRole("button", { name: TEXT.simulationButton, exact: true }).click();
   await expect(simulationModal.getByRole("heading", { name: "\u57fa\u51c6\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   const liquidityBaselineTable = simulationModal.locator(".liquidity-gap-base-table").first();
-  await expect(simulationModal).toContainText("\u5f53\u524d\u57fa\u51c6\uff1a\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
+  await expect(simulationModal).toContainText(`当前基准：沿用当前时点（${currentEndDate}）缺口表；`);
   await expect(simulationModal.locator('[data-simulation-base-date="liquidity"]')).toContainText(currentEndDate);
+  const liquiditySimulationDate = simulationModal.locator('[data-simulation-target-date="liquidity"]');
+  await expect(liquiditySimulationDate).toHaveValue(defaultSimulationDate);
+  await expect(liquiditySimulationDate).toHaveAttribute("min", currentEndDate);
+  await liquiditySimulationDate.fill(alternativeSimulationDate);
+  expect(await page.evaluate(() => getLiquidityGapSimulationDraft().simulationDate)).toBe(alternativeSimulationDate);
+  await simulationModal.locator('[data-simulation-target-date="liquidity"]').fill(defaultSimulationDate);
+  await expect(simulationModal.locator(".simulation-baseline-date")).toHaveCount(0);
   await expect(simulationModal.locator('[data-liquidity-gap-base-date]')).toHaveCount(0);
   await expect(simulationModal.locator('[data-liquidity-gap-quick-config]')).toHaveCount(0);
   await expect(simulationModal.locator('[data-liquidity-gap-base-upload]')).toHaveCount(0);
   await expect(liquidityBaselineTable.locator("input")).toHaveCount(0);
   const liquidityBaselineAudit = await page.evaluate(() => ({
     baseDate: getLiquidityGapSimulationDraft().baseDate,
+    simulationDate: getLiquidityGapSimulationDraft().simulationDate,
     baseMatrix: getLiquidityGapSimulationDraft().baseMatrix,
     currentMatrix: buildCurrentLiquidityCashFlowGapMatrix(),
   }));
   expect(liquidityBaselineAudit.baseDate).toBe(currentEndDate);
+  expect(liquidityBaselineAudit.simulationDate).toBe(defaultSimulationDate);
   expect(liquidityBaselineAudit.baseMatrix).toEqual(liquidityBaselineAudit.currentMatrix);
   await expect(liquidityBaselineTable.locator("thead th")).toHaveText([
     "\u4e1a\u52a1\u7c7b\u522b",
@@ -2105,18 +2163,30 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await expect(liquiditySourceSection.locator('[data-liquidity-gap-simulation-entry]')).toHaveCount(1);
   await expect(liquidityUseSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u8fd0\u7528\u4e1a\u52a1", exact: true })).toBeVisible();
   await expect(liquiditySourceSection.getByRole("button", { name: "\u65b0\u589e\u8d44\u91d1\u6765\u6e90\u4e1a\u52a1", exact: true })).toBeVisible();
+  const liquiditySourceEntryIndex = await liquiditySourceSection.locator('[data-liquidity-gap-simulation-entry]').first().getAttribute("data-liquidity-gap-simulation-entry");
+  await simulationModal.locator(`[data-liquidity-gap-simulation-entry="${liquiditySourceEntryIndex}"] [data-liquidity-gap-simulation-field="businessType"]`).selectOption("存放同业");
+  const liquidityAssetReductionEntry = simulationModal.locator(`[data-liquidity-gap-simulation-entry="${liquiditySourceEntryIndex}"]`);
+  await expect(liquiditySourceSection.locator(`[data-liquidity-gap-simulation-entry="${liquiditySourceEntryIndex}"]`)).toBeVisible();
+  await expect(liquidityAssetReductionEntry.locator('[data-liquidity-gap-simulation-field="changeDirection"]')).toHaveValue("减少");
+  await expect(liquidityAssetReductionEntry.locator(".simulation-entry__role-badge")).toHaveText("固定归属：资产端减少 → 资金来源");
+  await expect(liquidityAssetReductionEntry.locator(".simulation-form__hint")).toHaveText("资金来源卡片固定归属；资产端业务仅可选择“减少”。");
+  await expect(liquidityAssetReductionEntry.locator('[data-liquidity-gap-simulation-field="changeDirection"]')).toBeDisabled();
+  await expect(liquidityAssetReductionEntry.locator('[data-liquidity-gap-simulation-field="changeDirection"] option[value="增加"]')).toBeDisabled();
+  await expect(liquidityAssetReductionEntry.locator('[data-liquidity-cash-flow-field="amount"]').first()).toHaveValue("50");
   const liquidityRoleOptionAudit = await page.evaluate(() => {
     const draft = getLiquidityGapSimulationDraft();
     return draft.entries.map((entry) => ({
       role: entry.fundingRole,
       businessType: entry.businessType,
-      derivedRole: getLiquiditySimulationFundingRoleByBusinessType(entry.businessType),
+      changeDirection: entry.changeDirection,
+      derivedRole: getLiquiditySimulationFundingRoleByBusinessType(entry.businessType, entry.changeDirection),
     }));
   });
   expect(liquidityRoleOptionAudit.every((item) => item.role === item.derivedRole)).toBeTruthy();
   await expect(liquidityUseSection.getByText("\u53d1\u751f\u65f6\u95f4", { exact: true })).toBeVisible();
   await expect(liquidityUseSection.getByText("\u4e1a\u52a1\u7c7b\u578b", { exact: true })).toBeVisible();
-  await expect(liquidityUseSection.getByText("\u89c4\u6a21\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("变动方向", { exact: true })).toBeVisible();
+  await expect(liquidityUseSection.getByText("变动规模（亿元）", { exact: true })).toBeVisible();
   await expect(liquidityUseSection.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u65e5\u671f", { exact: true })).toBeVisible();
   await expect(liquidityUseSection.getByText("\u7b2c\u4e00\u7b14\u73b0\u91d1\u6d41\u91d1\u989d\uff08\u4ebf\u5143\uff09", { exact: true })).toBeVisible();
   const liquidityUseEntry = liquidityUseSection.locator('[data-liquidity-gap-simulation-entry]').first();
@@ -2152,8 +2222,9 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   expect(Number((liquidityResultBucketValue - liquidityBaseBucketValue).toFixed(1))).toBe(25);
   await expect(simulationModal.getByRole("heading", { name: "\u6d4b\u7b97\u540e\u73b0\u91d1\u6d41\u7f3a\u53e3\u8868", exact: true })).toBeVisible();
   await simulationModal.getByRole("button", { name: "\u5e94\u7528\u6d4b\u7b97", exact: true }).click();
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText(`模拟测算日期：${defaultSimulationDate}`);
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u5f53\u524d\u65f6\u70b9\u7f3a\u53e3\u8868");
-  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u65b0\u4e1a\u52a1\uff1a2\u7b14");
+  await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("业务变动：2笔");
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u73b0\u91d1\u6d41\uff1a3\u7b14");
   await expect(liquidityGapWidget.locator(".simulation-summary--widget")).toContainText("\u57fa\u51c61\u5e74\u7d2f\u8ba1\u7f3a\u53e3");
   await expect(liquidityGapWidget.locator('[data-liquidity-gap-simulation-point="true"]')).toHaveCount(1);
@@ -2162,6 +2233,100 @@ test("\u6a21\u62df\u6d4b\u7b97\u548cAI\u5f39\u7a97\u53ef\u4ee5\u6253\u5f00", asy
   await page.locator("[data-open-insight]").first().click();
   await expect(page.getByText(TEXT.aiEyebrow, { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: TEXT.aiConclusion, exact: true })).toBeVisible();
+});
+
+test("重定价缺口率AI使用右侧交互抽屉并可读取正式归因", async ({ page }) => {
+  await openPage(page);
+  await setPageFilters(page, "利率风险", { 机构: ["香港分行"], 币种: ["港币"] });
+  const widget = page.locator('article[data-widget-seq="9"]');
+  await widget.getByRole("button", { name: "AI", exact: true }).click();
+
+  const drawer = page.locator('#insightModal [data-insight-kind="repricing-gap"]');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "重定价缺口率", exact: true })).toBeVisible();
+  await expect(drawer).toContainText("机构内币种规模与重定价缺口率");
+  await expect(drawer).toContainText("币种重要性与限额");
+  await expect(drawer).toContainText("走势与限额距离");
+  await expect(drawer).toContainText("超过5%标准，属于重要币种");
+  await expect(drawer).toContainText("该重要币种适用限额为<=50%");
+  await expect(drawer).toContainText("本外币合计重定价缺口率限额为<=16%");
+  await expect(drawer.locator("[data-repricing-ai-bar]")).toHaveCount(10);
+  await expect(drawer.locator("[data-repricing-ai-point]")).toHaveCount(10);
+
+  const drawerBox = await drawer.boundingBox();
+  const viewport = page.viewportSize();
+  expect(drawerBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(drawerBox.x).toBeGreaterThan(viewport.width * 0.5);
+  expect(drawerBox.width).toBeGreaterThan(viewport.width * 0.32);
+  expect(drawerBox.width).toBeLessThan(viewport.width * 0.5);
+
+  const currencyAudit = await page.evaluate(() => {
+    const analysis = buildRepricingGapAiAnalysis(findWidgetBySeq(9));
+    const singleCurrencyScale = analysis.currencyScopes
+      .filter((item) => item.kind === "single")
+      .reduce((sum, item) => sum + item.scale, 0);
+    return {
+      totalScale: analysis.totalScale,
+      singleCurrencyScale,
+      selectedShare: analysis.selectedShare,
+      currentRatio: analysis.trendStats.current,
+    };
+  });
+  expect(currencyAudit.totalScale).toBeGreaterThan(0);
+  expect(currencyAudit.singleCurrencyScale).toBeCloseTo(currencyAudit.totalScale, 6);
+  expect(currencyAudit.selectedShare).toBeGreaterThanOrEqual(0);
+  expect(currencyAudit.selectedShare).toBeLessThanOrEqual(100);
+  expect(Number.isFinite(currencyAudit.currentRatio)).toBeTruthy();
+
+  await drawer.getByRole("button", {
+    name: "重定价缺口率的变动是由什么导致的？",
+    exact: true,
+  }).click();
+  const assistantMessages = drawer.locator(".repricing-ai-message--assistant");
+  await expect(assistantMessages.last()).toContainText("正式Owen归因结果");
+  await expect(assistantMessages.last()).toContainText("主要因素");
+  await expect(assistantMessages.last()).toContainText("当前取值");
+  await expect(assistantMessages.last()).toContainText("较基期增量");
+  await expect(assistantMessages.last()).toContainText("增速");
+  await expect(assistantMessages.last()).toContainText("影响");
+  await expect.poll(() =>
+    drawer.locator(".repricing-ai-drawer__body").evaluate((element) => element.scrollTop)
+  ).toBeGreaterThan(0);
+  const selfOperatedLoanPrompt = drawer.getByRole("button", {
+    name: "为什么自营贷款的影响这么大？",
+    exact: true,
+  });
+  await expect(selfOperatedLoanPrompt).toBeVisible();
+  await selfOperatedLoanPrompt.click();
+  await expect(assistantMessages.last()).toContainText("自营贷款的正式Owen归因合计");
+  await expect(assistantMessages.last()).toContainText("新增业务");
+  await expect(assistantMessages.last()).toContainText("到期或退出业务");
+  await expect(assistantMessages.last()).toContainText("由一年外进入一年内");
+  await expect(assistantMessages.last()).toContainText("自然缩短");
+  await expect(assistantMessages.last()).toContainText("业务明细定性对比");
+  await expect(assistantMessages.last()).toContainText("最终影响仍以汇总口径的Owen归因结果为准");
+  await expect(drawer.getByRole("button", {
+    name: "自营贷款有哪些大额业务需要关注？",
+    exact: true,
+  })).toBeVisible();
+  const messageLayout = await drawer.locator(".repricing-ai-chat__messages").evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    return {
+      maxHeight: style.maxHeight,
+      overflowY: style.overflowY,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+  });
+  expect(messageLayout.maxHeight).toBe("none");
+  expect(messageLayout.overflowY).toBe("visible");
+  expect(messageLayout.clientHeight).toBe(messageLayout.scrollHeight);
+
+  const input = drawer.getByRole("textbox", { name: "向AI追问" });
+  await input.fill("当前币种距离限额还有多大空间？");
+  await input.press("Enter");
+  await expect(assistantMessages.last()).toContainText("限额");
 });
 
 test("管理限额按单机构及所选币种和附加口径匹配显示", async ({ page }) => {
