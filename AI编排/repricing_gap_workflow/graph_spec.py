@@ -47,7 +47,8 @@ def compiled_graph(metric: str | None = None):
     注意：运行期图来自**本指标自己的** ``build_graph``，不是从 spec 生成的——
     声明式生成属于阶段 3。这里只按指标 key 选择，暂不改变来源。
     """
-    del metric  # 当前每个指标的运行期图仍由各自模块提供
+    if metric and metric != registry.DEFAULT_METRIC:
+        raise ValueError("RUNTIME_GRAPH_NOT_REGISTERED")
     return build_graph(_dummy_client(), MockNarrator()).get_graph()
 
 
@@ -161,13 +162,13 @@ def runtime_display(metric: str | None = None) -> dict:
     }
 
 
-def _retry_lane(blueprint: dict) -> tuple[list[str], list[str], str]:
+def _retry_lane(blueprint: dict, metric: str | None = None) -> tuple[list[str], list[str], str]:
     """从 spec 派生「主路径行 / 修正链行 / 分叉点」，不写死节点名。
 
     分叉点是唯一带"未过"条件出边的节点；修正链是它在 ``meta.layout.rows`` 里
     所在行的**之后**各行。这样换指标时不需要改这里。
     """
-    spec = load_spec()
+    spec = load_spec(metric)
     rows = ((spec.get("meta") or {}).get("layout") or {}).get("rows") or []
     node_ids = [node["id"] for node in blueprint["nodes"]]
     # 布局声明用 spec 的 id（__end__），蓝图适配层已改名为 end
@@ -192,7 +193,7 @@ def _retry_lane(blueprint: dict) -> tuple[list[str], list[str], str]:
 
 def platform_display(metric: str | None = None) -> dict:
     blueprint = get_blueprint(metric)
-    main_ids, retry_ids, fork_after = _retry_lane(blueprint)
+    main_ids, retry_ids, fork_after = _retry_lane(blueprint, metric)
     layout = _layout_dag(main_ids, retry_ids, fork_after=fork_after)
     mapping = _runtime(metric)["MAPPING"]
     nodes = []
@@ -245,6 +246,10 @@ def platform_display(metric: str | None = None) -> dict:
 
 
 def get_canvas_spec(metric: str | None = None) -> dict:
+    if metric and metric != registry.DEFAULT_METRIC:
+        from almcanvas.presentation import canvas_spec
+
+        return canvas_spec(metric)
     runtime = runtime_display(metric)
     platform = platform_display(metric)
     rt = _runtime(metric)

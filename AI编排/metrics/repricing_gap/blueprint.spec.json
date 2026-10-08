@@ -6,7 +6,7 @@
     "displayName": "重定价缺口率",
     "sessionNote": "追问不是新工作流。结束后用户再问，再次调用这张图：从「开始」进，带上 sessionId 和上一轮关注的业务类别。底部绿色虚线是这一次再触发。",
     "reentryNote": "追问：结束 → 再从开始触发同一编排。本指标靠 lastBusinessType 解析「它」，然后重新取数、生成。绿色虚线不是行内画布回边。",
-    "canvasNote": "上行主路径，下行校验修正。底部绿色虚线是追问再触发，不是编译边。LangGraph 拓扑由 GET /v1/canvas-spec 与测试核对。",
+    "canvasNote": "复刻图只展示行内配置。本地执行拓扑由业务服务和测试独立验证；正式接口与平台待确认项见节点详情。",
     "description": "单指标试点的受控 AI 解读：范围校验与问题分类在脚本节点完成，一次 API 取本轮小结果包，Prompt 只做文案组装，输出经引用与数字校验后线性展开重试一次（行内 DAG，无回边），失败逐级降级不中断。全部为虚构 ALM 数据。",
     "app": "AI编排/repricing_gap_workflow",
     "contractDoc": "AI编排/行内平台契约.md",
@@ -298,6 +298,54 @@
           "type": "String",
           "source": "${systemInput.lastBusinessType}",
           "desc": "可空，上轮关注的业务类别；用于把『它』解析成具体业务"
+        },
+        {
+          "name": "frequency",
+          "type": "String",
+          "source": "调用方",
+          "desc": "展示频率 MONTH 或 DAY，默认 MONTH"
+        },
+        {
+          "name": "caliber",
+          "type": "String",
+          "source": "调用方",
+          "desc": "业务口径，默认 DEFAULT"
+        },
+        {
+          "name": "availableDataDates",
+          "type": "Object",
+          "source": "调用方",
+          "desc": "可用实际数据日清单；正式接入后由调用方提供，空值仅使用试点日期；开始入参用 Object 包装：values 字段存放字符串数组"
+        },
+        {
+          "name": "focusCurrencyCode",
+          "type": "String",
+          "source": "调用方",
+          "desc": "本轮明确指定的关注币种，可空"
+        },
+        {
+          "name": "sessionFocusCurrencyCode",
+          "type": "String",
+          "source": "调用方",
+          "desc": "上轮关注币种，可空"
+        },
+        {
+          "name": "lastBaseDate",
+          "type": "String",
+          "source": "调用方",
+          "desc": "上轮比较基期，可空"
+        },
+        {
+          "name": "lastComparedCurrencies",
+          "type": "Object",
+          "source": "调用方",
+          "desc": "上轮比较的两币种，用于歧义澄清；开始入参用 Object 包装：values 字段存放字符串数组"
+        },
+        {
+          "name": "comparedCurrencies",
+          "type": "Object",
+          "source": "调用方",
+          "desc": "本轮明确指定的两币种，可空；开始入参用 Object 包装：values 字段存放字符串数组"
         }
       ],
       "outputs": [
@@ -309,7 +357,123 @@
       ],
       "config": {
         "kind": "start",
-        "inputFormat": "JSON"
+        "inputFormat": "JSON",
+        "inputParams": [
+          {
+            "name": "metricCode",
+            "type": "String",
+            "source": "${systemInput.metricCode}",
+            "desc": "必填，指标编码；固定 REPRICING_GAP_RATIO"
+          },
+          {
+            "name": "orgCode",
+            "type": "String",
+            "source": "${systemInput.orgCode}",
+            "desc": "必填，机构编码；本试点只支持 LEGAL 法人"
+          },
+          {
+            "name": "currencyCode",
+            "type": "String",
+            "source": "${systemInput.currencyCode}",
+            "desc": "必填，页面筛选币种；追问换币种时它不变"
+          },
+          {
+            "name": "tenorCode",
+            "type": "String",
+            "source": "${systemInput.tenorCode}",
+            "desc": "必填，期限档；本试点为 1Y"
+          },
+          {
+            "name": "asOfDate",
+            "type": "String",
+            "source": "${systemInput.asOfDate}",
+            "desc": "必填，分析当期；不随追问改变"
+          },
+          {
+            "name": "question",
+            "type": "String",
+            "source": "${systemInput.question}",
+            "desc": "可空，用户原问题；首次解读可空"
+          },
+          {
+            "name": "analysisMode",
+            "type": "String",
+            "source": "${systemInput.analysisMode}",
+            "desc": "可空，指定分析模式则跳过自动分类"
+          },
+          {
+            "name": "baseDate",
+            "type": "String",
+            "source": "${systemInput.baseDate}",
+            "desc": "可空，比较基期；空则取上一可比期"
+          },
+          {
+            "name": "businessType",
+            "type": "String",
+            "source": "${systemInput.businessType}",
+            "desc": "可空，业务类别；默认自营贷款"
+          },
+          {
+            "name": "nodeCode",
+            "type": "String",
+            "source": "${systemInput.nodeCode}",
+            "desc": "可空，计算树节点；空则取根节点 ROOT"
+          },
+          {
+            "name": "lastBusinessType",
+            "type": "String",
+            "source": "${systemInput.lastBusinessType}",
+            "desc": "可空，上轮关注的业务类别；用于把『它』解析成具体业务"
+          },
+          {
+            "name": "frequency",
+            "type": "String",
+            "source": "调用方",
+            "desc": "展示频率 MONTH 或 DAY，默认 MONTH"
+          },
+          {
+            "name": "caliber",
+            "type": "String",
+            "source": "调用方",
+            "desc": "业务口径，默认 DEFAULT"
+          },
+          {
+            "name": "availableDataDates",
+            "type": "Object",
+            "source": "调用方",
+            "desc": "可用实际数据日清单；正式接入后由调用方提供，空值仅使用试点日期；开始入参用 Object 包装：values 字段存放字符串数组"
+          },
+          {
+            "name": "focusCurrencyCode",
+            "type": "String",
+            "source": "调用方",
+            "desc": "本轮明确指定的关注币种，可空"
+          },
+          {
+            "name": "sessionFocusCurrencyCode",
+            "type": "String",
+            "source": "调用方",
+            "desc": "上轮关注币种，可空"
+          },
+          {
+            "name": "lastBaseDate",
+            "type": "String",
+            "source": "调用方",
+            "desc": "上轮比较基期，可空"
+          },
+          {
+            "name": "lastComparedCurrencies",
+            "type": "Object",
+            "source": "调用方",
+            "desc": "上轮比较的两币种，用于歧义澄清；开始入参用 Object 包装：values 字段存放字符串数组"
+          },
+          {
+            "name": "comparedCurrencies",
+            "type": "Object",
+            "source": "调用方",
+            "desc": "本轮明确指定的两币种，可空；开始入参用 Object 包装：values 字段存放字符串数组"
+          }
+        ]
       },
       "failureRouting": "不支持的指标范围由脚本节点中断，异常策略为 abort。",
       "impl": "repricing_gap_workflow/workflow.py · LangGraph __start__ + 请求入参",
@@ -392,6 +556,54 @@
           "type": "String",
           "source": "${systemInput.lastBusinessType}",
           "desc": "可空，上轮关注的业务类别；用于把『它』解析成具体业务"
+        },
+        {
+          "name": "frequency",
+          "type": "String",
+          "source": "${systemInput.frequency}",
+          "desc": "展示频率 MONTH 或 DAY，默认 MONTH"
+        },
+        {
+          "name": "caliber",
+          "type": "String",
+          "source": "${systemInput.caliber}",
+          "desc": "业务口径，默认 DEFAULT"
+        },
+        {
+          "name": "availableDataDates",
+          "type": "Object",
+          "source": "${systemInput.availableDataDates}",
+          "desc": "可用实际数据日清单；正式接入后由调用方提供，空值仅使用试点日期；开始入参用 Object 包装：values 字段存放字符串数组"
+        },
+        {
+          "name": "focusCurrencyCode",
+          "type": "String",
+          "source": "${systemInput.focusCurrencyCode}",
+          "desc": "本轮明确指定的关注币种，可空"
+        },
+        {
+          "name": "sessionFocusCurrencyCode",
+          "type": "String",
+          "source": "${systemInput.sessionFocusCurrencyCode}",
+          "desc": "上轮关注币种，可空"
+        },
+        {
+          "name": "lastBaseDate",
+          "type": "String",
+          "source": "${systemInput.lastBaseDate}",
+          "desc": "上轮比较基期，可空"
+        },
+        {
+          "name": "lastComparedCurrencies",
+          "type": "Object",
+          "source": "${systemInput.lastComparedCurrencies}",
+          "desc": "上轮比较的两币种，用于歧义澄清；开始入参用 Object 包装：values 字段存放字符串数组"
+        },
+        {
+          "name": "comparedCurrencies",
+          "type": "Object",
+          "source": "${systemInput.comparedCurrencies}",
+          "desc": "本轮明确指定的两币种，可空；开始入参用 Object 包装：values 字段存放字符串数组"
         }
       ],
       "outputs": [
@@ -424,12 +636,37 @@
           "name": "contextOutput.baseDate",
           "type": "String",
           "desc": "解析后的比较基期；空表示没有基期（不取两期对比）"
+        },
+        {
+          "name": "contextOutput.frequency",
+          "type": "String",
+          "desc": "展示频率 MONTH 或 DAY，默认 MONTH"
+        },
+        {
+          "name": "contextOutput.caliber",
+          "type": "String",
+          "desc": "业务口径，默认 DEFAULT"
+        },
+        {
+          "name": "contextOutput.focusCurrencyCode",
+          "type": "String",
+          "desc": "本轮明确指定的关注币种，可空"
+        },
+        {
+          "name": "contextOutput.comparedCurrencies",
+          "type": "Array<String>",
+          "desc": "本轮明确指定的两币种，可空"
+        },
+        {
+          "name": "contextOutput.clarifyReason",
+          "type": "String",
+          "desc": "澄清原因 currency 或 intent"
         }
       ],
       "config": {
         "kind": "script",
         "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
-        "code": "def handler(params):\n    metric = (params.get(\"metricCode\") or \"\").strip()\n    org = (params.get(\"orgCode\") or \"\").strip()\n    currency = (params.get(\"currencyCode\") or \"\").strip()\n    tenor = (params.get(\"tenorCode\") or \"\").strip()\n    date = (params.get(\"asOfDate\") or \"\").strip()\n    question = (params.get(\"question\") or \"\").strip()\n    if not all((metric, org, currency, tenor, date)):\n        raise ValueError(\"MISSING_SCOPE\")\n    if metric != \"REPRICING_GAP_RATIO\":\n        raise ValueError(\"UNSUPPORTED_METRIC\")\n    modes = (\n        \"overview\", \"limit\", \"trend\", \"calculation\", \"attribution\",\n        \"business\", \"methodology\", \"clarification\", \"currencyCompare\",\n    )\n    mode = (params.get(\"analysisMode\") or \"\").strip()\n    if mode and mode not in modes:\n        raise ValueError(\"UNSUPPORTED_ANALYSIS_MODE\")\n    if not mode:\n        q = question\n        last_business = (params.get(\"lastBusinessType\") or \"\").strip()\n        business_names = (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\")\n        if not q:\n            mode = \"overview\"\n        elif last_business and any(word in q for word in (\"它\", \"这个业务\", \"这类业务\")):\n            mode = \"business\"\n        elif any(name in q for name in business_names) and any(\n            word in q for word in (\"为什么\", \"原因\", \"新增\", \"退出\", \"大额\", \"业务\")\n        ):\n            mode = \"business\"\n        elif any(word in q for word in (\"限额\", \"超限\", \"空间\", \"预警\")):\n            mode = \"limit\"\n        elif any(word in q for word in (\"口径\", \"剔除\", \"不含\", \"定义\")):\n            mode = \"methodology\"\n        elif any(word in q for word in (\"怎么算\", \"计算过程\", \"分子\", \"分母\", \"构成\", \"公式\")):\n            mode = \"calculation\"\n        elif any(word in q for word in (\n            \"归因\", \"导致\", \"变动原因\", \"影响因素\", \"啥原因\", \"什么原因\", \"怎么变\", \"咋变\", \"咋回事\"\n        )) or (\n            any(word in q for word in (\"为什么\", \"为何\", \"为啥\"))\n            and any(word in q for word in (\"上升\", \"下降\", \"上涨\", \"下跌\", \"涨\", \"跌\", \"变化\", \"变动\", \"不一样\"))\n        ):\n            mode = \"attribution\"\n        elif any(word in q for word in (\"走势\", \"趋势\", \"波动\", \"近几个月\")):\n            mode = \"trend\"\n        elif any(word in q for word in (\"是多少\", \"多高\", \"现在多少\", \"当前多少\")):\n            mode = \"overview\"\n        else:\n            leftover = q.replace(\"重定价缺口率\", \"\")\n            filler = set(\n                \" ，,。？?！!的了吧呢啊呀请帮我看看一下现在目前请问哈怎么样咋样\"\n                \"什么情况啥情况最近怎么样呢\"\n            )\n            if not \"\".join(ch for ch in leftover if not ch.isspace() and ch not in filler):\n                mode = \"overview\"\n            else:\n                mode = \"clarification\"\n    business = (params.get(\"businessType\") or \"\").strip() or (params.get(\"lastBusinessType\") or \"\").strip()\n    if not business:\n        for name in (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\"):\n            if name in question:\n                business = name\n                break\n    return {\n        \"metricCode\": metric, \"orgCode\": org, \"currencyCode\": currency,\n        \"tenorCode\": tenor, \"asOfDate\": date,\n        \"baseDate\": (params.get(\"baseDate\") or \"\").strip(),\n        \"question\": question, \"analysisMode\": mode,\n        \"businessType\": business or \"自营贷款\",\n        \"nodeCode\": (params.get(\"nodeCode\") or \"ROOT\").strip(),\n    }",
+        "code": "def handler(params):\n    import re\n    metric = (params.get(\"metricCode\") or \"\").strip()\n    org = (params.get(\"orgCode\") or \"\").strip()\n    currency = (params.get(\"currencyCode\") or \"\").strip()\n    tenor = (params.get(\"tenorCode\") or \"\").strip()\n    date = (params.get(\"asOfDate\") or \"\").strip()\n    question = (params.get(\"question\") or \"\").strip()\n    if not all((metric, org, currency, tenor, date)):\n        raise ValueError(\"MISSING_SCOPE\")\n    if metric != \"REPRICING_GAP_RATIO\":\n        raise ValueError(\"UNSUPPORTED_METRIC\")\n    if org != \"LEGAL\" or tenor != \"1Y\":\n        raise ValueError(\"UNSUPPORTED_SCOPE\")\n    frequency = params.get(\"frequency\") or \"MONTH\"\n    if frequency not in (\"MONTH\", \"DAY\"):\n        raise ValueError(\"UNSUPPORTED_FREQUENCY\")\n    supplied_dates = params.get(\"availableDataDates\")\n    if isinstance(supplied_dates, dict):\n        supplied_dates = supplied_dates.get(\"values\")\n    dates = list(supplied_dates) if supplied_dates else [\n        \"2025-09-30\", \"2025-10-31\", \"2025-11-30\", \"2025-12-31\",\n        \"2026-01-31\", \"2026-02-28\", \"2026-03-31\", \"2026-04-30\",\n        \"2026-05-31\", \"2026-06-30\", \"2026-07-31\",\n    ]\n    if frequency == \"DAY\" and not supplied_dates:\n        dates += [\"2026-07-27\", \"2026-07-28\", \"2026-07-29\", \"2026-07-30\"]\n    if date not in dates:\n        raise ValueError(\"UNKNOWN_DATA_DATE\")\n    mentioned = []\n    for token, code in ((\"人民币\", \"CNY\"), (\"美元\", \"USD\"), (\"港币\", \"HKD\"), (\"港元\", \"HKD\"),\n                        (\"CNY\", \"CNY\"), (\"USD\", \"USD\"), (\"HKD\", \"HKD\")):\n        if token in question and code not in mentioned:\n            mentioned.append(code)\n    compared = params.get(\"comparedCurrencies\")\n    if isinstance(compared, dict):\n        compared = compared.get(\"values\")\n    compared = compared or (mentioned if len(mentioned) == 2 else [])\n    if compared and (len(compared) != 2 or any(code not in (\"CNY\", \"USD\", \"HKD\") for code in compared)):\n        raise ValueError(\"TWO_CURRENCIES_REQUIRED\")\n    focus = currency if compared else (params.get(\"focusCurrencyCode\") or\n        (mentioned[0] if mentioned else None) or params.get(\"sessionFocusCurrencyCode\") or currency)\n    if currency not in (\"CNY\", \"USD\", \"HKD\") or focus not in (\"CNY\", \"USD\", \"HKD\"):\n        raise ValueError(\"UNSUPPORTED_CURRENCY\")\n    last_compared = params.get(\"lastComparedCurrencies\")\n    if isinstance(last_compared, dict):\n        last_compared = last_compared.get(\"values\")\n    ambiguous = bool(last_compared and not mentioned and\n        any(word in question for word in (\"它\", \"这个币种\", \"那个币种\")))\n    previous = max((item for item in dates if item < date), default=\"\")\n    parsed_base = \"\"\n    if \"去年末\" in question:\n        parsed_base = str(int(date[:4]) - 1) + \"-12-31\"\n    elif \"上一期\" in question or \"上期\" in question:\n        parsed_base = previous\n    else:\n        match = re.search(r\"(?:与|和|较|比)\\s*(20\\d{2})[-/](\\d{1,2})[-/](\\d{1,2})\", question)\n        if match:\n            parsed_base = \"%04d-%02d-%02d\" % tuple(int(part) for part in match.groups())\n    base = params.get(\"baseDate\") or parsed_base or params.get(\"lastBaseDate\") or previous\n    if base and (base not in dates or base >= date):\n        raise ValueError(\"INVALID_BASE_DATE\")\n    modes = (\n        \"overview\", \"limit\", \"trend\", \"calculation\", \"attribution\",\n        \"business\", \"methodology\", \"clarification\", \"currencyCompare\",\n    )\n    mode = (params.get(\"analysisMode\") or \"\").strip()\n    if mode and mode not in modes:\n        raise ValueError(\"UNSUPPORTED_ANALYSIS_MODE\")\n    if not mode:\n        q = question\n        last_business = (params.get(\"lastBusinessType\") or \"\").strip()\n        business_names = (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\")\n        if not q:\n            mode = \"overview\"\n        elif last_business and any(word in q for word in (\"它\", \"这个业务\", \"这类业务\")):\n            mode = \"business\"\n        elif any(name in q for name in business_names) and any(\n            word in q for word in (\"为什么\", \"原因\", \"新增\", \"退出\", \"大额\", \"业务\")\n        ):\n            mode = \"business\"\n        elif any(word in q for word in (\"限额\", \"超限\", \"空间\", \"预警\")):\n            mode = \"limit\"\n        elif any(word in q for word in (\"口径\", \"剔除\", \"不含\", \"定义\")):\n            mode = \"methodology\"\n        elif any(word in q for word in (\"怎么算\", \"计算过程\", \"分子\", \"分母\", \"构成\", \"公式\")):\n            mode = \"calculation\"\n        elif any(word in q for word in (\n            \"归因\", \"导致\", \"变动原因\", \"影响因素\", \"啥原因\", \"什么原因\", \"怎么变\", \"咋变\", \"咋回事\"\n        )) or (\n            any(word in q for word in (\"为什么\", \"为何\", \"为啥\"))\n            and any(word in q for word in (\"上升\", \"下降\", \"上涨\", \"下跌\", \"涨\", \"跌\", \"变化\", \"变动\", \"不一样\"))\n        ):\n            mode = \"attribution\"\n        elif any(word in q for word in (\"走势\", \"趋势\", \"波动\", \"近几个月\")):\n            mode = \"trend\"\n        elif any(word in q for word in (\"是多少\", \"多高\", \"现在多少\", \"当前多少\")):\n            mode = \"overview\"\n        else:\n            leftover = q.replace(\"重定价缺口率\", \"\")\n            filler = set(\n                \" ，,。？?！!的了吧呢啊呀请帮我看看一下现在目前请问哈怎么样咋样\"\n                \"什么情况啥情况最近怎么样呢\"\n            )\n            if not \"\".join(ch for ch in leftover if not ch.isspace() and ch not in filler):\n                mode = \"overview\"\n            else:\n                mode = \"clarification\"\n    if not params.get(\"analysisMode\"):\n        if compared:\n            mode = \"currencyCompare\"\n        elif ambiguous:\n            mode = \"clarification\"\n    business = (params.get(\"businessType\") or \"\").strip() or (params.get(\"lastBusinessType\") or \"\").strip()\n    if not business:\n        for name in (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\"):\n            if name in question:\n                business = name\n                break\n    return {\n        \"metricCode\": metric, \"orgCode\": org, \"currencyCode\": currency,\n        \"tenorCode\": tenor, \"asOfDate\": date,\n        \"baseDate\": base,\n        \"focusCurrencyCode\": focus, \"comparedCurrencies\": compared,\n        \"frequency\": frequency, \"caliber\": params.get(\"caliber\") or \"DEFAULT\",\n        \"clarifyReason\": \"currency\" if ambiguous else \"intent\",\n        \"question\": question, \"analysisMode\": mode,\n        \"businessType\": business or \"自营贷款\",\n        \"nodeCode\": (params.get(\"nodeCode\") or \"ROOT\").strip(),\n    }",
         "timeoutSeconds": 5,
         "onError": "abort"
       },
@@ -504,6 +741,36 @@
           "type": "String",
           "source": "${contextOutput.nodeCode}",
           "desc": "计算过程逐级展开时传当前节点"
+        },
+        {
+          "name": "frequency",
+          "type": "String",
+          "source": "${contextOutput.frequency}",
+          "desc": "展示频率 MONTH 或 DAY，默认 MONTH"
+        },
+        {
+          "name": "caliber",
+          "type": "String",
+          "source": "${contextOutput.caliber}",
+          "desc": "业务口径，默认 DEFAULT"
+        },
+        {
+          "name": "focusCurrencyCode",
+          "type": "String",
+          "source": "${contextOutput.focusCurrencyCode}",
+          "desc": "本轮明确指定的关注币种，可空"
+        },
+        {
+          "name": "comparedCurrencies",
+          "type": "Array<String>",
+          "source": "${contextOutput.comparedCurrencies}",
+          "desc": "本轮明确指定的两币种，可空"
+        },
+        {
+          "name": "clarifyReason",
+          "type": "String",
+          "source": "${contextOutput.clarifyReason}",
+          "desc": "澄清原因"
         }
       ],
       "outputs": [
@@ -585,6 +852,12 @@
           "type": "String",
           "source": "${systemInput.asOfDate}",
           "desc": "同上"
+        },
+        {
+          "name": "focusCurrencyCode",
+          "type": "String",
+          "source": "${contextOutput.focusCurrencyCode}",
+          "desc": "结果包实际关注币种，用于校验"
         }
       ],
       "outputs": [
@@ -597,7 +870,7 @@
       "config": {
         "kind": "script",
         "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
-        "code": "def handler(params):\n    import json\n    result = params.get(\"apiResponse\") or {}\n    if result.get(\"returnCode\") != \"SUC0000\":\n        raise ValueError(result.get(\"errorCode\") or \"ALM_API_FAILED\")\n    body = result.get(\"body\") or {}\n    actual = body.get(\"scope\") or {}\n    for key in (\"metricCode\", \"orgCode\", \"currencyCode\", \"tenorCode\", \"asOfDate\"):\n        if actual.get(key) != params.get(key):\n            raise ValueError(\"SCOPE_MISMATCH_\" + key)\n    if body.get(\"status\") != \"available\":\n        raise ValueError(\"DATA_NOT_AVAILABLE\")\n    if not body.get(\"dataVersion\") or not body.get(\"caliberVersion\"):\n        raise ValueError(\"VERSION_MISSING\")\n    if len(json.dumps(body, ensure_ascii=False)) > 16000:\n        raise ValueError(\"PACKAGE_TOO_LARGE\")\n    return {\"resultPackage\": body}",
+        "code": "def handler(params):\n    import json\n    result = params.get(\"apiResponse\") or {}\n    if result.get(\"returnCode\") != \"SUC0000\":\n        raise ValueError(result.get(\"errorCode\") or \"ALM_API_FAILED\")\n    body = result.get(\"body\") or {}\n    actual = body.get(\"scope\") or {}\n    for key in (\"metricCode\", \"orgCode\", \"currencyCode\", \"tenorCode\", \"asOfDate\"):\n        expected = params.get(\"focusCurrencyCode\") or params.get(key) if key == \"currencyCode\" else params.get(key)\n        if actual.get(key) != expected:\n            raise ValueError(\"SCOPE_MISMATCH_\" + key)\n    if body.get(\"status\") not in (\"available\", \"needs_input\", \"unsupported\", \"unavailable\"):\n        raise ValueError(\"DATA_NOT_AVAILABLE\")\n    if body.get(\"status\") != \"available\":\n        return {\"resultPackage\": body}\n    if not body.get(\"dataVersion\") or not body.get(\"caliberVersion\"):\n        raise ValueError(\"VERSION_MISSING\")\n    if len(json.dumps(body, ensure_ascii=False)) > 16000:\n        raise ValueError(\"PACKAGE_TOO_LARGE\")\n    return {\"resultPackage\": body}",
         "timeoutSeconds": 5,
         "onError": "abort"
       },
@@ -805,7 +1078,7 @@
       ],
       "config": {
         "kind": "prompt",
-        "systemPrompt": "你是ALM风险指标解读助手。只依据本次取数结果回答，不使用记忆中的数字。\n分析模式：${analysisMode}\n用户问题：${question}\n结果包：${resultPackage}\n\n只输出一个JSON对象，不要Markdown代码块：\n{\"headline\":\"简短结论\",\"sections\":[{\"text\":\"解释\",\"citations\":[\"字段路径\"]}],\"numericRefs\":[{\"path\":\"字段路径\",\"value\":原始数值}]}\n字段路径相对于结果包根节点，不要加resultPackage前缀；数组下标用点号，例如trend.0.value。\n每段至少一条有效引用。正文中的每个金额、比例、百分点必须引用结果包原值，不自行计算。\n最多两段，每段不超过70字。归因只写总变化和影响最大的两个因素。\n若method或attributionMethod含SYNTHETIC，必须说明演示性质，不能写成正式ALM归因。\n业务明细只是线索，不得声称逐笔正式归因；业务标题不写演示影响百分点。\n如果结果包无法回答某个问题，明确说明范围，不补造数据。",
+        "systemPrompt": "你是ALM风险指标解读助手。只依据本次取数结果回答，不使用记忆中的数字。\n分析模式：${analysisMode}\n用户问题：${question}\n结果包：${resultPackage}\n\n只输出一个JSON对象，不要Markdown代码块：\n{\"headline\":\"简短结论\",\"sections\":[{\"text\":\"解释\",\"citations\":[\"字段路径\"]}],\"numericRefs\":[{\"path\":\"字段路径\",\"value\":原始数值}]}\n字段路径相对于结果包根节点，不要加resultPackage前缀；数组下标用点号，例如trend.0.value。\n每段至少一条有效引用。正文中的每个金额、比例、百分点必须引用结果包原值，不自行计算。\n最多两段，每段不超过70字。归因只写总变化和影响最大的两个因素。\n若method或attributionMethod含SYNTHETIC，必须说明演示性质，不能写成正式ALM归因。\n业务明细只是线索，不得声称逐笔正式归因；业务标题不写演示影响百分点。\n如果结果包无法回答某个问题，明确说明范围，不补造数据。\n上次校验错误：${previousErrors}\n请逐项修正上述错误，无法找到来源的数字或引用应删除。",
         "outputFormat": "text",
         "outputParams": [],
         "llmProfile": "low",
@@ -1074,6 +1347,18 @@
       "body": "正式 ALM API、权限、Prompt 空输出和结束节点 null/Array 仍需在行内平台实测，不能无缝导入。",
       "relates": [],
       "severity": "info"
+    },
+    {
+      "id": "replica-validation-parity",
+      "title": "复刻校验与本地运行时的差异",
+      "body": "可复制脚本已覆盖本轮补充的上下文与不可用状态，但尚未共享本地运行时的全部口气门禁。修正链同名输出覆盖必须在行内平台验证，未验证前不能宣称与本地流程完全等价。",
+      "severity": "warning",
+      "relates": [
+        "answer",
+        "regenerate",
+        "retry_check",
+        "__end__"
+      ]
     }
   ]
 }

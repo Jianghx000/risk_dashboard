@@ -126,10 +126,14 @@ def test_canvas_spec_renders_each_metric_separately(second_metric):
         assert status == 200
         assert body["metric"] == key
         assert body["platform"]["pageInfo"]["displayName"] == expected_name
-        # 平台侧节点齐全，且映射双向完全
+        # 其他工作流只展示其平台 spec，不伪装成已编译的试点执行图。
         assert len(body["platform"]["nodes"]) == len(body["platform"]["blueprint"]["nodes"])
-        mapped = {rid for row in body["mapping"] for rid in row["runtimeIds"]}
-        assert mapped == {node["id"] for node in body["runtime"]["nodes"]}
+        if key == registry.DEFAULT_METRIC:
+            mapped = {rid for row in body["mapping"] for rid in row["runtimeIds"]}
+            assert mapped == {node["id"] for node in body["runtime"]["nodes"]}
+        else:
+            assert "compiled" not in body
+            assert "runtime" not in body
 
 
 def test_unknown_metric_route_returns_404_not_500(second_metric):

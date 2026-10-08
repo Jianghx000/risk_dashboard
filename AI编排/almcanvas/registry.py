@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -72,6 +73,44 @@ def _validate(spec: dict[str, Any], key: str) -> None:
         raise ValueError(f"{key}: spec 里有重复的节点 id")
     if "__end__" not in ids:
         raise ValueError(f"{key}: spec 缺少工作流终点 __end__")
+    for node in spec["nodes"]:
+        for field in ("id", "name", "inlineType", "summary", "inputs", "outputs", "config", "failureRouting"):
+            if field not in node:
+                raise ValueError(f"{key}: 节点 {node.get('id')} 缺少 {field}")
+        if not node["config"].get("kind"):
+            raise ValueError(f"{key}: 节点 {node['id']} 缺少 config.kind")
+    for edge in spec.get("edges", []):
+        if edge.get("from") not in ids or edge.get("to") not in ids:
+            raise ValueError(f"{key}: 连线引用不存在的节点")
+    from .constraints import check_graph_is_dag
+
+    problems = check_graph_is_dag(spec)
+    if problems:
+        raise ValueError(f"{key}: {'; '.join(problems)}")
+    producers = {}
+    for node in spec["nodes"]:
+        for output in node["outputs"]:
+            producers.setdefault(output["name"].split(".")[0], set()).add(node["id"])
+    parents = {node_id: set() for node_id in ids}
+    for edge in spec.get("edges", []):
+        parents[edge["to"]].add(edge["from"])
+    for node in spec["nodes"]:
+        ancestors = set()
+        pending = list(parents[node["id"]])
+        while pending:
+            ancestor = pending.pop()
+            if ancestor not in ancestors:
+                ancestors.add(ancestor)
+                pending.extend(parents[ancestor])
+        for variable in node["inputs"]:
+            for reference in re.findall(r"\$\{([^}]+)\}", str(variable.get("source", ""))):
+                root = reference.split(".")[0]
+                if node["inlineType"] == "开始" and root == "systemInput":
+                    continue
+                if root not in producers:
+                    raise ValueError(f"{key}: 节点 {node['id']} 引用未声明的变量 {reference}")
+                if not producers[root] & ancestors:
+                    raise ValueError(f"{key}: 节点 {node['id']} 引用不可达上游变量 {reference}")
 
 
 def _discover() -> list[str]:

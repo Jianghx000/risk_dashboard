@@ -2,6 +2,8 @@
 
 重定价缺口率试点在 `repricing_gap_workflow/`。行内节点骨架已吸收进本目录，不再把共享包当外部工具调用。
 
+复刻图入口现在由独立的 `almcanvas.server` 提供，顶部可以选择工作流，查看时不调用模型。新工作流的交付与验收要求见 [复刻工具说明](almcanvas/README.md)。业务调试继续使用各工作流自己的运行服务。
+
 | 路径 | 来源 | 用途 |
 |---|---|---|
 | `aiworkflow/` | 共享包 `01-ai-workflow-service` | 脚本/API/Prompt/条件选择器工厂、SSE、校验门禁、装配期无回边检查 |

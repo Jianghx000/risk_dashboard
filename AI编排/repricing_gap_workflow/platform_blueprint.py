@@ -14,6 +14,7 @@ from almcanvas import registry
 
 
 CONTEXT_SCRIPT = '''def handler(params):
+    import re
     metric = (params.get("metricCode") or "").strip()
     org = (params.get("orgCode") or "").strip()
     currency = (params.get("currencyCode") or "").strip()
@@ -24,6 +25,56 @@ CONTEXT_SCRIPT = '''def handler(params):
         raise ValueError("MISSING_SCOPE")
     if metric != "REPRICING_GAP_RATIO":
         raise ValueError("UNSUPPORTED_METRIC")
+    if org != "LEGAL" or tenor != "1Y":
+        raise ValueError("UNSUPPORTED_SCOPE")
+    frequency = params.get("frequency") or "MONTH"
+    if frequency not in ("MONTH", "DAY"):
+        raise ValueError("UNSUPPORTED_FREQUENCY")
+    supplied_dates = params.get("availableDataDates")
+    if isinstance(supplied_dates, dict):
+        supplied_dates = supplied_dates.get("values")
+    dates = list(supplied_dates) if supplied_dates else [
+        "2025-09-30", "2025-10-31", "2025-11-30", "2025-12-31",
+        "2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30",
+        "2026-05-31", "2026-06-30", "2026-07-31",
+    ]
+    if frequency == "DAY" and not supplied_dates:
+        dates += ["2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30"]
+    if date not in dates:
+        raise ValueError("UNKNOWN_DATA_DATE")
+    mentioned = []
+    for token, code in (("人民币", "CNY"), ("美元", "USD"), ("港币", "HKD"), ("港元", "HKD"),
+                        ("CNY", "CNY"), ("USD", "USD"), ("HKD", "HKD")):
+        if token in question and code not in mentioned:
+            mentioned.append(code)
+    compared = params.get("comparedCurrencies")
+    if isinstance(compared, dict):
+        compared = compared.get("values")
+    compared = compared or (mentioned if len(mentioned) == 2 else [])
+    if compared and (len(compared) != 2 or any(code not in ("CNY", "USD", "HKD") for code in compared)):
+        raise ValueError("TWO_CURRENCIES_REQUIRED")
+    focus = currency if compared else (params.get("focusCurrencyCode") or
+        (mentioned[0] if mentioned else None) or params.get("sessionFocusCurrencyCode") or currency)
+    if currency not in ("CNY", "USD", "HKD") or focus not in ("CNY", "USD", "HKD"):
+        raise ValueError("UNSUPPORTED_CURRENCY")
+    last_compared = params.get("lastComparedCurrencies")
+    if isinstance(last_compared, dict):
+        last_compared = last_compared.get("values")
+    ambiguous = bool(last_compared and not mentioned and
+        any(word in question for word in ("它", "这个币种", "那个币种")))
+    previous = max((item for item in dates if item < date), default="")
+    parsed_base = ""
+    if "去年末" in question:
+        parsed_base = str(int(date[:4]) - 1) + "-12-31"
+    elif "上一期" in question or "上期" in question:
+        parsed_base = previous
+    else:
+        match = re.search(r"(?:与|和|较|比)\\s*(20\\d{2})[-/](\\d{1,2})[-/](\\d{1,2})", question)
+        if match:
+            parsed_base = "%04d-%02d-%02d" % tuple(int(part) for part in match.groups())
+    base = params.get("baseDate") or parsed_base or params.get("lastBaseDate") or previous
+    if base and (base not in dates or base >= date):
+        raise ValueError("INVALID_BASE_DATE")
     modes = (
         "overview", "limit", "trend", "calculation", "attribution",
         "business", "methodology", "clarification", "currencyCompare",
@@ -70,6 +121,11 @@ CONTEXT_SCRIPT = '''def handler(params):
                 mode = "overview"
             else:
                 mode = "clarification"
+    if not params.get("analysisMode"):
+        if compared:
+            mode = "currencyCompare"
+        elif ambiguous:
+            mode = "clarification"
     business = (params.get("businessType") or "").strip() or (params.get("lastBusinessType") or "").strip()
     if not business:
         for name in ("自营贷款", "投资类资产", "同业资产", "定期存款", "同业负债"):
@@ -79,7 +135,10 @@ CONTEXT_SCRIPT = '''def handler(params):
     return {
         "metricCode": metric, "orgCode": org, "currencyCode": currency,
         "tenorCode": tenor, "asOfDate": date,
-        "baseDate": (params.get("baseDate") or "").strip(),
+        "baseDate": base,
+        "focusCurrencyCode": focus, "comparedCurrencies": compared,
+        "frequency": frequency, "caliber": params.get("caliber") or "DEFAULT",
+        "clarifyReason": "currency" if ambiguous else "intent",
         "question": question, "analysisMode": mode,
         "businessType": business or "自营贷款",
         "nodeCode": (params.get("nodeCode") or "ROOT").strip(),
@@ -94,10 +153,13 @@ PACKAGE_SCRIPT = '''def handler(params):
     body = result.get("body") or {}
     actual = body.get("scope") or {}
     for key in ("metricCode", "orgCode", "currencyCode", "tenorCode", "asOfDate"):
-        if actual.get(key) != params.get(key):
+        expected = params.get("focusCurrencyCode") or params.get(key) if key == "currencyCode" else params.get(key)
+        if actual.get(key) != expected:
             raise ValueError("SCOPE_MISMATCH_" + key)
-    if body.get("status") != "available":
+    if body.get("status") not in ("available", "needs_input", "unsupported", "unavailable"):
         raise ValueError("DATA_NOT_AVAILABLE")
+    if body.get("status") != "available":
+        return {"resultPackage": body}
     if not body.get("dataVersion") or not body.get("caliberVersion"):
         raise ValueError("VERSION_MISSING")
     if len(json.dumps(body, ensure_ascii=False)) > 16000:
@@ -226,6 +288,9 @@ def get_blueprint(metric: str | None = None) -> dict:
             "outputs": item.get("outputs") or [],
             "sourceSection": item.get("sourceSection", ""),
             "readiness": item.get("readiness", ""),
+            "config": item["config"],
+            "failureRouting": item.get("failureRouting", ""),
+            "inlineMigration": item.get("inlineMigration", ""),
         }
         if item["id"] == "start":
             node["fields"] = [

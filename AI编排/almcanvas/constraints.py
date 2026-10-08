@@ -125,11 +125,30 @@ def _nodes_of(blueprint: dict[str, Any], inline_type: str) -> list[dict[str, Any
 def check_graph_is_dag(blueprint: dict[str, Any]) -> list[str]:
     """画布无回边。编译图由调用方另行断言（需要真的 compile）。"""
     problems = []
+    adjacency = {}
     for edge in blueprint.get("edges") or []:
         kind = edge.get("kind") if isinstance(edge, dict) else None
         if kind == "back-edge":
             label = edge.get("inlineExpansion", "")
             problems.append(f"复刻图声明了回边 {edge.get('from')}→{edge.get('to')}（{label}）；行内画布无回边")
+        source, target = (edge.get("from"), edge.get("to")) if isinstance(edge, dict) else edge[:2]
+        adjacency.setdefault(source, []).append(target)
+        adjacency.setdefault(target, [])
+    indegree = dict.fromkeys(adjacency, 0)
+    for targets in adjacency.values():
+        for target in targets:
+            indegree[target] += 1
+    pending = [node for node, degree in indegree.items() if degree == 0]
+    visited = 0
+    while pending:
+        node = pending.pop()
+        visited += 1
+        for target in adjacency[node]:
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                pending.append(target)
+    if visited != len(adjacency):
+        problems.append("复刻图连线存在环；行内画布要求前向无环拓扑")
     return problems
 
 

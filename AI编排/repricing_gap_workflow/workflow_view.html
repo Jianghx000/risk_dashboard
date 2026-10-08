@@ -100,9 +100,10 @@
   <header class="topbar">
     <div class="brand">
       <strong id="pageTitle">行内复刻图</strong>
-      <span>按智能工场节点类型对照建站 · 虚构 ALM 数据</span>
+      <span>行内工作流复刻图</span>
     </div>
     <div class="top-meta">
+      <select id="workflowSelect" aria-label="选择工作流" style="max-width:220px;padding:6px;border:1px solid #cbd9e4;border-radius:4px"></select>
       <span id="modelMode" class="mode-pill">检测中</span>
       <span>LangGraph 调试走接口与测试</span>
       <button id="toggleLeft" class="panel-toggle" type="button" aria-expanded="false" aria-controls="leftPanel">节点映射</button>
@@ -346,6 +347,12 @@
         wrap.append(button, textElement("pre", node.code || node.prompt));
         addSection(inspector, node.code ? "脚本" : "Prompt", wrap);
       }
+      if (node.config) {
+        const settings = Object.fromEntries(Object.entries(node.config).filter(([key]) => !["code", "systemPrompt"].includes(key)));
+        addSection(inspector, "配置字段", textElement("pre", JSON.stringify(settings, null, 2)));
+      }
+      if (node.failureRouting) addSection(inspector, "失败走向", textElement("p", node.failureRouting));
+      if (node.inlineMigration) addSection(inspector, "迁移注意事项", textElement("p", node.inlineMigration));
       const source = document.createElement("div");
       source.append(textElement("p", node.sourceSection));
       const manual = document.createElement("a");
@@ -401,7 +408,24 @@
       $("platformNotes").replaceChildren(textElement("li", page.canvasNote || ""));
       selectNode(data.platform.nodes[0].id, { expand: false });
     }
-    fetch("/v1/canvas-spec").then(response => { if (!response.ok) throw new Error("画布规格读取失败"); return response.json(); }).then(renderSpec).catch(error => {
+    const selectedPath = location.pathname.match(/^\/m\/([^/]+)\/workflow$/);
+    async function loadWorkflow(key) {
+      const response = await fetch(key ? `/m/${encodeURIComponent(key)}/v1/canvas-spec` : "/v1/canvas-spec");
+      if (!response.ok) throw new Error("画布规格读取失败");
+      renderSpec(await response.json());
+    }
+    fetch("/m/metrics").then(response => response.json()).then(async listing => {
+      const select = $("workflowSelect");
+      listing.metrics.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.key;
+        option.textContent = item.displayName;
+        select.append(option);
+      });
+      select.value = selectedPath ? decodeURIComponent(selectedPath[1]) : listing.default;
+      select.addEventListener("change", () => { location.href = `/m/${encodeURIComponent(select.value)}/workflow`; });
+      await loadWorkflow(select.value);
+    }).catch(error => {
       $("platformBoard").replaceChildren(textElement("div", error.message, "empty"));
       $("blueprintCount").textContent = "读取失败";
     });
