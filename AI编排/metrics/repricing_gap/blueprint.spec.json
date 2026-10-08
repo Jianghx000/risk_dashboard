@@ -1,0 +1,1079 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "workflow": "repricing_gap",
+    "title": "重定价缺口率 AI 分析 · 行内迁移蓝图",
+    "displayName": "重定价缺口率",
+    "sessionNote": "追问不是新工作流。结束后用户再问，再次调用这张图：从「开始」进，带上 sessionId 和上一轮关注的业务类别。底部绿色虚线是这一次再触发。",
+    "reentryNote": "追问：结束 → 再从开始触发同一编排。本指标靠 lastBusinessType 解析「它」，然后重新取数、生成。绿色虚线不是行内画布回边。",
+    "canvasNote": "上行主路径，下行校验修正。底部绿色虚线是追问再触发，不是编译边。LangGraph 拓扑由 GET /v1/canvas-spec 与测试核对。",
+    "description": "单指标试点的受控 AI 解读：范围校验与问题分类在脚本节点完成，一次 API 取本轮小结果包，Prompt 只做文案组装，输出经引用与数字校验后线性展开重试一次（行内 DAG，无回边），失败逐级降级不中断。全部为虚构 ALM 数据。",
+    "app": "AI编排/repricing_gap_workflow",
+    "contractDoc": "AI编排/行内平台契约.md",
+    "generatedAt": "2026-10-08",
+    "layout": {
+      "rows": [
+        [
+          "start",
+          "context",
+          "api",
+          "package"
+        ],
+        [
+          "prompt",
+          "answer",
+          "retry_gate"
+        ],
+        [
+          "regenerate",
+          "retry_check"
+        ]
+      ]
+    },
+    "runtime": {
+      "note": "运行期（LangGraph）侧的节点与边。平台侧的 nodes/edges 在顶层；本节描述同一张图在本地怎么跑，两侧靠 mapping 对应。行内迁移只关心平台侧，本节供复刻图对照与一致性测试使用。",
+      "entry": "resolve_context",
+      "end": "__end__",
+      "order": [
+        "__start__",
+        "resolve_context",
+        "classify_question",
+        "fetch_alm_data",
+        "validate_data_package",
+        "generate_narrative",
+        "validate_output",
+        "regenerate_narrative",
+        "validate_retry",
+        "__end__"
+      ],
+      "nodes": [
+        {
+          "id": "__start__",
+          "label": "开始",
+          "role": "起止",
+          "purpose": "接收扁平范围和问题。追问仍从这里进图，并带上 sessionId 里的最近业务类别；不是另一张工作流。"
+        },
+        {
+          "id": "resolve_context",
+          "label": "校验上下文",
+          "role": "脚本",
+          "purpose": "核对指标、机构、币种、期限和日期。不通过则抛错中断。"
+        },
+        {
+          "id": "classify_question",
+          "label": "识别问题",
+          "role": "脚本",
+          "purpose": "把问题分到七种受限模式。追问时若出现「它/这个业务」且会话里有最近业务类别，则走业务原因；每轮仍重新取数，不复用上轮结果包。"
+        },
+        {
+          "id": "fetch_alm_data",
+          "label": "获取 ALM 数据",
+          "role": "API",
+          "purpose": "一次 POST 只取当前模式的小结果包。七种模式共用这一节点。"
+        },
+        {
+          "id": "validate_data_package",
+          "label": "校验结果包",
+          "role": "脚本",
+          "purpose": "核对范围、状态、版本和体积。不合格则抛错，不调用模型。"
+        },
+        {
+          "id": "generate_narrative",
+          "label": "生成解释",
+          "role": "Prompt",
+          "purpose": "只用本轮结果包生成 JSON。模型异常时 answer 置空并标记 NARRATIVE_UNAVAILABLE。"
+        },
+        {
+          "id": "validate_output",
+          "label": "校验回答",
+          "role": "脚本",
+          "purpose": "首次核对引用路径、数字和演示归因用语。不通过则前向走到修正 Prompt。"
+        },
+        {
+          "id": "regenerate_narrative",
+          "label": "修正解释",
+          "role": "Prompt",
+          "purpose": "带上差异清单再生成一次。行内对应第二个 Prompt 节点，不是回边。"
+        },
+        {
+          "id": "validate_retry",
+          "label": "复核回答",
+          "role": "脚本",
+          "purpose": "复核修正文案。仍失败则清空文案并标记 NARRATIVE_VALIDATION_FAILED。"
+        },
+        {
+          "id": "__end__",
+          "label": "结束",
+          "role": "起止",
+          "purpose": "返回结果包、校验后的文案、降级标记。文案失败也保留数据。"
+        }
+      ],
+      "mapping": [
+        {
+          "platformId": "start",
+          "runtimeIds": [
+            "__start__"
+          ],
+          "relation": "平台开始节点对应 LangGraph 的 __start__ 与请求入参。"
+        },
+        {
+          "platformId": "context",
+          "runtimeIds": [
+            "resolve_context",
+            "classify_question"
+          ],
+          "relation": "一个脚本节点对应本地两个函数节点。"
+        },
+        {
+          "platformId": "api",
+          "runtimeIds": [
+            "fetch_alm_data"
+          ],
+          "relation": "一一对应。分析模式是状态字段，不是多条 API 边。"
+        },
+        {
+          "platformId": "package",
+          "runtimeIds": [
+            "validate_data_package"
+          ],
+          "relation": "一一对应。"
+        },
+        {
+          "platformId": "prompt",
+          "runtimeIds": [
+            "generate_narrative"
+          ],
+          "relation": "一一对应，首次生成。"
+        },
+        {
+          "platformId": "answer",
+          "runtimeIds": [
+            "validate_output"
+          ],
+          "relation": "首次校验。不通过不回流，交给条件选择器。"
+        },
+        {
+          "platformId": "retry_gate",
+          "runtimeIds": [
+            "validate_output"
+          ],
+          "relation": "条件边挂在 validate_output 上，行内单独做成条件选择器节点。"
+        },
+        {
+          "platformId": "regenerate",
+          "runtimeIds": [
+            "regenerate_narrative"
+          ],
+          "relation": "一一对应。修正副本 Prompt。"
+        },
+        {
+          "platformId": "retry_check",
+          "runtimeIds": [
+            "validate_retry"
+          ],
+          "relation": "一一对应。复核后只降级。"
+        },
+        {
+          "platformId": "end",
+          "runtimeIds": [
+            "__end__"
+          ],
+          "relation": "平台结束对应 __end__。通过、降级都汇到这里。"
+        }
+      ],
+      "differences": [
+        "校验失败已展开为 regenerate_narrative → validate_retry，编译图无回边，与行内条件选择器前向链对齐。",
+        "条件选择器在行内是独立节点 retry_gate；本地是 validate_output 上的条件边，没有单独的图节点。",
+        "本地把范围校验和问题分类拆成 resolve_context 与 classify_question；行内合并为一个脚本节点。",
+        "七种分析模式共用 fetch_alm_data，编译图里没有按模式分出的 API 分支。",
+        "API 失败、范围错误在本地是函数抛错中断，不是编译出来的边；行内对应脚本/API 的异常策略，需实测空值传递。",
+        "模型失败降级走 generate_narrative → validate_output → __end__，文案为空、结果包保留。",
+        "正式 ALM API、权限、Prompt 空输出和结束节点 null/Array 仍需在行内平台实测，不能无缝导入。"
+      ],
+      "exceptionExits": [
+        {
+          "node": "resolve_context",
+          "label": "异常中断",
+          "reason": "范围或日期不支持时抛错，不到后续节点。"
+        },
+        {
+          "node": "fetch_alm_data",
+          "label": "异常中断",
+          "reason": "HTTP 失败或 returnCode 非成功时抛错，不到模型。"
+        },
+        {
+          "node": "validate_data_package",
+          "label": "异常中断",
+          "reason": "结果包不合格时抛错，不调用 Prompt。"
+        }
+      ],
+      "edgeLabels": [
+        {
+          "from": "validate_output",
+          "to": "regenerate_narrative",
+          "label": "校验未过"
+        },
+        {
+          "from": "validate_output",
+          "to": "__end__",
+          "label": "通过或降级"
+        },
+        {
+          "from": "validate_retry",
+          "to": "__end__",
+          "label": "复核结束"
+        }
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "name": "开始",
+      "inlineType": "开始",
+      "summary": "接收页面指标范围和用户问题。追问时再次进入本节点，带上 sessionId 与 lastBusinessType；不是第二张工作流。",
+      "inputs": [
+        {
+          "name": "metricCode",
+          "type": "String",
+          "source": "${systemInput.metricCode}",
+          "desc": "必填，指标编码；固定 REPRICING_GAP_RATIO"
+        },
+        {
+          "name": "orgCode",
+          "type": "String",
+          "source": "${systemInput.orgCode}",
+          "desc": "必填，机构编码；本试点只支持 LEGAL 法人"
+        },
+        {
+          "name": "currencyCode",
+          "type": "String",
+          "source": "${systemInput.currencyCode}",
+          "desc": "必填，页面筛选币种；追问换币种时它不变"
+        },
+        {
+          "name": "tenorCode",
+          "type": "String",
+          "source": "${systemInput.tenorCode}",
+          "desc": "必填，期限档；本试点为 1Y"
+        },
+        {
+          "name": "asOfDate",
+          "type": "String",
+          "source": "${systemInput.asOfDate}",
+          "desc": "必填，分析当期；不随追问改变"
+        },
+        {
+          "name": "question",
+          "type": "String",
+          "source": "${systemInput.question}",
+          "desc": "可空，用户原问题；首次解读可空"
+        },
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${systemInput.analysisMode}",
+          "desc": "可空，指定分析模式则跳过自动分类"
+        },
+        {
+          "name": "baseDate",
+          "type": "String",
+          "source": "${systemInput.baseDate}",
+          "desc": "可空，比较基期；空则取上一可比期"
+        },
+        {
+          "name": "businessType",
+          "type": "String",
+          "source": "${systemInput.businessType}",
+          "desc": "可空，业务类别；默认自营贷款"
+        },
+        {
+          "name": "nodeCode",
+          "type": "String",
+          "source": "${systemInput.nodeCode}",
+          "desc": "可空，计算树节点；空则取根节点 ROOT"
+        },
+        {
+          "name": "lastBusinessType",
+          "type": "String",
+          "source": "${systemInput.lastBusinessType}",
+          "desc": "可空，上轮关注的业务类别；用于把『它』解析成具体业务"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "systemInput",
+          "type": "平台内置（不可配置）",
+          "desc": "开始节点不产出输出变量。平台内置 systemInput 用于唯一标识本节点，下游引用本节点入参要写在它下面，例如 ${systemInput.metricCode}。注意：其他节点的那个『输出变量名』才是由用户自定义的，本节点没有这一项。"
+        }
+      ],
+      "config": {
+        "kind": "start",
+        "inputFormat": "JSON"
+      },
+      "failureRouting": "不支持的指标范围由脚本节点中断，异常策略为 abort。",
+      "impl": "repricing_gap_workflow/workflow.py · LangGraph __start__ + 请求入参",
+      "configure": [
+        "输入格式选 JSON。按表逐项新增入参，变量名使用英文。",
+        "不要把 API Key、令牌或业务明细作为开始节点入参。"
+      ],
+      "sourceSection": "开始节点：JSON 入参、systemInput、Object 最多 3 层",
+      "readiness": "可配置",
+      "inlineMigration": "输入格式选 JSON。按表逐项新增入参，变量名使用英文。；不要把 API Key、令牌或业务明细作为开始节点入参。"
+    },
+    {
+      "id": "context",
+      "name": "校验并识别问题",
+      "inlineType": "脚本",
+      "summary": "校验指标范围并识别分析模式。关键词未命中时返回 clarification，不得默默兜底成概览。追问出现「它/这个业务」时，用开始节点带来的 lastBusinessType，不另画一张图。",
+      "inputs": [
+        {
+          "name": "metricCode",
+          "type": "String",
+          "source": "${systemInput.metricCode}",
+          "desc": "必填，指标编码；固定 REPRICING_GAP_RATIO"
+        },
+        {
+          "name": "orgCode",
+          "type": "String",
+          "source": "${systemInput.orgCode}",
+          "desc": "必填，机构编码；本试点只支持 LEGAL 法人"
+        },
+        {
+          "name": "currencyCode",
+          "type": "String",
+          "source": "${systemInput.currencyCode}",
+          "desc": "必填，页面筛选币种；追问换币种时它不变"
+        },
+        {
+          "name": "tenorCode",
+          "type": "String",
+          "source": "${systemInput.tenorCode}",
+          "desc": "必填，期限档；本试点为 1Y"
+        },
+        {
+          "name": "asOfDate",
+          "type": "String",
+          "source": "${systemInput.asOfDate}",
+          "desc": "必填，分析当期；不随追问改变"
+        },
+        {
+          "name": "question",
+          "type": "String",
+          "source": "${systemInput.question}",
+          "desc": "可空，用户原问题；首次解读可空"
+        },
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${systemInput.analysisMode}",
+          "desc": "可空，指定分析模式则跳过自动分类"
+        },
+        {
+          "name": "baseDate",
+          "type": "String",
+          "source": "${systemInput.baseDate}",
+          "desc": "可空，比较基期；空则取上一可比期"
+        },
+        {
+          "name": "businessType",
+          "type": "String",
+          "source": "${systemInput.businessType}",
+          "desc": "可空，业务类别；默认自营贷款"
+        },
+        {
+          "name": "nodeCode",
+          "type": "String",
+          "source": "${systemInput.nodeCode}",
+          "desc": "可空，计算树节点；空则取根节点 ROOT"
+        },
+        {
+          "name": "lastBusinessType",
+          "type": "String",
+          "source": "${systemInput.lastBusinessType}",
+          "desc": "可空，上轮关注的业务类别；用于把『它』解析成具体业务"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "contextOutput",
+          "type": "Object",
+          "desc": "本节点的输出变量名；下游经它引用各字段"
+        },
+        {
+          "name": "contextOutput.analysisMode",
+          "type": "String",
+          "desc": "本轮判定的分析模式：七种业务模式之一，或 clarification（未识别问法，要求用户换一种说法）"
+        },
+        {
+          "name": "contextOutput.question",
+          "type": "String",
+          "desc": "原样透传的用户问题，供 Prompt 节点使用"
+        },
+        {
+          "name": "contextOutput.businessType",
+          "type": "String",
+          "desc": "从问题解析出的业务类别；解析不出时默认自营贷款"
+        },
+        {
+          "name": "contextOutput.nodeCode",
+          "type": "String",
+          "desc": "从问题解析出的计算树节点编码；默认 ROOT"
+        },
+        {
+          "name": "contextOutput.baseDate",
+          "type": "String",
+          "desc": "解析后的比较基期；空表示没有基期（不取两期对比）"
+        }
+      ],
+      "config": {
+        "kind": "script",
+        "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
+        "code": "def handler(params):\n    metric = (params.get(\"metricCode\") or \"\").strip()\n    org = (params.get(\"orgCode\") or \"\").strip()\n    currency = (params.get(\"currencyCode\") or \"\").strip()\n    tenor = (params.get(\"tenorCode\") or \"\").strip()\n    date = (params.get(\"asOfDate\") or \"\").strip()\n    question = (params.get(\"question\") or \"\").strip()\n    if not all((metric, org, currency, tenor, date)):\n        raise ValueError(\"MISSING_SCOPE\")\n    if metric != \"REPRICING_GAP_RATIO\":\n        raise ValueError(\"UNSUPPORTED_METRIC\")\n    modes = (\n        \"overview\", \"limit\", \"trend\", \"calculation\", \"attribution\",\n        \"business\", \"methodology\", \"clarification\", \"currencyCompare\",\n    )\n    mode = (params.get(\"analysisMode\") or \"\").strip()\n    if mode and mode not in modes:\n        raise ValueError(\"UNSUPPORTED_ANALYSIS_MODE\")\n    if not mode:\n        q = question\n        last_business = (params.get(\"lastBusinessType\") or \"\").strip()\n        business_names = (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\")\n        if not q:\n            mode = \"overview\"\n        elif last_business and any(word in q for word in (\"它\", \"这个业务\", \"这类业务\")):\n            mode = \"business\"\n        elif any(name in q for name in business_names) and any(\n            word in q for word in (\"为什么\", \"原因\", \"新增\", \"退出\", \"大额\", \"业务\")\n        ):\n            mode = \"business\"\n        elif any(word in q for word in (\"限额\", \"超限\", \"空间\", \"预警\")):\n            mode = \"limit\"\n        elif any(word in q for word in (\"口径\", \"剔除\", \"不含\", \"定义\")):\n            mode = \"methodology\"\n        elif any(word in q for word in (\"怎么算\", \"计算过程\", \"分子\", \"分母\", \"构成\", \"公式\")):\n            mode = \"calculation\"\n        elif any(word in q for word in (\n            \"归因\", \"导致\", \"变动原因\", \"影响因素\", \"啥原因\", \"什么原因\", \"怎么变\", \"咋变\", \"咋回事\"\n        )) or (\n            any(word in q for word in (\"为什么\", \"为何\", \"为啥\"))\n            and any(word in q for word in (\"上升\", \"下降\", \"上涨\", \"下跌\", \"涨\", \"跌\", \"变化\", \"变动\", \"不一样\"))\n        ):\n            mode = \"attribution\"\n        elif any(word in q for word in (\"走势\", \"趋势\", \"波动\", \"近几个月\")):\n            mode = \"trend\"\n        elif any(word in q for word in (\"是多少\", \"多高\", \"现在多少\", \"当前多少\")):\n            mode = \"overview\"\n        else:\n            leftover = q.replace(\"重定价缺口率\", \"\")\n            filler = set(\n                \" ，,。？?！!的了吧呢啊呀请帮我看看一下现在目前请问哈怎么样咋样\"\n                \"什么情况啥情况最近怎么样呢\"\n            )\n            if not \"\".join(ch for ch in leftover if not ch.isspace() and ch not in filler):\n                mode = \"overview\"\n            else:\n                mode = \"clarification\"\n    business = (params.get(\"businessType\") or \"\").strip() or (params.get(\"lastBusinessType\") or \"\").strip()\n    if not business:\n        for name in (\"自营贷款\", \"投资类资产\", \"同业资产\", \"定期存款\", \"同业负债\"):\n            if name in question:\n                business = name\n                break\n    return {\n        \"metricCode\": metric, \"orgCode\": org, \"currencyCode\": currency,\n        \"tenorCode\": tenor, \"asOfDate\": date,\n        \"baseDate\": (params.get(\"baseDate\") or \"\").strip(),\n        \"question\": question, \"analysisMode\": mode,\n        \"businessType\": business or \"自营贷款\",\n        \"nodeCode\": (params.get(\"nodeCode\") or \"ROOT\").strip(),\n    }",
+        "timeoutSeconds": 5,
+        "onError": "abort"
+      },
+      "failureRouting": "范围或日期不支持时抛错中断（abort），不到 API 节点。",
+      "impl": "repricing_gap_workflow/workflow.py · resolve_context + classify_question",
+      "configure": [
+        "语言选 Python 3.9；保持 handler(params) 函数名。",
+        "输入参数逐项引用 systemInput 的同名字段。",
+        "输出变量名填 contextOutput，类型选 Object；给下游暴露脚本 return 的字段。",
+        "异常策略保持中断；无效范围不能继续调用 API。"
+      ],
+      "sourceSection": "脚本节点：Python 3.9、handler(params)、5 秒、禁止 HTTP 和文件 I/O",
+      "readiness": "可配置",
+      "inlineMigration": "语言选 Python 3.9；保持 handler(params) 函数名。；输入参数逐项引用 systemInput 的同名字段。；输出变量名填 contextOutput，类型选 Object；给下游暴露脚本 return 的字段。；异常策略保持中断；无效范围不能继续调用 API。"
+    },
+    {
+      "id": "api",
+      "name": "获取本次指标分析数据",
+      "inlineType": "API",
+      "summary": "一次请求只获取当前分析模式的小结果包；由 ALM 服务决定指标值、正式归因和权限。",
+      "inputs": [
+        {
+          "name": "metricCode",
+          "type": "String",
+          "source": "${contextOutput.metricCode}",
+          "desc": "指标编码；范围已校验，与入参一致"
+        },
+        {
+          "name": "orgCode",
+          "type": "String",
+          "source": "${contextOutput.orgCode}",
+          "desc": "机构编码；用于服务端鉴权"
+        },
+        {
+          "name": "currencyCode",
+          "type": "String",
+          "source": "${systemInput.currencyCode}",
+          "desc": "页面币种；决定返回哪个币种的结果"
+        },
+        {
+          "name": "tenorCode",
+          "type": "String",
+          "source": "${contextOutput.tenorCode}",
+          "desc": "期限档"
+        },
+        {
+          "name": "asOfDate",
+          "type": "String",
+          "source": "${systemInput.asOfDate}",
+          "desc": "分析当期；后端据此选数据点"
+        },
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${contextOutput.analysisMode}",
+          "desc": "决定后端返回概览/归因/计算树/业务明细中的哪一种"
+        },
+        {
+          "name": "baseDate",
+          "type": "String",
+          "source": "${contextOutput.baseDate}",
+          "desc": "两期归因必带；后端据此返回该基期的影响贡献"
+        },
+        {
+          "name": "businessType",
+          "type": "String",
+          "source": "${contextOutput.businessType}",
+          "desc": "业务明细类问题必带"
+        },
+        {
+          "name": "nodeCode",
+          "type": "String",
+          "source": "${contextOutput.nodeCode}",
+          "desc": "计算过程逐级展开时传当前节点"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apiResponse",
+          "type": "Object",
+          "desc": "本节点的输出变量名；后置脚本经它引用"
+        },
+        {
+          "name": "apiResponse.returnCode",
+          "type": "String",
+          "desc": "返回码；SUC0000 成功、ERR4010 认证失败、ERR9999 系统异常"
+        },
+        {
+          "name": "apiResponse.errorCode",
+          "type": "String",
+          "desc": "失败时的业务错误码，如 ALM_API_FAILED"
+        },
+        {
+          "name": "apiResponse.body",
+          "type": "Object",
+          "desc": "本轮小结果包；只含本模式所需字段，不得塞全量明细"
+        }
+      ],
+      "config": {
+        "kind": "api"
+      },
+      "failureRouting": "HTTP 失败或 returnCode 非成功时抛错中断（abort），不到模型。",
+      "impl": "repricing_gap_workflow/workflow.py · fetch_alm_data",
+      "configure": [
+        "先在 API 注册中登记 ALM 提供的正式接口，再在此节点选择已注册 API。",
+        "推荐一个固定 POST 接口，body 使用扁平字段；不要配置模型生成的 SQL 或动态 URL。",
+        "在入参区将每个 body 字段引用 contextOutput 同名字段。",
+        "输出变量名填 apiResponse（Object）；鉴权在 API 注册/网关配置，不从浏览器传密钥。",
+        "本地 /mock/analysis/query 仅供调试，不能直接填进行内平台。"
+      ],
+      "sourceSection": "API 节点：先注册 API、逐项绑定 body 入参、配置异常策略",
+      "readiness": "依赖正式 API",
+      "inlineMigration": "先在 API 注册中登记 ALM 提供的正式接口，再在此节点选择已注册 API。；推荐一个固定 POST 接口，body 使用扁平字段；不要配置模型生成的 SQL 或动态 URL。；在入参区将每个 body 字段引用 contextOutput 同名字段。；输出变量名填 apiResponse（Object）；鉴权在 API 注册/网关配置，不从浏览器传密钥。；本地 /mock/analysis/query 仅供调试，不能直接填进行内平台。"
+    },
+    {
+      "id": "package",
+      "name": "校验结果包",
+      "inlineType": "脚本",
+      "summary": "检查响应成功、机构/币种/日期一致、数据可用、版本齐全且结果包不超长。",
+      "inputs": [
+        {
+          "name": "apiResponse",
+          "type": "Object",
+          "source": "API 节点输出 apiResponse",
+          "desc": "待校验的原始响应"
+        },
+        {
+          "name": "metricCode",
+          "type": "String",
+          "source": "${contextOutput.metricCode}",
+          "desc": "用于核对结果包的机构/币种/口径与请求一致"
+        },
+        {
+          "name": "orgCode",
+          "type": "String",
+          "source": "${contextOutput.orgCode}",
+          "desc": "同上"
+        },
+        {
+          "name": "currencyCode",
+          "type": "String",
+          "source": "${systemInput.currencyCode}",
+          "desc": "同上"
+        },
+        {
+          "name": "tenorCode",
+          "type": "String",
+          "source": "${contextOutput.tenorCode}",
+          "desc": "同上"
+        },
+        {
+          "name": "asOfDate",
+          "type": "String",
+          "source": "${systemInput.asOfDate}",
+          "desc": "同上"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "packageOutput.resultPackage",
+          "type": "Object",
+          "desc": "校验通过的结果包；只有它才会交给模型，不合格直接中断"
+        }
+      ],
+      "config": {
+        "kind": "script",
+        "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
+        "code": "def handler(params):\n    import json\n    result = params.get(\"apiResponse\") or {}\n    if result.get(\"returnCode\") != \"SUC0000\":\n        raise ValueError(result.get(\"errorCode\") or \"ALM_API_FAILED\")\n    body = result.get(\"body\") or {}\n    actual = body.get(\"scope\") or {}\n    for key in (\"metricCode\", \"orgCode\", \"currencyCode\", \"tenorCode\", \"asOfDate\"):\n        if actual.get(key) != params.get(key):\n            raise ValueError(\"SCOPE_MISMATCH_\" + key)\n    if body.get(\"status\") != \"available\":\n        raise ValueError(\"DATA_NOT_AVAILABLE\")\n    if not body.get(\"dataVersion\") or not body.get(\"caliberVersion\"):\n        raise ValueError(\"VERSION_MISSING\")\n    if len(json.dumps(body, ensure_ascii=False)) > 16000:\n        raise ValueError(\"PACKAGE_TOO_LARGE\")\n    return {\"resultPackage\": body}",
+        "timeoutSeconds": 5,
+        "onError": "abort"
+      },
+      "failureRouting": "结果包不合格时抛错中断（abort），不调用 Prompt。",
+      "impl": "repricing_gap_workflow/workflow.py · validate_data_package",
+      "configure": [
+        "语言选 Python 3.9；输入 apiResponse 引用 API 节点输出。",
+        "另建 5 个扁平输入，分别引用 contextOutput 的 metricCode、orgCode、currencyCode、tenorCode、asOfDate。",
+        "输出变量名填 packageOutput（Object）；异常策略保持中断，不把错数据交给模型。"
+      ],
+      "sourceSection": "脚本节点：引用前置节点输出，禁止长 I/O，5 秒超时",
+      "readiness": "需验证 Object 绑定",
+      "inlineMigration": "语言选 Python 3.9；输入 apiResponse 引用 API 节点输出。；另建 5 个扁平输入，分别引用 contextOutput 的 metricCode、orgCode、currencyCode、tenorCode、asOfDate。；输出变量名填 packageOutput（Object）；异常策略保持中断，不把错数据交给模型。"
+    },
+    {
+      "id": "prompt",
+      "name": "生成指标解释",
+      "inlineType": "Prompt",
+      "summary": "只使用本次结果包，把指标变化解释成短 JSON；小模型不负责取数和计算。",
+      "inputs": [
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${contextOutput.analysisMode}",
+          "desc": "告知模型本轮分析模式，让它按对应口径组织文案"
+        },
+        {
+          "name": "question",
+          "type": "String",
+          "source": "${contextOutput.question}",
+          "desc": "用户原问题"
+        },
+        {
+          "name": "resultPackage",
+          "type": "Object",
+          "source": "${packageOutput.resultPackage}",
+          "desc": "本轮结果包；模型只能依据它作答，不得引入其他数字"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "narrativeRaw",
+          "type": "String",
+          "desc": "模型输出的原始文本（未解析）；下一脚本负责解析成 JSON"
+        }
+      ],
+      "config": {
+        "kind": "prompt",
+        "systemPrompt": "你是ALM风险指标解读助手。只依据本次取数结果回答，不使用记忆中的数字。\n分析模式：${analysisMode}\n用户问题：${question}\n结果包：${resultPackage}\n\n只输出一个JSON对象，不要Markdown代码块：\n{\"headline\":\"简短结论\",\"sections\":[{\"text\":\"解释\",\"citations\":[\"字段路径\"]}],\"numericRefs\":[{\"path\":\"字段路径\",\"value\":原始数值}]}\n字段路径相对于结果包根节点，不要加resultPackage前缀；数组下标用点号，例如trend.0.value。\n每段至少一条有效引用。正文中的每个金额、比例、百分点必须引用结果包原值，不自行计算。\n最多两段，每段不超过70字。归因只写总变化和影响最大的两个因素。\n若method或attributionMethod含SYNTHETIC，必须说明演示性质，不能写成正式ALM归因。\n业务明细只是线索，不得声称逐笔正式归因；业务标题不写演示影响百分点。\n如果结果包无法回答某个问题，明确说明范围，不补造数据。",
+        "outputFormat": "text",
+        "outputParams": [],
+        "llmProfile": "low",
+        "onError": "ignore",
+        "defaultOutput": ""
+      },
+      "failureRouting": "异常忽略（ignore）：失败时跳过本节点、输出空字符串，由下一脚本降级。",
+      "impl": "repricing_gap_workflow/workflow.py · generate_narrative",
+      "configure": [
+        "模型选行内可用的 qwen3.8-27b。生成效果选“精确”，temperature 设为 0，maxToken 先设 900。",
+        "Prompt 内容粘贴下方文本；输入参数 analysisMode、question 引用 contextOutput，resultPackage 引用 packageOutput。",
+        "输出格式先选“文本”，输出变量名填 narrativeRaw（String）；下一脚本解析 JSON。这样不依赖平台对嵌套 JSON 输出结构的支持。",
+        "上下文管理先关闭，避免旧数据混入本次结果；如模型设置有思考开关，先关闭并实测。",
+        "异常忽略可开启，默认输出留空字符串，后续校验脚本会降级；需在平台试运行验证空值传递。"
+      ],
+      "sourceSection": "Prompt 节点：模型、高级参数、${variable} 引用、输出格式和异常忽略",
+      "readiness": "需平台试运行",
+      "inlineMigration": "模型选行内可用的 qwen3.8-27b。生成效果选“精确”，temperature 设为 0，maxToken 先设 900。；Prompt 内容粘贴下方文本；输入参数 analysisMode、question 引用 contextOutput，resultPackage 引用 packageOutput。；输出格式先选“文本”，输出变量名填 narrativeRaw（String）；下一脚本解析 JSON。这样不依赖平台对嵌套 JSON 输出结构的支持。；上下文管理先关闭，避免旧数据混入本次结果；如模型设置有思考开关，先关闭并实测。；异常忽略可开启，默认输出留空字符串，后续校验脚本会降级；需在平台试运行验证空值传递。"
+    },
+    {
+      "id": "answer",
+      "name": "核对引用和数字",
+      "inlineType": "脚本",
+      "summary": "首次校验模型 JSON、引用路径、数字和演示归因用语。不通过则走条件选择器到修正 Prompt，不再画回边。",
+      "inputs": [
+        {
+          "name": "narrativeRaw",
+          "type": "String",
+          "source": "Prompt 节点 narrativeRaw",
+          "desc": "待校验的模型文案；首次或修正后的版本"
+        },
+        {
+          "name": "resultPackage",
+          "type": "Object",
+          "source": "${packageOutput.resultPackage}",
+          "desc": "数值回填的基准；文案里每个数字都要能在它里面找到"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "answerOutput.narrative",
+          "type": "Object",
+          "desc": "通过校验的文案对象（headline/sections/numericRefs）；不通过时为 null"
+        },
+        {
+          "name": "answerOutput.validationErrors",
+          "type": "Array<String>",
+          "desc": "差异清单；非空即触发修正链"
+        },
+        {
+          "name": "answerOutput.degradeFlags",
+          "type": "Array<String>",
+          "desc": "降级标记；如 NARRATIVE_VALIDATION_FAILED"
+        }
+      ],
+      "config": {
+        "kind": "script",
+        "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
+        "code": "def handler(params):\n    import json\n    import re\n    raw = params.get(\"narrativeRaw\") or \"\"\n    data = params.get(\"resultPackage\") or {}\n    errors = []\n    try:\n        answer = json.loads(raw.strip().removeprefix(\"```json\").removesuffix(\"```\").strip())\n    except (TypeError, ValueError):\n        answer = None\n        errors.append(\"INVALID_JSON\")\n    def resolve(path):\n        value = data\n        for segment in path.split(\".\"):\n            value = value[int(segment)] if isinstance(value, list) else value[segment]\n        return value\n    if isinstance(answer, dict):\n        if not isinstance(answer.get(\"headline\"), str):\n            errors.append(\"INVALID_HEADLINE\")\n        sections = answer.get(\"sections\")\n        refs = answer.get(\"numericRefs\")\n        if not isinstance(sections, list) or not sections:\n            errors.append(\"MISSING_SECTIONS\")\n            sections = []\n        if not isinstance(refs, list):\n            errors.append(\"INVALID_NUMERIC_REFS\")\n            refs = []\n        for section in sections:\n            if not isinstance(section, dict) or not isinstance(section.get(\"text\"), str) or not section.get(\"citations\"):\n                errors.append(\"INVALID_SECTION\")\n                continue\n            for path in section[\"citations\"]:\n                try:\n                    resolve(path)\n                except (KeyError, IndexError, TypeError, ValueError):\n                    errors.append(\"INVALID_CITATION\")\n        values = []\n        for ref in refs:\n            try:\n                actual = resolve(ref[\"path\"])\n                if actual != ref[\"value\"]:\n                    errors.append(\"NUMERIC_MISMATCH\")\n                if isinstance(actual, (int, float)):\n                    values.append(actual)\n            except (KeyError, IndexError, TypeError, ValueError):\n                errors.append(\"INVALID_NUMERIC_REF\")\n        text = answer.get(\"headline\", \"\") + \" \" + \" \".join(\n            section.get(\"text\", \"\") for section in sections if isinstance(section, dict)\n        )\n        text = re.sub(r\"\\d{4}[-/]\\d{1,2}(?:[-/]\\d{1,2})?\", \"\", text)\n        text = re.sub(r\"\\d{4}年\\d{1,2}月(?:\\d{1,2}日)?\", \"\", text)\n        text = re.sub(r\"(?<!\\d)\\d{1,2}月\", \"\", text)\n        text = re.sub(r\"\\b[A-Za-z]+-\\d+\\b\", \"\", text)\n        for match in re.finditer(r\"(?<![A-Za-z0-9])[-+]?\\d+(?:\\.\\d+)?(?![A-Za-z0-9])\", text):\n            stated = float(match.group())\n            decimals = len(match.group().split(\".\")[1]) if \".\" in match.group() else 0\n            if not any(round(value, decimals) == stated for value in values):\n                errors.append(\"UNREFERENCED_NUMBER\")\n        if str(data.get(\"attributionMethod\", \"\")).startswith(\"SYNTHETIC\"):\n            if \"百分点\" in answer.get(\"headline\", \"\"):\n                errors.append(\"ILLUSTRATIVE_IMPACT_IN_HEADLINE\")\n            for section in sections:\n                if isinstance(section, dict) and \"illustrativeImpactPctPoint\" in section.get(\"citations\", []):\n                    if \"演示\" not in section.get(\"text\", \"\"):\n                        errors.append(\"ILLUSTRATIVE_IMPACT_UNLABELED\")\n    else:\n        errors.append(\"INVALID_SCHEMA\")\n    return {\n        \"narrative\": answer if not errors else None,\n        \"validationErrors\": errors,\n        \"degradeFlags\": [\"NARRATIVE_VALIDATION_FAILED\"] if errors else [],\n    }",
+        "timeoutSeconds": 5,
+        "onError": "abort"
+      },
+      "failureRouting": "校验不通过不中断：走条件选择器前向到修正 Prompt。",
+      "impl": "repricing_gap_workflow/workflow.py · validate_output",
+      "configure": [
+        "语言选 Python 3.9；输入 narrativeRaw 引用 Prompt 输出，resultPackage 引用 packageOutput。",
+        "输出变量名填 answerOutput（Object），子字段 narrative、validationErrors、degradeFlags。",
+        "脚本只做内存校验，不调用外部接口；在行内平台分别测试正常、错数、无引用、模型空输出。"
+      ],
+      "sourceSection": "脚本节点：Python 3.9、handler(params)、Object 输出",
+      "readiness": "需平台试运行",
+      "inlineMigration": "语言选 Python 3.9；输入 narrativeRaw 引用 Prompt 输出，resultPackage 引用 packageOutput。；输出变量名填 answerOutput（Object），子字段 narrative、validationErrors、degradeFlags。；脚本只做内存校验，不调用外部接口；在行内平台分别测试正常、错数、无引用、模型空输出。"
+    },
+    {
+      "id": "retry_gate",
+      "name": "是否修正文案",
+      "inlineType": "条件选择器",
+      "summary": "校验错误非空则走修正 Prompt；否则到结束。行内画布无回边，用前向分支表达重试一次。",
+      "inputs": [
+        {
+          "name": "validationErrors",
+          "type": "Array<String>",
+          "source": "${answerOutput.validationErrors}",
+          "desc": "首次校验的差异清单；非空走修正链，空则直接结束"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "（无）",
+          "type": "—",
+          "desc": "条件选择器只决定走哪条分支，本身不产出变量"
+        }
+      ],
+      "config": {
+        "kind": "condition",
+        "branches": [
+          {
+            "when": "answerOutput.validationErrors 非空",
+            "then": "修正指标解释"
+          },
+          {
+            "when": "否则",
+            "then": "结束"
+          }
+        ]
+      },
+      "failureRouting": "IF 走修正链，ELSE 走结束。行内画布无回边。",
+      "impl": "repricing_gap_workflow/workflow.py · validate_output 上的条件边",
+      "configure": [
+        "IF：answerOutput.validationErrors 非空 → 修正指标解释。",
+        "ELSE：直接到结束节点。",
+        "分支内条件用 not_empty；不要画回生成节点的边。"
+      ],
+      "sourceSection": "条件选择器：IF/ELSE、操作符 not_empty",
+      "readiness": "需平台试运行",
+      "inlineMigration": "IF：answerOutput.validationErrors 非空 → 修正指标解释。；ELSE：直接到结束节点。；分支内条件用 not_empty；不要画回生成节点的边。",
+      "localOnly": true
+    },
+    {
+      "id": "regenerate",
+      "name": "修正指标解释",
+      "inlineType": "Prompt",
+      "summary": "把首次校验差异清单交给同一 Prompt 再生成一次；仍失败则复核脚本降级。",
+      "inputs": [
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${contextOutput.analysisMode}",
+          "desc": "与首次生成一致"
+        },
+        {
+          "name": "question",
+          "type": "String",
+          "source": "${contextOutput.question}",
+          "desc": "与首次生成一致"
+        },
+        {
+          "name": "resultPackage",
+          "type": "Object",
+          "source": "${packageOutput.resultPackage}",
+          "desc": "仍是本轮同一结果包——不重新取数，保证两稿可比"
+        },
+        {
+          "name": "previousErrors",
+          "type": "Array<String>",
+          "source": "${answerOutput.validationErrors}",
+          "desc": "首轮差异清单，模型据此针对性修正"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "narrativeRaw",
+          "type": "String",
+          "desc": "覆盖同名的 narrativeRaw，供复核脚本再次校验"
+        }
+      ],
+      "config": {
+        "kind": "prompt",
+        "systemPrompt": "你是ALM风险指标解读助手。只依据本次取数结果回答，不使用记忆中的数字。\n分析模式：${analysisMode}\n用户问题：${question}\n结果包：${resultPackage}\n\n只输出一个JSON对象，不要Markdown代码块：\n{\"headline\":\"简短结论\",\"sections\":[{\"text\":\"解释\",\"citations\":[\"字段路径\"]}],\"numericRefs\":[{\"path\":\"字段路径\",\"value\":原始数值}]}\n字段路径相对于结果包根节点，不要加resultPackage前缀；数组下标用点号，例如trend.0.value。\n每段至少一条有效引用。正文中的每个金额、比例、百分点必须引用结果包原值，不自行计算。\n最多两段，每段不超过70字。归因只写总变化和影响最大的两个因素。\n若method或attributionMethod含SYNTHETIC，必须说明演示性质，不能写成正式ALM归因。\n业务明细只是线索，不得声称逐笔正式归因；业务标题不写演示影响百分点。\n如果结果包无法回答某个问题，明确说明范围，不补造数据。",
+        "outputFormat": "text",
+        "outputParams": [],
+        "llmProfile": "low",
+        "onError": "ignore",
+        "defaultOutput": ""
+      },
+      "failureRouting": "异常忽略（ignore）：空输出由复核脚本降级。",
+      "impl": "repricing_gap_workflow/workflow.py · regenerate_narrative",
+      "configure": [
+        "复制「生成指标解释」的模型与 Prompt，增加 previousErrors 引用 answerOutput.validationErrors。",
+        "输出仍用 narrativeRaw；异常忽略开启，空输出由复核脚本降级。"
+      ],
+      "sourceSection": "Prompt 节点：修正副本，无回边",
+      "readiness": "需平台试运行",
+      "inlineMigration": "复制「生成指标解释」的模型与 Prompt，增加 previousErrors 引用 answerOutput.validationErrors。；输出仍用 narrativeRaw；异常忽略开启，空输出由复核脚本降级。"
+    },
+    {
+      "id": "retry_check",
+      "name": "复核引用和数字",
+      "inlineType": "脚本",
+      "summary": "对修正后的文案再跑同一套校验；仍失败则 narrative 置空并标记 NARRATIVE_VALIDATION_FAILED。",
+      "inputs": [
+        {
+          "name": "narrativeRaw",
+          "type": "String",
+          "source": "修正 Prompt 节点 narrativeRaw",
+          "desc": "修正后的文案"
+        },
+        {
+          "name": "resultPackage",
+          "type": "Object",
+          "source": "${packageOutput.resultPackage}",
+          "desc": "数值回填的基准；与首次校验同一份"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "answerOutput.narrative",
+          "type": "Object",
+          "desc": "覆盖首次校验结果；仍不通过则为 null"
+        },
+        {
+          "name": "answerOutput.validationErrors",
+          "type": "Array<String>",
+          "desc": "覆盖首次校验结果"
+        },
+        {
+          "name": "answerOutput.degradeFlags",
+          "type": "Array<String>",
+          "desc": "追加 NARRATIVE_VALIDATION_FAILED；不再分支，直接降级"
+        }
+      ],
+      "config": {
+        "kind": "script",
+        "codeSummary": "见下方『脚本全文』，行内可直接粘贴。",
+        "code": "def handler(params):\n    import json\n    import re\n    raw = params.get(\"narrativeRaw\") or \"\"\n    data = params.get(\"resultPackage\") or {}\n    errors = []\n    try:\n        answer = json.loads(raw.strip().removeprefix(\"```json\").removesuffix(\"```\").strip())\n    except (TypeError, ValueError):\n        answer = None\n        errors.append(\"INVALID_JSON\")\n    def resolve(path):\n        value = data\n        for segment in path.split(\".\"):\n            value = value[int(segment)] if isinstance(value, list) else value[segment]\n        return value\n    if isinstance(answer, dict):\n        if not isinstance(answer.get(\"headline\"), str):\n            errors.append(\"INVALID_HEADLINE\")\n        sections = answer.get(\"sections\")\n        refs = answer.get(\"numericRefs\")\n        if not isinstance(sections, list) or not sections:\n            errors.append(\"MISSING_SECTIONS\")\n            sections = []\n        if not isinstance(refs, list):\n            errors.append(\"INVALID_NUMERIC_REFS\")\n            refs = []\n        for section in sections:\n            if not isinstance(section, dict) or not isinstance(section.get(\"text\"), str) or not section.get(\"citations\"):\n                errors.append(\"INVALID_SECTION\")\n                continue\n            for path in section[\"citations\"]:\n                try:\n                    resolve(path)\n                except (KeyError, IndexError, TypeError, ValueError):\n                    errors.append(\"INVALID_CITATION\")\n        values = []\n        for ref in refs:\n            try:\n                actual = resolve(ref[\"path\"])\n                if actual != ref[\"value\"]:\n                    errors.append(\"NUMERIC_MISMATCH\")\n                if isinstance(actual, (int, float)):\n                    values.append(actual)\n            except (KeyError, IndexError, TypeError, ValueError):\n                errors.append(\"INVALID_NUMERIC_REF\")\n        text = answer.get(\"headline\", \"\") + \" \" + \" \".join(\n            section.get(\"text\", \"\") for section in sections if isinstance(section, dict)\n        )\n        text = re.sub(r\"\\d{4}[-/]\\d{1,2}(?:[-/]\\d{1,2})?\", \"\", text)\n        text = re.sub(r\"\\d{4}年\\d{1,2}月(?:\\d{1,2}日)?\", \"\", text)\n        text = re.sub(r\"(?<!\\d)\\d{1,2}月\", \"\", text)\n        text = re.sub(r\"\\b[A-Za-z]+-\\d+\\b\", \"\", text)\n        for match in re.finditer(r\"(?<![A-Za-z0-9])[-+]?\\d+(?:\\.\\d+)?(?![A-Za-z0-9])\", text):\n            stated = float(match.group())\n            decimals = len(match.group().split(\".\")[1]) if \".\" in match.group() else 0\n            if not any(round(value, decimals) == stated for value in values):\n                errors.append(\"UNREFERENCED_NUMBER\")\n        if str(data.get(\"attributionMethod\", \"\")).startswith(\"SYNTHETIC\"):\n            if \"百分点\" in answer.get(\"headline\", \"\"):\n                errors.append(\"ILLUSTRATIVE_IMPACT_IN_HEADLINE\")\n            for section in sections:\n                if isinstance(section, dict) and \"illustrativeImpactPctPoint\" in section.get(\"citations\", []):\n                    if \"演示\" not in section.get(\"text\", \"\"):\n                        errors.append(\"ILLUSTRATIVE_IMPACT_UNLABELED\")\n    else:\n        errors.append(\"INVALID_SCHEMA\")\n    return {\n        \"narrative\": answer if not errors else None,\n        \"validationErrors\": errors,\n        \"degradeFlags\": [\"NARRATIVE_VALIDATION_FAILED\"] if errors else [],\n    }",
+        "timeoutSeconds": 5,
+        "onError": "abort"
+      },
+      "failureRouting": "复核仍失败则 narrative 置空并记 NARRATIVE_VALIDATION_FAILED。",
+      "impl": "repricing_gap_workflow/workflow.py · validate_retry",
+      "configure": [
+        "脚本与「核对引用和数字」相同；失败时只降级，不再分支。",
+        "输出写入 answerOutput，覆盖首次校验结果。"
+      ],
+      "sourceSection": "脚本节点：复核后只降级，不再循环",
+      "readiness": "需平台试运行",
+      "inlineMigration": "脚本与「核对引用和数字」相同；失败时只降级，不再分支。；输出写入 answerOutput，覆盖首次校验结果。"
+    },
+    {
+      "id": "__end__",
+      "name": "结束",
+      "inlineType": "结束",
+      "summary": "把确定性结果包和经过校验的文案一起返回；文案失败也保留数据。",
+      "inputs": [
+        {
+          "name": "analysisMode",
+          "type": "String",
+          "source": "${contextOutput.analysisMode}",
+          "desc": "本轮实际走的分析模式，便于调用方确认"
+        },
+        {
+          "name": "resultPackage",
+          "type": "Object",
+          "source": "${packageOutput.resultPackage}",
+          "desc": "确定性结果包；即使文案失败也照常返回"
+        },
+        {
+          "name": "narrative",
+          "type": "Object",
+          "source": "${answerOutput.narrative}",
+          "desc": "校验通过的文案；可能为 null"
+        },
+        {
+          "name": "validationErrors",
+          "type": "Array<String>",
+          "source": "${answerOutput.validationErrors}",
+          "desc": "校验差异；为空说明通过或已降级"
+        },
+        {
+          "name": "degradeFlags",
+          "type": "Array<String>",
+          "source": "${answerOutput.degradeFlags}",
+          "desc": "降级标记；调用方据此决定是否采信文案"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "（最终输出）",
+          "type": "Object",
+          "desc": "按上述五个字段组装返回给调用方；先不开流式"
+        }
+      ],
+      "config": {
+        "kind": "end",
+        "outputTemplate": {
+          "analysisMode": "${contextOutput.analysisMode}",
+          "resultPackage": "${packageOutput.resultPackage}",
+          "narrative": "${answerOutput.narrative}",
+          "validationErrors": "${answerOutput.validationErrors}",
+          "degradeFlags": "${answerOutput.degradeFlags}"
+        }
+      },
+      "failureRouting": "始终返回；文案为 null 时仍返回确定性结果包。",
+      "impl": "",
+      "configure": [
+        "输出模式选“可视化”，创建 analysisMode、resultPackage、narrative、validationErrors、degradeFlags。",
+        "分别引用 contextOutput、packageOutput、answerOutput 的字段；先不开流式输出。",
+        "在平台试运行中确认 Object/Array 引用和 null 文案能正确返回，再考虑中间信息输出。"
+      ],
+      "sourceSection": "结束节点：可视化输出、引用前置节点、流式输出开关",
+      "readiness": "需平台试运行",
+      "inlineMigration": "输出模式选“可视化”，创建 analysisMode、resultPackage、narrative、validationErrors、degradeFlags。；分别引用 contextOutput、packageOutput、answerOutput 的字段；先不开流式输出。；在平台试运行中确认 Object/Array 引用和 null 文案能正确返回，再考虑中间信息输出。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "context",
+      "kind": "normal"
+    },
+    {
+      "from": "context",
+      "to": "api",
+      "kind": "normal"
+    },
+    {
+      "from": "api",
+      "to": "package",
+      "kind": "normal"
+    },
+    {
+      "from": "package",
+      "to": "prompt",
+      "kind": "normal"
+    },
+    {
+      "from": "prompt",
+      "to": "answer",
+      "kind": "normal"
+    },
+    {
+      "from": "answer",
+      "to": "retry_gate",
+      "kind": "normal"
+    },
+    {
+      "from": "retry_gate",
+      "to": "__end__",
+      "kind": "conditional",
+      "label": "通过或已降级"
+    },
+    {
+      "from": "retry_gate",
+      "to": "regenerate",
+      "kind": "conditional",
+      "label": "校验未过"
+    },
+    {
+      "from": "regenerate",
+      "to": "retry_check",
+      "kind": "normal"
+    },
+    {
+      "from": "retry_check",
+      "to": "__end__",
+      "kind": "end"
+    }
+  ],
+  "inlineNotes": [
+    {
+      "id": "open-1",
+      "title": "行内待实测",
+      "body": "正式 ALM 指标分析 API 尚未注册；本地 Mock 数值和演示归因不可上线。",
+      "severity": "warning"
+    },
+    {
+      "id": "open-2",
+      "title": "行内待实测",
+      "body": "机构、币种和明细权限必须由 ALM API 服务端鉴权，不能只信开始节点入参。",
+      "severity": "warning"
+    },
+    {
+      "id": "open-3",
+      "title": "行内待实测",
+      "body": "平台是否支持 Prompt 异常忽略后的空字符串、结束节点 null/Array 输出，需要逐项实测。",
+      "severity": "warning"
+    },
+    {
+      "id": "open-4",
+      "title": "行内待实测",
+      "body": "本地已把校验失败展开为条件选择器 + 修正 Prompt + 复核脚本；行内需实测条件分支合流、空文案和 Array 输出。",
+      "severity": "warning"
+    },
+    {
+      "id": "open-5",
+      "title": "行内待实测",
+      "body": "中间信息输出在 Prompt 文本/JSON 模式下的实际帧行为未确认，基线先不开启流式。",
+      "severity": "warning"
+    },
+    {
+      "id": "diff-1",
+      "title": "本地与行内的差异",
+      "body": "校验失败已展开为 regenerate_narrative → validate_retry，编译图无回边，与行内条件选择器前向链对齐。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-2",
+      "title": "本地与行内的差异",
+      "body": "条件选择器在行内是独立节点 retry_gate；本地是 validate_output 上的条件边，没有单独的图节点。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-3",
+      "title": "本地与行内的差异",
+      "body": "本地把范围校验和问题分类拆成 resolve_context 与 classify_question；行内合并为一个脚本节点。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-4",
+      "title": "本地与行内的差异",
+      "body": "七种分析模式共用 fetch_alm_data，编译图里没有按模式分出的 API 分支。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-5",
+      "title": "本地与行内的差异",
+      "body": "API 失败、范围错误在本地是函数抛错中断，不是编译出来的边；行内对应脚本/API 的异常策略，需实测空值传递。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-6",
+      "title": "本地与行内的差异",
+      "body": "模型失败降级走 generate_narrative → validate_output → __end__，文案为空、结果包保留。",
+      "relates": [],
+      "severity": "info"
+    },
+    {
+      "id": "diff-7",
+      "title": "本地与行内的差异",
+      "body": "正式 ALM API、权限、Prompt 空输出和结束节点 null/Array 仍需在行内平台实测，不能无缝导入。",
+      "relates": [],
+      "severity": "info"
+    }
+  ]
+}

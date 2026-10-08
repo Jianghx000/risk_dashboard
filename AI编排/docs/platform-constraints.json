@@ -1,0 +1,237 @@
+{
+  "_meta": {
+    "title": "行内 AI 智能工场平台约束（机器可读）",
+    "purpose": "复刻图与 manifest 的边界。每条规则都标注行内出处，本地校验方式，以及状态。",
+    "sources": {
+      "docx": "AI编排/行内AI工作流平台.docx（权威原文，17 个 word/afchunk_N.mht 片段）",
+      "quickref": "AI编排/行内AI工作流平台能力速查.md（2026-09-23 按设计问题重新索引）",
+      "contract": "AI编排/行内平台契约.md（PDF 文字化提炼，部分条目与 docx 不一致，以 docx 为准）"
+    },
+    "statusVocabulary": {
+      "文档支持": "行内文档列有该能力，但未证明本项目已接通",
+      "需实测": "文档自相矛盾、缺失或明确要求实测；不得当作确定事实",
+      "已实测": "行内试运行验证通过（须填 verifiedAt 与现象）",
+      "已违反": "本地实现与行内约束冲突，必须修"
+    },
+    "维护规则": "平台升级或行内实测推翻条目时，只修改受影响条目并记录验证日期与现象；不得无依据地把『文档支持』改写成『本项目已接通』。（行内AI工作流平台能力速查.md:115）"
+  },
+
+  "conflicts": [
+    {
+      "id": "script-timeout",
+      "topic": "脚本节点超时",
+      "docx": "片段 10（脚本节点）：『目前脚本节点的超时时间为 5s』",
+      "quickref": "行内AI工作流平台能力速查.md:33『超时 5 秒』",
+      "contract": "行内平台契约.md:98 写『节点前置点超时时间 3 秒』——与 docx 不符",
+      "resolution": "以 docx 为准：5s。契约.md 该条为 PDF 来源的旧值，应更正。",
+      "localImpact": [
+        "aiworkflow/config.py:112 SCRIPT_NODE_TIMEOUT_SECONDS = 3.0（比行内更严，合法但更早降级）",
+        "repricing_gap_workflow/platform_blueprint.py 脚本节点 sourceSection 已写『5 秒』，与行内一致"
+      ],
+      "status": "需实测"
+    }
+  ],
+
+  "rules": [
+    {
+      "id": "graph-is-dag",
+      "scope": "画布",
+      "constraint": "画布为有向无环图，无回边；『校验失败回到生成节点』这类重生成环无法直接表达，须线性展开为前向链",
+      "docx": "片段 0/1（业务编排概述）",
+      "quickref": null,
+      "localCheck": "aiworkflow.workflow_check.check_workflow 装配期拒绝未声明回边；本仓库 declared_back_edges 恒为空",
+      "status": "文档支持"
+    },
+    {
+      "id": "script-timeout-5s",
+      "scope": "脚本",
+      "constraint": "脚本节点超时时间统一为 5s",
+      "docx": "片段 10：『目前脚本节点的超时时间为 5s』",
+      "quickref": "能力速查.md:33",
+      "localCheck": "aiworkflow.config.SCRIPT_NODE_TIMEOUT_SECONDS；本地取 3.0（更严，合法）",
+      "status": "需实测",
+      "notes": "与行内平台契约.md:98 的 3 秒冲突，以 docx 为准"
+    },
+    {
+      "id": "script-no-long-io",
+      "scope": "脚本",
+      "constraint": "脚本节点为沙箱实现，不支持长 IO 操作（文件读写、HTTP 调用等）；仅沙箱白名单库可用",
+      "docx": "片段 10：『脚本节点因采用沙盒实现，仅沙盒中支持库可使用…不支持长IO操作，如文件读取写入、HTTP调用等』",
+      "quickref": "能力速查.md:33",
+      "localCheck": "复刻图脚本节点不得含 import requests/httpx/open；取数一律走 API 节点",
+      "status": "文档支持"
+    },
+    {
+      "id": "script-must-return-object",
+      "scope": "脚本",
+      "constraint": "只支持编写一个函数，Python 3.9 / Node.JS 14；即使只有一个输出值，也必须以对象（dict）形式 return；不支持编写多个函数",
+      "docx": "片段 10：『此功能不支持编写多个函数，即使仅有一个输出值，也务必保持以对象的形式返回』",
+      "quickref": "能力速查.md:33",
+      "localCheck": "aiworkflow.nodes.make_script_node 对非 dict 返回报错；复刻图脚本须保持单函数 handler(params) 形态",
+      "status": "文档支持"
+    },
+    {
+      "id": "script-no-formal-attribution",
+      "scope": "脚本",
+      "constraint": "脚本节点不能承担正式复杂归因计算；正式指标计算、Owen 归因、权限与数据勾稽必须在后端完成",
+      "docx": "片段 10 + 片段 7（API 节点）",
+      "quickref": "能力速查.md:33『不能承担正式复杂归因计算』、:53『后端负责…脚本只负责轻量校验、字段筛选和状态规范化；Prompt 只基于已验证结果做解释』",
+      "localCheck": "演示归因（analysis.py 五因素 Shapley）必须标注 SYNTHETIC 且不得表述为正式 ALM/Owen 归因",
+      "status": "文档支持"
+    },
+    {
+      "id": "prompt-json-no-streaming",
+      "scope": "Prompt",
+      "constraint": "Prompt 节点输出格式选 JSON 时不支持流式输出；变量名必须英文；输出参数必须配置，否则无法正常转换成 JSON",
+      "docx": "片段 4：『prompt节点选择输出为json格式，不支持流式输出；变量名需要是英文格式…输出变量的参数需要配置，否则无法正常转换成JSON』",
+      "quickref": "能力速查.md:62『Prompt 流式输出须使用文本格式；Markdown/JSON Prompt 输出不支持逐 token 流式』",
+      "localCheck": "行内复刻的 Prompt 节点 outputFormat 必须是 text（文本），JSON 由下游脚本节点解析；本地 graph_kit.make_prompt_node 的 json+流式属本地便利，迁移时须换成 文本输出 + 解析脚本",
+      "status": "文档支持"
+    },
+    {
+      "id": "gateway-90s",
+      "scope": "编排",
+      "constraint": "ZA21 架构下调用 OpenAPI 存在 90s 的 504 网关超时限制；流式输出只能避免一部分网关超时",
+      "docx": "片段 1：『目前采用的是ZA21架构，调用OpenAPI会存在 90s 的 504网关超时 限制，如果采用流式输出大模型的输出内容，可以避免一部分网关超时限制』",
+      "quickref": "能力速查.md:60『流式首帧也必须在 90 秒内出现』",
+      "localCheck": "首帧须尽早下发；正式归因服务的耗时、并发与缓存须行内实测",
+      "status": "需实测"
+    },
+    {
+      "id": "stream-broken-by-script",
+      "scope": "编排",
+      "constraint": "若某节点需等待前置节点数据全部传输完成才能处理（如脚本节点），则后续节点输出无法流式",
+      "docx": "片段 1：『如果业务编排中有节点需要等待前置节点的数据全部传输完成才能处理，则后续节点输出时，则无法进行流式，例如脚本节点等』",
+      "quickref": "能力速查.md:62",
+      "localCheck": "不要把「本地 SSE 有 STAGE 帧」等同于行内可流式；行内过程可见性靠中间信息输出节点承担",
+      "status": "文档支持"
+    },
+    {
+      "id": "start-object-depth",
+      "scope": "开始",
+      "constraint": "开始节点入参 Object 最多三层嵌套，最外层变量最多 40 行；入参类型支持 String/Number/Integer/Boolean/Object，含文件时可选 FormData 的 File/Text",
+      "docx": "片段 3（开始节点）",
+      "quickref": "能力速查.md:21",
+      "localCheck": "开始节点入参保持扁平（机构/币种/频率/日期/口径/入口编码），不超过 40 项",
+      "status": "文档支持"
+    },
+    {
+      "id": "start-systeminput",
+      "scope": "开始",
+      "constraint": "引用开始节点入参须经平台内置变量 systemInput；引用必须存在可追溯的上下游连线，并行分支的输出不能天然互相引用",
+      "docx": "片段 2（节点总览与变量引用）",
+      "quickref": "能力速查.md:22",
+      "localCheck": "复刻图脚本节点入参写 ${systemInput.xxx}；并行分支之间不得互引",
+      "status": "文档支持"
+    },
+    {
+      "id": "condition-nesting-5",
+      "scope": "条件选择器",
+      "constraint": "条件选择器最多嵌套 5 层；支持等于、不等于、大小、包含、空值及 AND/OR；复杂路由宜先在脚本节点归一化",
+      "docx": "片段 5（条件选择器）",
+      "quickref": "能力速查.md:31",
+      "localCheck": "本项目只用 IF/ELSE 两分支、深度 1",
+      "status": "文档支持"
+    },
+    {
+      "id": "subflow-depth-2",
+      "scope": "业务编排",
+      "constraint": "最多嵌套两层，子编排中不能再嵌套子编排；不能引用自身或父编排；输入类型要与子编排声明一致",
+      "docx": "片段 11（子业务编排节点）",
+      "quickref": "能力速查.md:34",
+      "localCheck": "aiworkflow.workflow_check.check_workflow(subflow_refs=…, depth<=2)；nodes.make_subflow_node 构造期拒绝 depth>2",
+      "status": "文档支持"
+    },
+    {
+      "id": "loop-no-nesting",
+      "scope": "循环组件",
+      "constraint": "严格串行，不支持嵌套循环，不适合大规模批处理",
+      "docx": "片段 13（循环组件）",
+      "quickref": "能力速查.md:38『原文明确不适合大规模批处理』、:55『不建议在工作流中为每个币种循环调 API』",
+      "localCheck": "aiworkflow.workflow_check 拒绝循环嵌套；本项目不用循环节点，币种摘要由后端一次返回有界结果",
+      "status": "文档支持"
+    },
+    {
+      "id": "agent-not-for-main-chain",
+      "scope": "Agent",
+      "constraint": "Agent 工具选择和执行轮数不能达到 100% 准确；银行指标取数、归因主链不应依赖 Agent 自主规划",
+      "docx": "片段 12（Agent 节点）",
+      "quickref": "能力速查.md:37、:87『本项目主链优先显式路由』",
+      "localCheck": "七种分析模式走显式确定性分流（classify → mode 状态字段），不用 Agent",
+      "status": "文档支持"
+    },
+    {
+      "id": "api-complex-param-conflict",
+      "scope": "API",
+      "constraint": "文档自相矛盾：API 节点章节称支持嵌套 Object 复杂入参，AI 能力章节仍称 API/AI 能力节点不支持复杂入参",
+      "docx": "片段 7（API 节点）vs 片段 8（AI 能力节点）",
+      "quickref": "能力速查.md:56、:85",
+      "localCheck": "设计时优先采用扁平参数，或在脚本节点构造 JSON；不得依赖复杂入参展开",
+      "status": "需实测",
+      "usagePrinciple": "以行内实际 API 节点版本验证，不直接下结论"
+    },
+    {
+      "id": "no-file-upload-for-metrics",
+      "scope": "编排",
+      "constraint": "编排文件上限 5 MB，下载文件保存一天；不要以文件上传取代受控数据 API",
+      "docx": "片段 1",
+      "quickref": "能力速查.md:24",
+      "localCheck": "本项目取数一律走 API 节点，不用 File 入参",
+      "status": "文档支持"
+    },
+    {
+      "id": "numeric-precision",
+      "scope": "函数表达式",
+      "constraint": "数值运算结果最多保留小数点后 9 位；数值不应超过 JavaScript 安全整数 2^53-1；金额、比率和归因贡献不要靠平台表达式做最终权威计算",
+      "docx": "片段 16（函数表达式）",
+      "quickref": "能力速查.md:79",
+      "localCheck": "表达式只用于简单变换，不用于指标正式计算；表达式章节有个别示例与函数名对调或疑似笔误，语法须在表达式调试区验证",
+      "status": "需实测"
+    },
+    {
+      "id": "session-7-days",
+      "scope": "编排",
+      "constraint": "会话最长保留 168 小时（7 天），实际轮数可配置；传平台生成的 sessionId，复用原值才可读取同一会话历史；空值会生成新会话",
+      "docx": "片段 1（历史上下文）",
+      "quickref": "能力速查.md:44-45",
+      "localCheck": "本地 SESSION_TTL_SECONDS=3600（1 小时）为演示收紧值，低于行内上限，合法",
+      "status": "文档支持"
+    },
+    {
+      "id": "no-silent-substitution",
+      "scope": "多轮会话",
+      "constraint": "用户指代不清或指定日期不存在时，返回澄清或明确不可用状态；不能静默替换成另一币种或最近日期；不得只让模型从 chatHistory 猜『它』『上期』指什么",
+      "docx": "片段 1（历史上下文）",
+      "quickref": "能力速查.md:46-47",
+      "localCheck": "追问带 sessionId 再从开始节点进；会话显式携带关注对象；无效基期直接报错不自动替换（INVALID_BASE_DATE）",
+      "status": "文档支持"
+    },
+    {
+      "id": "scope-explicit-not-memory",
+      "scope": "多轮会话",
+      "constraint": "对 ALM 不应只靠聊天记忆保持精确业务口径；每轮须显式传入或从受控会话状态恢复 orgCode、页面币种、对话关注币种、currentDate、baseDate、频率、指标口径、入口编码",
+      "docx": "片段 1（历史上下文）",
+      "quickref": "能力速查.md:9、:46、:94",
+      "localCheck": "页面币种与对话关注币种分开保存；开始节点入参保持扁平且显式",
+      "status": "文档支持"
+    },
+    {
+      "id": "result-package-contract",
+      "scope": "API",
+      "constraint": "后端分析 API 根据已授权的机构、币种、日期、口径返回本轮小数据包；建议每份结果返回 status、实际数据日期、机构/币种/口径、计算版本、数值单位、权限或不可用原因；任意两期归因显式携带 currentDate 和 baseDate，结果带贡献合计校验",
+      "docx": "片段 7（API 节点）",
+      "quickref": "能力速查.md:51-54",
+      "localCheck": "validate_data_package 校验 scope 一致、status、dataVersion/caliberVersion、包体积；归因带 reconciliationResidualPctPoint",
+      "status": "文档支持"
+    },
+    {
+      "id": "caliber-must-not-default",
+      "scope": "业务",
+      "constraint": "只有正式支持的口径可给出归因；非默认口径不得套用默认结果。资产负债重定价久期缺口目前只有指标值及资产/负债久期展示，不具有正式计算过程或因素归因，不得与重定价缺口率混为一条归因分支",
+      "docx": null,
+      "quickref": "能力速查.md:95、:97",
+      "localCheck": "非默认口径返回明确不可用状态，不套用默认归因；不同指标不得共用归因分支",
+      "status": "文档支持"
+    }
+  ]
+}

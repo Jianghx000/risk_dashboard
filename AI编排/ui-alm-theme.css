@@ -1,0 +1,90 @@
+:root {
+  /* Brand */
+  --alm-color-topbar: #1f4382;
+  --alm-color-topbar-deep: #1b366c;
+  --alm-color-topbar-active: #435f93;
+  --alm-color-primary: #1677ff;
+  --alm-color-primary-strong: #336aff;
+
+  /* Surfaces */
+  --alm-color-canvas: #f4f4f4;
+  --alm-color-dashboard-canvas: #dde5f4;
+  --alm-color-surface: #ffffff;
+  --alm-color-surface-subtle: #f5f7f9;
+  --alm-color-selected: #f3f3f4;
+
+  /* Text */
+  --alm-color-text: #1f1f1f;
+  --alm-color-text-secondary: #595959;
+  --alm-color-text-muted: #8c8c8c;
+  --alm-color-text-inverse: #ffffff;
+  --alm-color-link: #1677ff;
+
+  /* Borders and focus */
+  --alm-color-border: #d9d9d9;
+  --alm-color-divider: #e8e8e8;
+  --alm-color-focus: #69a7ff;
+
+  /* Data and status */
+  --alm-color-chart-primary: #4174ff;
+  --alm-color-chart-primary-fill: #e9edff;
+  --alm-color-report-formula: #99ccff;
+  --alm-color-grid: #e5e7eb;
+  --alm-color-success: #20bfa9;
+  --alm-color-warning: #fa8c16;
+  --alm-color-danger: #ff4d4f;
+
+  /* Typography */
+  --alm-font-sans: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --alm-font-size-caption: 12px;
+  --alm-font-size-body: 14px;
+  --alm-font-size-section-title: 16px;
+  --alm-font-size-page-title: 20px;
+  --alm-font-size-metric: 24px;
+  --alm-line-height-caption: 20px;
+  --alm-line-height-body: 22px;
+  --alm-line-height-title: 28px;
+  --alm-font-weight-regular: 400;
+  --alm-font-weight-medium: 500;
+  --alm-font-weight-semibold: 600;
+
+  /* Spacing */
+  --alm-space-1: 4px;
+  --alm-space-2: 8px;
+  --alm-space-3: 12px;
+  --alm-space-4: 16px;
+  --alm-space-6: 24px;
+  --alm-space-8: 32px;
+
+  /* Layout and controls */
+  --alm-topbar-height: 56px;
+  --alm-sidebar-width: 240px;
+  --alm-content-padding: 16px;
+  --alm-control-height: 32px;
+  --alm-control-height-large: 40px;
+  --alm-table-row-compact: 40px;
+  --alm-table-row-standard: 48px;
+
+  /* Shape and motion */
+  --alm-radius-control: 4px;
+  --alm-radius-card: 8px;
+  --alm-radius-dashboard-card: 10px;
+  --alm-shadow-card: 0 1px 3px rgb(0 0 0 / 4%);
+  --alm-motion-fast: 120ms;
+  --alm-motion-normal: 180ms;
+
+  /* System shell layer（provisional）
+     v0.5.0 回写自利率预测原型实践（ALM UI-only 注入层，2026-08 实装并经视觉验收）。
+     用于双层系统壳场景：外层系统顶栏/侧栏与应用内顶栏/侧栏叠加时的尺寸、层级与渐变。 */
+  --alm-system-topbar-height: 56px;
+  --alm-system-sidebar-width: 240px;
+  --alm-system-sidebar-collapsed-width: 64px;
+  --alm-system-sidebar-current: var(--alm-system-sidebar-width);
+  --alm-app-header-height: 56px;
+  --alm-secondary-nav-height: 47px;
+  --alm-sidebar-collapsed: 64px;
+  --alm-system-z-topbar: 2600;
+  --alm-system-z-sidebar: 2500;
+  --alm-color-topbar-grad-start: #234d92;
+  --alm-shadow-topbar: 0 1px 3px rgb(15 43 88 / 18%);
+}

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>行内复刻图</title>
+  <style>
+    :root { font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; color: #24374d; background: #f5f8fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button { font: inherit; cursor: pointer; }
+    .topbar { min-height: 66px; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; border-bottom: 1px solid #dce5ed; }
+    .brand strong { display: block; font-size: 18px; }
+    .brand span { color: #75869a; font-size: 12px; }
+    .top-meta { display: flex; align-items: center; gap: 10px; color: #62778f; font-size: 12px; flex-wrap: wrap; justify-content: flex-end; }
+    .mode-pill { padding: 5px 9px; border: 1px solid #c9ded7; color: #18765a; background: #edf8f3; border-radius: 4px; font-weight: 700; }
+    .layout { display: grid; grid-template-columns: minmax(250px, 300px) minmax(420px, 1fr) minmax(300px, 380px); min-height: calc(100vh - 66px); }
+    .layout.left-collapsed { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+    .layout.right-collapsed { grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); }
+    .layout.left-collapsed.right-collapsed { grid-template-columns: minmax(0, 1fr); }
+    .layout.left-collapsed .left, .layout.right-collapsed .right { display: none; }
+    .panel-toggle { border: 1px solid #bfd2e3; border-radius: 4px; background: #fff; color: #176dba; font: inherit; font-size: 12px; padding: 5px 10px; cursor: pointer; }
+    .panel-toggle:hover { border-color: #2682ce; background: #f4f9fd; }
+    .panel-toggle[aria-expanded="false"] { color: #6d8195; background: #f7fafc; }
+    .panel-hint { color: #6d8195; font-size: 12px; }
+    .side { background: #fff; padding: 20px 18px; min-width: 0; }
+    .left { border-right: 1px solid #dce5ed; }
+    .right { border-left: 1px solid #dce5ed; overflow: auto; }
+    h2 { margin: 0 0 12px; font-size: 15px; }
+    .session-strip { margin: 0 0 14px; padding: 9px 11px; border: 1px solid #c9ded7; border-radius: 5px; background: #edf8f3; font-size: 12px; line-height: 1.55; color: #1d6b52; }
+    .guide-warning { margin-top: 14px; font-size: 12px; line-height: 1.6; color: #8391a0; }
+    .legend { display: grid; gap: 6px; margin-bottom: 16px; }
+    .legend span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52687d; }
+    .swatch { width: 18px; height: 10px; border-radius: 2px; flex: 0 0 18px; }
+    .map-list { margin: 0; padding-left: 0; list-style: none; }
+    .map-list li { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: #3d5368; }
+    .map-list button { border: 0; background: none; color: #176dba; padding: 0; text-align: left; font-weight: 700; }
+    .map-list p { margin: 4px 0 0; color: #6d8195; font-size: 11px; line-height: 1.5; }
+    .canvas { padding: 18px 16px 40px; min-width: 0; overflow: auto; }
+    .canvas-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+    .canvas-head h2 { margin: 0; }
+    .canvas-sub { margin: 0 0 14px; color: #6d8195; font-size: 12px; line-height: 1.55; max-width: 720px; }
+    .board-wrap { overflow: auto; max-width: 100%; }
+    .graph-board { position: relative; margin: 0 auto; }
+    .graph-board svg { position: absolute; inset: 0; overflow: visible; }
+    .graph-node { position: absolute; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid #d6e1eb; border-left: 3px solid #b9c8d7; border-radius: 6px; background: #fff; text-align: left; color: inherit; box-shadow: 0 1px 3px #17345108; overflow: hidden; }
+    .graph-node strong { font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+    .graph-node small { color: #6d8398; font-size: 11px; }
+    .graph-node.selected { border-color: #2682ce; border-left-color: #1875c8; background: #f9fcff; box-shadow: 0 0 0 2px #2583ce18; }
+    .node-flag { align-self: start; margin-top: 2px; padding: 1px 5px; border-radius: 3px; background: #fff1f1; color: #a24b56; font-size: 10px; line-height: 1.3; }
+    .node-flag.followup { background: #eaf7f0; color: #1d7a58; }
+    .graph-footnotes { max-width: 720px; margin: 16px auto 0; padding: 0 8px; color: #6d8195; font-size: 12px; line-height: 1.6; }
+    .graph-footnotes li { margin: 0 0 6px; }
+    .edge-label { font-size: 11px; fill: #6a7f93; }
+    .edge-label.followup { fill: #1d7a58; font-weight: 700; }
+    .followup-callout { max-width: 920px; margin: 10px auto 0; padding: 10px 12px; border: 1px dashed #7bb89a; border-radius: 5px; background: #f3faf6; color: #1d6b52; font-size: 12px; line-height: 1.6; }
+    .ready { display: inline-block; padding: 3px 7px; border-radius: 3px; color: #227554; background: #eaf7f0; font-size: 11px; white-space: nowrap; }
+    .ready.pending { color: #a26829; background: #fff5e9; }
+    .inspector-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e3ebf2; padding-bottom: 12px; }
+    .inspector-head h2 { margin: 0 0 4px; font-size: 16px; }
+    .inspector-head small { color: #7b8da0; font-size: 11px; }
+    .inspect-section { padding: 13px 0; border-bottom: 1px solid #e8eef4; }
+    .inspect-section h3 { margin: 0 0 8px; font-size: 12px; color: #58718a; }
+    .inspect-section p, .inspect-section li { margin: 0; color: #384e62; font-size: 12px; line-height: 1.7; }
+    .inspect-section ul { margin: 0; padding-left: 18px; }
+    .inspect-section li + li { margin-top: 6px; }
+    .binding-row { display: grid; grid-template-columns: minmax(96px, 36%) 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef2f6; font-size: 11px; line-height: 1.5; }
+    .binding-row span { overflow-wrap: anywhere; }
+    .binding-row span:first-child { color: #6f8599; }
+    .io-row { padding: 8px 0; border-bottom: 1px solid #eef2f6; }
+    .io-row:last-child { border-bottom: 0; }
+    .io-head { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+    .io-head b { font: 600 12px/1.4 Consolas, "Microsoft YaHei", monospace; color: #2a4a68; overflow-wrap: anywhere; }
+    .io-head i { font-style: normal; font-size: 10px; color: #6d8195; border: 1px solid #dbe5ee; background: #f5f9fc; border-radius: 3px; padding: 0 5px; white-space: nowrap; }
+    .io-ref { display: block; margin-top: 3px; font: 11px/1.5 Consolas, monospace; color: #1d6ea8; overflow-wrap: anywhere; }
+    .io-desc { margin: 3px 0 0; color: #5a7186; font-size: 11.5px; line-height: 1.6; }
+    .copy-button { min-height: 28px; padding: 0 10px; border: 1px solid #bfd2e3; border-radius: 4px; background: #fff; color: #176dba; font-size: 11px; }
+    .open-list { margin: 0; padding-left: 17px; }
+    .open-list li { margin-bottom: 7px; color: #876544; font-size: 11px; line-height: 1.55; }
+    .empty { padding: 32px 4px; color: #91a0af; text-align: center; font-size: 12px; line-height: 1.7; }
+    pre { margin: 0; padding: 12px; max-height: 48vh; overflow: auto; border: 1px solid #e3ebf2; border-radius: 5px; background: #f7fafc; color: #3c566e; font: 11px/1.5 Consolas, "Microsoft YaHei", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .role-开始, .role-结束 { border-left-color: #8aa0b5; }
+    .role-脚本 { border-left-color: #3d7cae; }
+    .role-API { border-left-color: #2a9a78; }
+    .role-Prompt { border-left-color: #8a62b8; }
+    .role-条件选择器 { border-left-color: #c9892a; }
+    @media (max-width: 1150px) {
+      .layout { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); }
+      .right { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #dce5ed; max-height: 48vh; }
+    }
+    @media (max-width: 680px) {
+      .topbar { display: grid; }
+      .layout { display: block; }
+      .left { border-right: 0; border-bottom: 1px solid #dce5ed; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong id="pageTitle">行内复刻图</strong>
+      <span>按智能工场节点类型对照建站 · 虚构 ALM 数据</span>
+    </div>
+    <div class="top-meta">
+      <span id="modelMode" class="mode-pill">检测中</span>
+      <span>LangGraph 调试走接口与测试</span>
+      <button id="toggleLeft" class="panel-toggle" type="button" aria-expanded="false" aria-controls="leftPanel">节点映射</button>
+      <button id="toggleRight" class="panel-toggle" type="button" aria-expanded="false" aria-controls="rightPanel">节点详情</button>
+    </div>
+  </header>
+  <main class="layout left-collapsed right-collapsed" id="layout">
+    <aside class="side left" id="leftPanel">
+      <h2>节点类型与映射</h2>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch" style="background:#8aa0b5"></i>开始 / 结束</span>
+        <span><i class="swatch" style="background:#3d7cae"></i>脚本</span>
+        <span><i class="swatch" style="background:#2a9a78"></i>API</span>
+        <span><i class="swatch" style="background:#8a62b8"></i>Prompt</span>
+        <span><i class="swatch" style="background:#c9892a"></i>条件选择器</span>
+      </div>
+      <div class="session-strip" id="sessionNote"></div>
+      <ol class="map-list" id="mapList"></ol>
+      <p class="guide-warning">点节点查看职责、变量和可粘贴脚本。本页不跑工作流，也不做拖拽编辑。</p>
+    </aside>
+    <section class="canvas" aria-label="行内复刻图">
+      <div class="canvas-head"><h2 id="platformTitle">行内复刻图</h2><span id="blueprintCount">读取中</span></div>
+      <p class="canvas-sub" id="platformSub"></p>
+      <div class="board-wrap"><div id="platformBoard" class="graph-board"></div></div>
+      <div class="followup-callout" id="reentryNote"></div>
+      <ul class="graph-footnotes" id="platformNotes"></ul>
+    </section>
+    <aside class="side right" id="rightPanel">
+      <div id="platformInspector"><div class="empty">选择节点查看配置与映射</div></div>
+    </aside>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const NS = "http://www.w3.org/2000/svg";
+    let spec = null;
+
+    // 两侧栏可折叠：画板约 1616px 宽。实测在 1680 视口下，只要左栏展开
+    // 就会溢出约 270px、第二行修正链看不见——所以默认**两栏都折叠**，
+    // 首屏就是完整的一张图；点节点会自动展开右侧详情。
+    const LAYOUT_KEY = "replica-sidebars";
+    const DEFAULT_LAYOUT = { left: false, right: false };
+    function loadLayout() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY));
+        return saved && typeof saved === "object" ? Object.assign({}, DEFAULT_LAYOUT, saved) : Object.assign({}, DEFAULT_LAYOUT);
+      } catch (e) {
+        return Object.assign({}, DEFAULT_LAYOUT);
+      }
+    }
+    let layoutState = loadLayout();
+    function applyLayout() {
+      const layout = $("layout");
+      layout.classList.toggle("left-collapsed", !layoutState.left);
+      layout.classList.toggle("right-collapsed", !layoutState.right);
+      const left = $("toggleLeft");
+      const right = $("toggleRight");
+      left.setAttribute("aria-expanded", String(layoutState.left));
+      right.setAttribute("aria-expanded", String(layoutState.right));
+      left.title = layoutState.left ? "收起左侧映射栏" : "展开左侧映射栏";
+      right.title = layoutState.right ? "收起右侧节点详情" : "展开右侧节点详情";
+    }
+    function setLayout(patch) {
+      layoutState = Object.assign({}, layoutState, patch);
+      try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layoutState)); } catch (e) { /* 隐私模式下忽略 */ }
+      applyLayout();
+    }
+    applyLayout();
+    $("toggleLeft").addEventListener("click", () => setLayout({ left: !layoutState.left }));
+    $("toggleRight").addEventListener("click", () => setLayout({ right: !layoutState.right }));
+
+    function textElement(tag, value, className) {
+      const el = document.createElement(tag);
+      el.textContent = value;
+      if (className) el.className = className;
+      return el;
+    }
+    function svgEl(name, attrs) {
+      const el = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([key, val]) => el.setAttribute(key, val));
+      return el;
+    }
+    function nodeById(id) {
+      return spec.platform.nodes.find(item => item.id === id);
+    }
+    function edgePath(from, to) {
+      const fromRight = {x: from.x + from.width, y: from.y + from.height / 2};
+      const fromBottom = {x: from.x + from.width / 2, y: from.y + from.height};
+      const toLeft = {x: to.x, y: to.y + to.height / 2};
+      const toTop = {x: to.x + to.width / 2, y: to.y};
+      const toBottom = {x: to.x + to.width / 2, y: to.y + to.height};
+      const sameRow = Math.abs(from.y - to.y) < 24;
+      if (sameRow && to.x >= from.x + from.width - 8) {
+        return `M ${fromRight.x} ${fromRight.y} L ${toLeft.x} ${toLeft.y}`;
+      }
+      if (to.y > from.y + from.height / 2) {
+        const midY = (fromBottom.y + toTop.y) / 2;
+        return `M ${fromBottom.x} ${fromBottom.y} L ${fromBottom.x} ${midY} L ${toTop.x} ${midY} L ${toTop.x} ${toTop.y}`;
+      }
+      return `M ${fromRight.x} ${fromRight.y} L ${toBottom.x} ${fromRight.y} L ${toBottom.x} ${toBottom.y}`;
+    }
+    function edgeLabelPoint(from, to) {
+      const sameRow = Math.abs(from.y - to.y) < 24;
+      if (sameRow) return {x: (from.x + from.width + to.x) / 2, y: from.y - 8};
+      if (to.y > from.y) return {x: (from.x + from.width / 2 + to.x + to.width / 2) / 2, y: (from.y + from.height + to.y) / 2 - 4};
+      return {x: (from.x + from.width + to.x + to.width / 2) / 2, y: from.y + from.height / 2 - 10};
+    }
+    function drawBoard(graph) {
+      const board = $("platformBoard");
+      board.replaceChildren();
+      board.style.width = graph.width + "px";
+      board.style.height = graph.height + "px";
+      const svg = svgEl("svg", {viewBox: `0 0 ${graph.width} ${graph.height}`, width: graph.width, height: graph.height, "aria-hidden": "true"});
+      const defs = svgEl("defs", {});
+      const arrow = svgEl("marker", {id: "platformArrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto"});
+      arrow.append(svgEl("path", {d: "M 0 0 L 10 5 L 0 10 z", fill: "#8aa0b3"}));
+      const follow = svgEl("marker", {id: "platformFollowArrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto"});
+      follow.append(svgEl("path", {d: "M 0 0 L 10 5 L 0 10 z", fill: "#1d7a58"}));
+      defs.append(arrow, follow);
+      svg.append(defs);
+      graph.edges.forEach(edge => {
+        const from = nodeById(edge.source), to = nodeById(edge.target);
+        if (!from || !to) return;
+        svg.append(svgEl("path", {
+          d: edgePath(from, to),
+          fill: "none",
+          stroke: edge.kind === "retry" ? "#c9892a" : "#8aa0b3",
+          "stroke-width": "1.6",
+          "stroke-dasharray": edge.conditional ? "5 4" : "0",
+          "marker-end": "url(#platformArrow)",
+        }));
+        if (edge.label) {
+          const point = edgeLabelPoint(from, to);
+          const label = svgEl("text", {x: String(point.x), y: String(point.y), class: "edge-label", "text-anchor": "middle"});
+          label.textContent = edge.label;
+          svg.append(label);
+        }
+      });
+      const reentry = graph.sessionReentry;
+      if (reentry) {
+        const from = nodeById(reentry.source), to = nodeById(reentry.target);
+        if (from && to) {
+          const x1 = from.x + from.width / 2, y1 = from.y + from.height;
+          const x2 = to.x + to.width / 2, y2 = to.y + to.height;
+          const y = reentry.y;
+          svg.append(svgEl("path", {
+            d: `M ${x1} ${y1} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y2}`,
+            fill: "none",
+            stroke: "#1d7a58",
+            "stroke-width": "1.8",
+            "stroke-dasharray": "6 4",
+            "marker-end": "url(#platformFollowArrow)",
+          }));
+          const label = svgEl("text", {x: String((x1 + x2) / 2), y: String(y - 8), class: "edge-label followup", "text-anchor": "middle"});
+          label.textContent = reentry.label;
+          svg.append(label);
+        }
+      }
+      board.append(svg);
+      graph.nodes.forEach(node => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `graph-node role-${node.role}`;
+        button.dataset.node = node.id;
+        button.style.left = node.x + "px";
+        button.style.top = node.y + "px";
+        button.style.width = node.width + "px";
+        button.style.height = node.height + "px";
+        button.append(textElement("strong", node.label), textElement("small", node.role));
+        if (reentry && node.id === reentry.target) button.append(textElement("span", "追问入口", "node-flag followup"));
+        button.addEventListener("click", () => selectNode(node.id));
+        board.append(button);
+      });
+    }
+    function addSection(parent, heading, content) {
+      const section = document.createElement("section");
+      section.className = "inspect-section";
+      section.append(textElement("h3", heading), content);
+      parent.append(section);
+    }
+    function bindingTable(rows) {
+      const table = document.createElement("div");
+      rows.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "binding-row";
+        row.append(textElement("span", item[0]), textElement("span", item.slice(1).filter(Boolean).join(" · ")));
+        table.append(row);
+      });
+      return table;
+    }
+    /** 变量卡片：名称 + 类型 / ${...} 引用 / 含义说明。建站时要照着填表单。 */
+    function ioTable(rows) {
+      const table = document.createElement("div");
+      rows.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "io-row";
+        const head = document.createElement("div");
+        head.className = "io-head";
+        head.append(textElement("b", item.name), textElement("i", item.type || ""));
+        row.append(head);
+        if (item.source) row.append(textElement("code", item.source, "io-ref"));
+        if (item.desc) row.append(textElement("p", item.desc, "io-desc"));
+        table.append(row);
+      });
+      return table;
+    }
+    function selectNode(id, options) {
+      const expand = !options || options.expand !== false;
+      $("platformBoard").querySelectorAll(".graph-node").forEach(el => el.classList.toggle("selected", el.dataset.node === id));
+      // 详情栏折叠时点节点必须自动展开，否则"点了没反应"；
+      // 但页面加载时的程序化预选不展开，否则默认折叠就没意义了。
+      if (expand && !layoutState.right) setLayout({ right: true });
+      const node = spec.platform.blueprint.nodes.find(item => item.id === id);
+      if (!node) return;
+      const mapped = spec.mapping.find(item => item.platformId === id);
+      const inspector = $("platformInspector");
+      inspector.replaceChildren();
+      const header = document.createElement("div");
+      header.className = "inspector-head";
+      const names = document.createElement("div");
+      names.append(textElement("h2", node.title), textElement("small", `${node.type}节点 · 本地 ${mapped.runtimeIds.join("、")}`));
+      header.append(names, textElement("span", node.readiness, "ready" + (node.readiness === "可配置" ? "" : " pending")));
+      inspector.append(header);
+      addSection(inspector, "职责", textElement("p", node.purpose));
+      addSection(inspector, "与本地函数的对应", textElement("p", mapped.relation));
+      // 每个节点都要像开始节点一样说清输入与输出——建站时要照着逐字段填表单。
+      if (node.inputs && node.inputs.length) addSection(inspector, "输入", ioTable(node.inputs));
+      if (node.outputs && node.outputs.length) addSection(inspector, "输出", ioTable(node.outputs));
+      if (node.configure) {
+        const list = document.createElement("ul");
+        node.configure.forEach(item => list.append(textElement("li", item)));
+        addSection(inspector, "配置要点", list);
+      }
+      if (node.code || node.prompt) {
+        const wrap = document.createElement("div");
+        const button = textElement("button", "复制" + (node.code ? "脚本" : "Prompt"), "copy-button");
+        button.type = "button";
+        button.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(node.code || node.prompt); button.textContent = "已复制"; }
+          catch { button.textContent = "复制失败"; }
+        });
+        wrap.append(button, textElement("pre", node.code || node.prompt));
+        addSection(inspector, node.code ? "脚本" : "Prompt", wrap);
+      }
+      const source = document.createElement("div");
+      source.append(textElement("p", node.sourceSection));
+      const manual = document.createElement("a");
+      manual.href = "/platform-manual";
+      manual.textContent = "行内平台原始说明";
+      manual.style.fontSize = "11px";
+      source.append(manual);
+      addSection(inspector, "文档依据", source);
+    }
+    function showDifferences() {
+      const inspector = $("platformInspector");
+      inspector.replaceChildren();
+      inspector.append(Object.assign(document.createElement("div"), {className: "inspector-head"}));
+      inspector.firstChild.append(textElement("h2", "无法一一对应的差异"));
+      const list = document.createElement("ul");
+      list.className = "open-list";
+      spec.differences.forEach(item => list.append(textElement("li", item)));
+      spec.platform.openItems.forEach(item => list.append(textElement("li", item)));
+      addSection(inspector, "行内仍需实测，不能无缝导入", list);
+    }
+    function renderSpec(data) {
+      spec = data;
+      // 指标名与追问机制说明来自 spec —— 通用页面不得写死，换指标时照抄就是错的。
+      const page = data.platform.pageInfo || {};
+      const displayName = page.displayName || "";
+      document.title = displayName ? `${displayName} · 行内复刻图` : "行内复刻图";
+      $("pageTitle").textContent = document.title;
+      $("sessionNote").textContent = page.sessionNote || "";
+      $("reentryNote").textContent = page.reentryNote || "";
+      $("platformTitle").textContent = data.platform.title;
+      $("platformSub").textContent = data.platform.subtitle;
+      $("blueprintCount").textContent = `${data.platform.nodes.length} 个平台节点`;
+      const mapList = $("mapList");
+      mapList.replaceChildren();
+      data.mapping.forEach(item => {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        const platform = data.platform.nodes.find(node => node.id === item.platformId);
+        button.textContent = `${platform.role} · ${platform.label}`;
+        button.addEventListener("click", () => selectNode(item.platformId));
+        li.append(button, textElement("p", `本地 ${item.runtimeIds.join("、")}。${item.relation}`));
+        mapList.append(li);
+      });
+      const diffBtn = document.createElement("li");
+      const open = document.createElement("button");
+      open.type = "button";
+      open.textContent = "查看全部差异与待实测项";
+      open.addEventListener("click", showDifferences);
+      diffBtn.append(open);
+      mapList.append(diffBtn);
+      drawBoard(data.platform);
+      $("platformNotes").replaceChildren(textElement("li", page.canvasNote || ""));
+      selectNode(data.platform.nodes[0].id, { expand: false });
+    }
+    fetch("/v1/canvas-spec").then(response => { if (!response.ok) throw new Error("画布规格读取失败"); return response.json(); }).then(renderSpec).catch(error => {
+      $("platformBoard").replaceChildren(textElement("div", error.message, "empty"));
+      $("blueprintCount").textContent = "读取失败";
+    });
+    fetch("/healthz").then(r => r.json()).then(() => { $("modelMode").textContent = "服务已连接"; }).catch(() => { $("modelMode").textContent = "服务未连接"; });
+  </script>
+</body>
+</html>

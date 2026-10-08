@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>简单 LangGraph 演示</title>
+  <style>
+    :root { font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; color: #24374d; background: #f5f8fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .topbar { height: 66px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #dce5ed; }
+    .brand { display: flex; align-items: baseline; gap: 14px; }
+    .brand strong { font-size: 19px; }
+    .brand span { color: #75869a; font-size: 12px; }
+    .pill { padding: 5px 9px; border: 1px solid #c9ded7; color: #18765a; background: #edf8f3; border-radius: 4px; font-size: 12px; font-weight: 700; }
+    .layout { display: grid; grid-template-columns: minmax(260px, 300px) minmax(420px, 1fr) minmax(300px, 360px); min-height: calc(100vh - 66px); }
+    .side { background: #fff; padding: 24px 22px; }
+    .left { border-right: 1px solid #dce5ed; }
+    .right { border-left: 1px solid #dce5ed; }
+    h2 { margin: 0 0 16px; font-size: 15px; }
+    .caption { display: block; margin: 0 0 7px; font-size: 12px; color: #697e95; font-weight: 700; }
+    textarea { width: 100%; min-height: 96px; padding: 10px; border: 1px solid #cbd8e4; border-radius: 5px; resize: vertical; line-height: 1.5; outline: none; }
+    textarea:focus { border-color: #2583ce; box-shadow: 0 0 0 2px #2583ce20; }
+    .chips { display: grid; gap: 8px; margin: 14px 0 18px; }
+    .chip { width: 100%; text-align: left; padding: 9px 11px; border: 1px solid #d4e1eb; border-radius: 5px; background: #f7fbfe; color: #35536d; font-size: 12px; }
+    .chip:hover, .chip.active { border-color: #8bb9df; background: #eaf4fd; color: #176dba; }
+    .primary { width: 100%; min-height: 40px; border: 1px solid #176dba; border-radius: 5px; background: #1875c8; color: #fff; font-weight: 700; }
+    .primary:hover { background: #1265ae; }
+    .primary:disabled { opacity: .6; cursor: wait; }
+    .quiet { width: 100%; min-height: 36px; margin-top: 9px; border: 1px solid #cddae7; border-radius: 5px; background: #fff; color: #4d6680; }
+    .note { margin-top: 18px; font-size: 12px; line-height: 1.6; color: #8391a0; }
+    .canvas { padding: 24px clamp(18px, 3vw, 48px) 50px; }
+    .canvas-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+    .canvas-head h2 { margin: 0; }
+    #runState { font-size: 12px; color: #667b91; }
+    .flow { max-width: 560px; margin: 0 auto; }
+    .flow-step { width: min(100%, 430px); margin: 0 auto; padding: 13px 17px; border: 1px solid #d6e1eb; border-left: 3px solid #b9c8d7; border-radius: 6px; background: #fff; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .flow-step.active { border-color: #2682ce; border-left-color: #1875c8; background: #f9fcff; box-shadow: 0 0 0 2px #2583ce18; }
+    .flow-step.done { border-left-color: #2c9d78; }
+    .flow-step.skipped { opacity: .45; }
+    .node-top { display: flex; align-items: center; gap: 11px; }
+    .node-num { width: 26px; height: 26px; flex: 0 0 26px; border-radius: 4px; background: #eaf1f7; color: #42729f; text-align: center; line-height: 26px; font-size: 12px; font-weight: 700; }
+    .flow-step.active .node-num { background: #dceefd; color: #146bb4; }
+    .flow-step.done .node-num { background: #dff3ea; color: #1d7a58; }
+    .node-label { font-size: 14px; font-weight: 700; }
+    .node-type { margin-left: auto; color: #8293a5; font-size: 11px; }
+    .node-detail { margin: 7px 0 0 37px; font-size: 12px; color: #7a8da0; line-height: 1.5; }
+    .connector { height: 22px; width: 2px; margin: 0 auto; background: #c4d4e2; }
+    .branch { margin: 0 auto; max-width: 520px; padding: 12px; border: 1px dashed #c6d9e8; border-radius: 6px; background: #fbfdff; }
+    .branch-head { display: flex; justify-content: space-between; margin-bottom: 10px; color: #58718a; font-size: 12px; font-weight: 700; }
+    .branch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .right h2 { margin-bottom: 14px; }
+    .empty { padding: 38px 4px; color: #91a0af; text-align: center; font-size: 12px; line-height: 1.7; }
+    .summary { padding: 0 0 15px; border-bottom: 1px solid #e8eef4; }
+    .summary strong { display: block; font-size: 15px; line-height: 1.55; }
+    .summary small { color: #7d90a3; }
+    .status-line { padding: 8px 0; border-bottom: 1px solid #edf1f5; font-size: 12px; display: flex; justify-content: space-between; gap: 8px; }
+    .status-line span:first-child { color: #74869a; }
+    .status-line span:last-child { text-align: right; overflow-wrap: anywhere; }
+    pre { margin: 12px 0 0; padding: 12px; max-height: 42vh; overflow: auto; border: 1px solid #e3ebf2; border-radius: 5px; background: #f7fafc; color: #3c566e; font: 11px/1.5 Consolas, "Microsoft YaHei", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 980px) {
+      .layout { display: block; }
+      .left, .right { border: 0; border-bottom: 1px solid #dce5ed; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><strong>简单 LangGraph 演示</strong><span>识别问题后只走一条取数分支</span></div>
+    <span class="pill">本地 · 无模型调用</span>
+  </header>
+  <main class="layout">
+    <aside class="side left">
+      <h2>试一个问题</h2>
+      <form id="runForm">
+        <label class="caption" for="question">问题</label>
+        <textarea id="question">现在重定价缺口率是多少？</textarea>
+        <div class="chips">
+          <button class="chip active" type="button" data-q="现在重定价缺口率是多少？">概览：现在重定价缺口率是多少？</button>
+          <button class="chip" type="button" data-q="限额还有多少空间？">限额：限额还有多少空间？</button>
+        </div>
+        <button class="primary" id="runButton" type="submit">运行工作流</button>
+        <button class="quiet" id="resetButton" type="button">清空结果</button>
+      </form>
+      <p class="note">这是一张 5 个节点的 LangGraph 图。含“限额 / 空间”走限额分支，其他问题走概览。数字是写死的演示数据。</p>
+    </aside>
+    <section class="canvas">
+      <div class="canvas-head"><h2>执行路径</h2><span id="runState">等待运行</span></div>
+      <div class="flow">
+        <div class="flow-step" data-node="receive_question">
+          <div class="node-top"><span class="node-num">01</span><span class="node-label">接收问题</span><span class="node-type">开始</span></div>
+          <div class="node-detail">整理输入，空问题走默认概览</div>
+        </div>
+        <div class="connector"></div>
+        <div class="flow-step" data-node="classify_intent">
+          <div class="node-top"><span class="node-num">02</span><span class="node-label">识别意图</span><span class="node-type">路由</span></div>
+          <div class="node-detail" id="routeDetail">按关键词分成概览或限额</div>
+        </div>
+        <div class="connector"></div>
+        <div class="branch">
+          <div class="branch-head"><span>条件边 · 只执行一条</span><span id="branchName">待选择</span></div>
+          <div class="branch-grid">
+            <div class="flow-step" data-node="fetch_overview">
+              <div class="node-top"><span class="node-num">03A</span><span class="node-label">取概览</span></div>
+              <div class="node-detail">当前指标值</div>
+            </div>
+            <div class="flow-step" data-node="fetch_limit">
+              <div class="node-top"><span class="node-num">03B</span><span class="node-label">取限额</span></div>
+              <div class="node-detail">限额与剩余空间</div>
+            </div>
+          </div>
+        </div>
+        <div class="connector"></div>
+        <div class="flow-step" data-node="write_answer">
+          <div class="node-top"><span class="node-num">04</span><span class="node-label">生成回答</span><span class="node-type">结束</span></div>
+          <div class="node-detail">只用本轮取到的数字写一句话</div>
+        </div>
+      </div>
+    </section>
+    <aside class="side right">
+      <h2>运行结果</h2>
+      <div id="result"><div class="empty">运行后显示走过的节点和最终回答</div></div>
+    </aside>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const steps = () => [...document.querySelectorAll(".flow-step")];
+    const labels = { overview: "概览", limit: "限额" };
+
+    document.querySelectorAll(".chip").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".chip").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        $("question").value = button.dataset.q;
+      });
+    });
+
+    $("resetButton").addEventListener("click", () => {
+      resetFlow();
+      $("result").innerHTML = '<div class="empty">运行后显示走过的节点和最终回答</div>';
+      $("runState").textContent = "等待运行";
+    });
+
+    $("runForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const question = $("question").value;
+      $("runButton").disabled = true;
+      resetFlow();
+      $("runState").textContent = "运行中";
+      $("result").innerHTML = '<div class="empty">节点执行中</div>';
+      try {
+        const response = await fetch("/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let finalState = null;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop();
+          for (const part of parts) {
+            const eventName = (part.match(/^event: (.+)$/m) || [])[1];
+            const dataLine = (part.match(/^data: (.+)$/m) || [])[1];
+            if (!eventName || !dataLine) continue;
+            const data = JSON.parse(dataLine);
+            if (eventName === "node") {
+              await markNode(data.id, data.state);
+              renderResult(data.state, false);
+            }
+            if (eventName === "finished") finalState = data;
+          }
+        }
+        if (finalState) {
+          $("runState").textContent = "已完成";
+          renderResult(finalState, true);
+        }
+      } catch (error) {
+        $("runState").textContent = "运行失败";
+        $("result").innerHTML = `<div class="empty">${error.message}</div>`;
+      } finally {
+        $("runButton").disabled = false;
+      }
+    });
+
+    function resetFlow() {
+      steps().forEach(node => node.classList.remove("active", "done", "skipped"));
+      $("branchName").textContent = "待选择";
+      $("routeDetail").textContent = "按关键词分成概览或限额";
+    }
+
+    async function markNode(id, state) {
+      steps().forEach(node => node.classList.remove("active"));
+      const current = document.querySelector(`[data-node="${id}"]`);
+      if (current) current.classList.add("active", "done");
+      if (id === "classify_intent" && state.route) {
+        $("branchName").textContent = labels[state.route];
+        $("routeDetail").textContent = `本轮识别为${labels[state.route]}`;
+      }
+      if (id === "fetch_overview" || id === "fetch_limit") {
+        const other = id === "fetch_overview" ? "fetch_limit" : "fetch_overview";
+        document.querySelector(`[data-node="${other}"]`).classList.add("skipped");
+      }
+      await new Promise(resolve => setTimeout(resolve, 280));
+    }
+
+    function renderResult(state, done) {
+      const route = labels[state.route] || "识别中";
+      const path = (state.path || []).join(" → ") || "尚未开始";
+      $("result").innerHTML = `
+        <div class="summary">
+          <strong>${state.answer || "生成回答中"}</strong>
+          <small>${done ? "全部节点已结束" : "仍在执行"}</small>
+        </div>
+        <div class="status-line"><span>问题</span><span>${state.question || ""}</span></div>
+        <div class="status-line"><span>分流</span><span>${route}</span></div>
+        <div class="status-line"><span>路径</span><span>${path}</span></div>
+        <pre>${JSON.stringify(state.data || {}, null, 2)}</pre>
+      `;
+    }
+  </script>
+</body>
+</html>

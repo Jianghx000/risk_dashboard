@@ -2,6 +2,12 @@
 .DS_Store
 Thumbs.db
 node_modules/
+__pycache__/
+*.pyc
+.langgraph_api/
+.venv-ai/
+AI编排/*.env
+AI编排/**/*.env
 
 # Local git-less debug artifacts
 .playwright-cli/
