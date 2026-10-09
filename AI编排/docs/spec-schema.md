@@ -6,7 +6,17 @@
 agent 读代码与契约文档 → 填写 spec JSON → scripts/render_blueprint.py 渲染出自包含 HTML
 ```
 
-agent 负责"代码 → spec"的语义翻译；渲染器负责"spec → HTML"的确定性生成。工作流改动时只更新 spec 并重渲染。spec 入库（`AI编排/metrics/<metric>/blueprint.spec.json`），渲染产物（`AI编排/metrics/<metric>/blueprint.html`）同样入库。
+旧的仅展示型 spec 仍可由 agent 翻译代码后填写。对于 `meta.executionVersion=1` 的可执行定义，方向改为 **先定义行内节点，再同时编译 LangGraph 和渲染复刻图**。节点、连线、输入绑定、脚本、Prompt 和错误策略由这一份 spec 决定，不再另写本地业务拓扑。spec 与离线 HTML 均入库。
+
+## 可执行定义扩展
+
+- `meta.executionVersion=1`：采用受限编译器，当前仅支持开始、脚本、API、Prompt、条件选择器、结束；其他已列于行内文档的类型尚未实现，拒绝编译而非假装支持。
+- `node.execution.runtimeId`：本地节点名称别名，不是行内配置。开始和结束使用 `__start__` / `__end__`。
+- 脚本/API/Prompt 的 `config.outputName` 须与声明的输出变量根一致。脚本执行 `config.code` 原文；API 必须声明 `plugin/path/method/onError`；Prompt 必须声明 `model/temperature/maxTokens/systemPrompt/outputFormat/onError`。
+- 条件分支保留可读的 `when/then`，并增加可执行的 `input/operator/target`；支持 `not_empty/empty/equals/else`，末项必须是 `else`。`target` 与条件出边必须完全一致。
+- 输入必须是完整的 `${变量.字段}` 引用或受支持的静态值，不能只填说明文字。Prompt 内占位符必须来自该节点声明的入参。
+- `meta.runtime` 是由 `execution_metadata.py` 派生的展示快照，不是另一份执行定义；线上本地执行图也直接从节点定义派生。
+- HTTP 地址/认证、模型密钥、会话与权限是受控适配边界。本地脚本执行不是行内沙盒，沙盒依赖、5 秒超时和分支变量覆盖仍需行内实测。
 
 渲染命令：
 

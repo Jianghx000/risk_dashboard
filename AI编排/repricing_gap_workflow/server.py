@@ -61,7 +61,7 @@ def _authorized(user_id: str | None, token: str | None, scope: dict) -> bool:
         token == "demo-token"
         and user_id == "demo-analyst"
         and scope.get("orgCode") == analysis.ORG_CODE
-        and scope.get("currencyCode") == analysis.CURRENCY_CODE
+        and scope.get("currencyCode") in analysis.CURRENCIES
     )
 
 
@@ -89,6 +89,15 @@ async def _tool_request(request: Request) -> tuple[dict, dict]:
         )
         if payload.get(key) is not None
     }
+    if "currencies" in payload:
+        currencies = payload["currencies"]
+        values = currencies.get("values") if isinstance(currencies, dict) else currencies
+        if (not isinstance(values, list) or not 1 <= len(values) <= 2 or
+                any(not isinstance(c, str) or c not in analysis.CURRENCIES for c in values) or
+                len(set(values)) != len(values)):
+            raise ValueError("INVALID_QUERY_CURRENCIES")
+        scope["currencyCode"] = values[0]
+    scope.setdefault("metricCode", analysis.METRIC_CODE)
     return payload, scope
 
 
@@ -104,13 +113,23 @@ async def mock_analysis(
         if not _authorized(x_demo_user, x_service_token, scope):
             return JSONResponse({"returnCode": "ERR_AUTH", "errorCode": "FORBIDDEN", "body": None}, status_code=403)
         date = scope.get("asOfDate", analysis.CURRENT_DATE)
-        base_date = payload.get("baseDate", analysis.DEFAULT_BASE_DATE)
+        base_date = payload.get("baseDate")
         currency = scope.get("currencyCode", analysis.CURRENCY_CODE)
         focus = payload.get("focusCurrencyCode", currency)
         frequency = scope.get("frequency", "MONTH")
         caliber = scope.get("caliber", analysis.DEFAULT_CALIBER)
         if mode == "query":
             mode = payload.get("analysisMode", "")
+        needs = payload.get("dataNeeds", [mode])
+        allowed = {"overview", "limit", "trend", "calculation", "attribution", "business", "methodology", "currencyCompare", "clarification"}
+        if (not isinstance(needs, list) or not 1 <= len(needs) <= 4 or
+                any(not isinstance(n, str) or n not in allowed for n in needs) or
+                len(set(needs)) != len(needs) or mode not in needs or
+                ("clarification" in needs and len(needs) > 1)):
+            raise ValueError("INVALID_DATA_NEEDS")
+        if scope.get("metricCode") != analysis.METRIC_CODE or scope.get("tenorCode") != analysis.TENOR_CODE:
+            raise ValueError("UNSUPPORTED_SCOPE")
+        base_date = analysis.validate_query_dates(date, base_date, frequency)
         result_scope = {
             # 报**关注币种**：结果包/澄清包描述的都是"本轮解析出的上下文"，
             # validate_package 也按 focusCurrencyCode 核对。（比较模式下
@@ -148,31 +167,34 @@ async def mock_analysis(
                     "currencyOptions": list(analysis.CURRENCIES),
                     "dataVersion": analysis.DATA_VERSION,
                 }
+        elif len(needs) > 1:
+            currencies = payload.get("currencies") or [focus]
+            if isinstance(currencies, dict):
+                currencies = currencies.get("values") or []
+            data = analysis.multi_package(mode, needs, date, base_date, currencies, frequency,
+                business_type=payload.get("businessType") or "自营贷款", node_code=payload.get("nodeCode") or "ROOT")
         elif mode == "currencyCompare":
             # 一次返回有界的币种摘要，不逐币种循环调 API（能力速查.md:55）。
+            selected = payload.get("currencies") or payload.get("comparedCurrencies") or []
+            if isinstance(selected, dict):
+                selected = selected.get("values") or []
+            if len(selected) != 2 or any(c not in analysis.CURRENCIES for c in selected) or len(set(selected)) != 2:
+                raise ValueError("TWO_CURRENCIES_REQUIRED")
             data = {
                 "scope": result_scope,
-                "comparedCurrencies": payload.get("comparedCurrencies") or [],
-                "currencySummary": analysis.currency_summary(date),
+                "comparedCurrencies": selected,
+                "currencySummary": [row for row in analysis.currency_summary(date) if row["currencyCode"] in selected],
                 "dataVersion": analysis.DATA_VERSION,
             }
-        elif mode in {"overview", "limit", "trend"}:
-            data = analysis.overview(date, currency=focus, frequency=frequency, caliber=caliber)
-        elif mode == "calculation":
-            data = analysis.calculation(date, payload.get("nodeCode", "ROOT"),
-                                        currency=focus, frequency=frequency, caliber=caliber)
-        elif mode == "attribution":
-            data = analysis.attribution(date, base_date,
-                                        currency=focus, frequency=frequency, caliber=caliber)
-        elif mode == "business":
-            data = analysis.business(date, base_date, payload.get("businessType", "自营贷款"),
-                                     currency=focus, frequency=frequency, caliber=caliber)
-        elif mode == "methodology":
-            data = analysis.methodology(date, currency=focus, frequency=frequency, caliber=caliber)
+        elif mode in {"overview", "limit", "trend", "calculation", "attribution", "business", "methodology"}:
+            data = analysis.query_package(mode, date, base_date, focus, frequency,
+                business_type=payload.get("businessType") or "自营贷款", node_code=payload.get("nodeCode") or "ROOT")
         else:
             return JSONResponse({"returnCode": "ERR_MODE", "errorCode": "UNKNOWN_MODE", "body": None}, status_code=400)
     except (KeyError, ValueError) as exc:
         return JSONResponse({"returnCode": "ERR_INPUT", "errorCode": str(exc), "body": None}, status_code=400)
+    data["analysisMode"] = mode
+    data["dataNeeds"] = needs
     return _tool_response(data, x_demo_user, x_service_token, scope)
 
 
@@ -240,14 +262,11 @@ def _initial_state(
         session = SESSIONS.get(session_id)
         if not session or session["userId"] != user or session["expiresAt"] <= time.time():
             raise ValueError("INVALID_SESSION")
-        # 会话只恢复受控的小上下文，不回灌上轮的完整 scope 或结果包
-        # （页面筛选每轮显式传入，精确口径不靠聊天记忆）。
-        # 恢复的焦点币种走独立键，优先级低于用户本轮点名的币种。
-        inputs["lastBusinessType"] = session.get("lastBusinessType")
-        inputs["sessionFocusCurrencyCode"] = session.get("focusCurrencyCode")
-        inputs["lastComparedCurrencies"] = session.get("lastComparedCurrencies")
-        inputs["lastBaseDate"] = session.get("baseDate")
+        # Match the bank system variable; parsing lives in the visible context script.
+        inputs["chatHistory"] = list(session.get("chatHistory") or [])
         followup = True
+    elif "chatHistory" in payload:
+        inputs["chatHistory"] = payload["chatHistory"]
     return {
         "inputs": inputs,
         "user": user,
@@ -290,33 +309,30 @@ def _final(state: dict, session_id: str | None = None) -> dict:
             "regenerated": bool(state.get("regenerated")),
         }
     )
+    assembled.update(state.get("platform_output") or {})
+    assembled["degradeFlags"] = list(dict.fromkeys([*assembled.get("degradeFlags", []), *state.get("degrade_flags", [])]))
     return {
         **assembled,
         "sessionId": session_id,
         "modelMode": "live" if _is_live() else "mock",
         "followup": bool(state.get("followup")),
-        "lastBusinessType": request.get("lastBusinessType") or result_package.get("businessType"),
+        "lastBusinessType": (state.get("conversation_state") or {}).get("businessType") or result_package.get("businessType"),
         "question": request.get("question") or "",
     }
 
 
 def _save_session(state: dict, user_id: str, session_id: str | None) -> str:
-    """会话只保存 4 个受控的跨轮对象，不保存完整 scope 或结果包。
-
-    页面筛选条件每轮由前端显式传入；会话只补充"对话关注对象"，两者分开，
-    用户从人民币追问美元再问"它"时，关注币种是美元而页面币种不变。
-    """
+    """Emulate bank chatHistory with start input and final output, not node traces."""
+    previous = SESSIONS.get(session_id, {}) if session_id else {}
+    history = list(previous.get("chatHistory") or [])
+    history.append({
+        "inputMessage": json.dumps((state.get("platform_variables") or {}).get("systemInput") or {}, ensure_ascii=False),
+        "outputMessage": json.dumps(state.get("platform_output") or {}, ensure_ascii=False),
+    })
     session_id = session_id or uuid.uuid4().hex
-    prior = SESSIONS.get(session_id, {})
-    result_package = state.get("result_package") or {}
-    resolved = state.get("resolved_context") or {}
-    last_business = result_package.get("businessType") if state["mode"] == "business" else prior.get("lastBusinessType")
     SESSIONS[session_id] = {
         "userId": user_id,
-        "lastBusinessType": last_business,
-        "focusCurrencyCode": resolved.get("focusCurrencyCode") or prior.get("focusCurrencyCode"),
-        "lastComparedCurrencies": resolved.get("comparedCurrencies") or prior.get("lastComparedCurrencies"),
-        "baseDate": resolved.get("baseDate") or prior.get("baseDate"),
+        "chatHistory": history[-20:],
         "expiresAt": time.time() + SESSION_TTL_SECONDS,
     }
     return session_id
@@ -324,8 +340,15 @@ def _save_session(state: dict, user_id: str, session_id: str | None) -> str:
 
 def _error(exc: Exception) -> JSONResponse:
     if isinstance(exc, httpx.HTTPStatusError):
-        code = "UPSTREAM_FORBIDDEN" if exc.response.status_code == 403 else "UPSTREAM_UNAVAILABLE"
-        status = 403 if exc.response.status_code == 403 else 502
+        if exc.response.status_code == 400:
+            try:
+                code = exc.response.json().get("errorCode") or "INVALID_QUERY"
+            except ValueError:
+                code = "INVALID_QUERY"
+            status = 400
+        else:
+            code = "UPSTREAM_FORBIDDEN" if exc.response.status_code == 403 else "UPSTREAM_UNAVAILABLE"
+            status = 403 if exc.response.status_code == 403 else 502
     elif isinstance(exc, ValueError):
         code, status = str(exc), 400
     else:
@@ -484,16 +507,8 @@ async def stream_workflow(request: Request, x_demo_user: str = Header(default="d
         except Exception as exc:
             response = _error(exc)
             failed = json.loads(response.body)
-            nxt = {
-                "__start__": "resolve_context",
-                "resolve_context": "classify_question",
-                "classify_question": "fetch_alm_data",
-                "fetch_alm_data": "validate_data_package",
-                "validate_data_package": "generate_narrative",
-                "generate_narrative": "validate_output",
-            }
             last = path[-1] if path else "__start__"
-            failed["failedNode"] = nxt.get(last, last)
+            failed["failedNode"] = getattr(exc, "bank_runtime_node", last)
             failed["path"] = path
             yield bank_sse.format_frame(
                 bank_sse.TYPE_ERROR,

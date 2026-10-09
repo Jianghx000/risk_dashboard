@@ -109,6 +109,19 @@ def previous_date(current_date: str, frequency: str = "MONTH") -> str | None:
     return earlier[-1] if earlier else None
 
 
+def validate_query_dates(date: str, base: str | None, frequency: str) -> str | None:
+    if frequency not in FREQUENCIES:
+        raise ValueError("UNSUPPORTED_FREQUENCY")
+    dates = available_dates(frequency)
+    if date not in dates:
+        raise ValueError("UNKNOWN_DATA_DATE")
+    if not base or base == "PREVIOUS":
+        return previous_date(date, frequency)
+    if base not in dates or base >= date:
+        raise ValueError("INVALID_BASE_DATE")
+    return base
+
+
 def _raw_snapshot(date: str) -> dict:
     row = _SNAPSHOT_ROWS[date]
     loan, investment, interbank, term_deposit, interbank_liability, bank, trading, denominator = row
@@ -240,6 +253,83 @@ def overview(
         "currencySummary": currency_summary(as_of_date),
         "dataVersion": DATA_VERSION,
     }
+
+
+def query_package(mode: str, date: str, base: str | None, currency: str,
+                  frequency: str = "MONTH", *, business_type: str = "", node_code: str = "") -> dict:
+    """A bounded response for each question; dates are authoritative here."""
+    resolved_base = validate_query_dates(date, base, frequency)
+    if mode in {"overview", "limit", "trend"}:
+        data = overview(date, currency=currency, frequency=frequency)
+        if mode == "limit":
+            data.pop("trend")
+            data.pop("currencySummary")
+        elif mode == "trend":
+            data.pop("limit")
+            data.pop("currencySummary")
+            data["trend"] = data["trend"][-(12 if frequency == "MONTH" else 31):]
+        else:
+            data["scope"] = _scope(date, resolved_base, currency, frequency, DEFAULT_CALIBER)
+            data["trend"] = data["trend"][-6:]
+            if resolved_base:
+                data["attribution"] = attribution(date, resolved_base, currency=currency, frequency=frequency)
+            else:
+                data["attribution"] = {"status": "unavailable", "reason": "NO_PREVIOUS_PERIOD"}
+        return data
+    if mode in {"attribution", "business"} and not resolved_base:
+        return {"scope": _scope(date, None, currency, frequency, DEFAULT_CALIBER),
+                "status": "unavailable", "reason": "NO_PREVIOUS_PERIOD", "dataVersion": DATA_VERSION}
+    if mode == "attribution":
+        return attribution(date, resolved_base, currency=currency, frequency=frequency)
+    if mode == "business":
+        return business(date, resolved_base, business_type, currency=currency, frequency=frequency)
+    if mode == "calculation":
+        return calculation(date, node_code or "ROOT", currency=currency, frequency=frequency)
+    if mode == "methodology":
+        return methodology(date, currency=currency, frequency=frequency)
+    raise ValueError("UNKNOWN_MODE")
+
+
+def multi_package(mode: str, needs: list[str], date: str, base: str | None,
+                  currencies: list[str], frequency: str = "MONTH", *,
+                  business_type: str = "", node_code: str = "") -> dict:
+    """One bounded request, independent results for each requested analysis."""
+    allowed = {"overview", "limit", "trend", "attribution", "business", "calculation", "methodology", "currencyCompare"}
+    if (not isinstance(needs, list) or not 1 <= len(needs) <= 4 or
+            any(not isinstance(n, str) or n not in allowed for n in needs) or
+            len(set(needs)) != len(needs) or mode not in needs):
+        raise ValueError("INVALID_DATA_NEEDS")
+    if "currencyCompare" in needs and len(currencies) != 2:
+        raise ValueError("TWO_CURRENCIES_REQUIRED")
+    if len(currencies) == 2 and "currencyCompare" not in needs:
+        raise ValueError("CURRENCY_COMPARISON_REQUIRED")
+    resolved_base = validate_query_dates(date, base, frequency)
+
+    def one(need, currency):
+        result = query_package(need, date, resolved_base, currency, frequency,
+            business_type=business_type, node_code=node_code)
+        result.update(analysisMode=need, actualDataDate=date, caliberVersion=CALIBER_VERSION)
+        result.setdefault("status", "available")
+        return result
+
+    modules = {}
+    for need in needs:
+        if need == "currencyCompare":
+            result = {"scope": _scope(date, None, currencies[0], frequency, DEFAULT_CALIBER),
+                "status": "available", "analysisMode": need, "comparedCurrencies": currencies,
+                "currencySummary": [r for r in currency_summary(date) if r["currencyCode"] in currencies],
+                "dataVersion": DATA_VERSION, "caliberVersion": CALIBER_VERSION, "actualDataDate": date}
+        elif len(currencies) == 1:
+            result = one(need, currencies[0])
+        else:
+            parts = [one(need, currency) for currency in currencies]
+            result = {"status": "available" if any(p["status"] == "available" for p in parts) else "unavailable",
+                      "byCurrency": parts}
+        modules[need] = result
+    return {"scope": _scope(date, resolved_base if any(n in needs for n in ("overview", "attribution", "business")) else None,
+                            currencies[0], frequency, DEFAULT_CALIBER),
+            "status": "available", "analysisMode": mode, "dataNeeds": needs, "analyses": modules,
+            "actualDataDate": date, "dataVersion": DATA_VERSION, "caliberVersion": CALIBER_VERSION}
 
 
 def calculation(

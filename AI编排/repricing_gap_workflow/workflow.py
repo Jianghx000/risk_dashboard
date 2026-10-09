@@ -8,14 +8,10 @@ import re
 from typing import Any, Callable, TypedDict
 
 import httpx
-from langgraph.graph import END, START, StateGraph
-
-from aiworkflow import conditions, workflow_check
-from almcanvas.answer_shape import normalize_model_answer
-from almcanvas.overclaim_guard import GuardContext, check_overclaims
-from almcanvas.narrative_guard import collect_identifier_keys, find_unreferenced_numbers
+from almcanvas.answer_validation import _resolve_path, validate_answer
 
 from . import analysis
+from .prompts import NARRATIVE_POLICY
 from .analysis import CURRENCY_CODE, CURRENT_DATE, DEFAULT_BASE_DATE, METRIC_CODE, ORG_CODE, TENOR_CODE
 
 
@@ -217,6 +213,9 @@ class WorkflowState(TypedDict, total=False):
     fault_injected: bool
     validation_errors: list[str]
     failed: dict[str, Any] | None
+    platform_variables: dict[str, Any]
+    platform_output: dict[str, Any]
+    conversation_state: dict[str, Any]
 
 
 _METRIC_NAME = "重定价缺口率"
@@ -286,13 +285,13 @@ def classify(
     return None
 
 
-def _business_type(question: str, explicit: str | None) -> str:
+def _business_type(question: str, explicit: str | None, last_business_type: str | None = None) -> str:
     if explicit:
         return explicit
     for name in ("自营贷款", "投资类资产", "同业资产", "定期存款", "同业负债"):
         if name in question:
             return name
-    return "自营贷款"
+    return last_business_type or "自营贷款"
 
 
 def _node_code(question: str, explicit: str | None) -> str:
@@ -309,106 +308,35 @@ def _node_code(question: str, explicit: str | None) -> str:
     return "ROOT"
 
 
-def _resolve_path(document: dict, path: str) -> Any:
-    value: Any = document
-    for segment in path.split("."):
-        if isinstance(value, dict):
-            value = value[segment]
-        elif isinstance(value, list) and segment.isdigit():
-            value = value[int(segment)]
-        else:
-            raise KeyError(path)
-    return value
-
-
-def validate_answer(answer: dict, result: dict, *, mode: str | None = None) -> list[str]:
-    errors: list[str] = []
-    if not isinstance(answer, dict) or not isinstance(answer.get("headline"), str):
-        return ["INVALID_ANSWER_SCHEMA"]
-    sections = answer.get("sections")
-    if not isinstance(sections, list) or not sections:
-        errors.append("MISSING_SECTIONS")
-    else:
-        for section in sections:
-            if not isinstance(section, dict) or not isinstance(section.get("text"), str):
-                errors.append("INVALID_SECTION")
-                continue
-            if not isinstance(section.get("citations"), list) or not section["citations"]:
-                errors.append("MISSING_CITATIONS")
-                continue
-            for path in section["citations"]:
-                try:
-                    _resolve_path(result, path)
-                except (KeyError, IndexError, TypeError):
-                    errors.append(f"INVALID_CITATION:{path}")
-    refs = answer.get("numericRefs")
-    if not isinstance(refs, list):
-        errors.append("INVALID_NUMERIC_REFS")
-    else:
-        for ref in refs:
-            if not isinstance(ref, dict) or "path" not in ref or "value" not in ref:
-                errors.append("INVALID_NUMERIC_REF")
-                continue
-            try:
-                actual = _resolve_path(result, ref["path"])
-            except (KeyError, IndexError, TypeError):
-                errors.append(f"INVALID_NUMERIC_PATH:{ref['path']}")
-                continue
-            if isinstance(actual, (int, float)) and isinstance(ref["value"], (int, float)):
-                if abs(actual - ref["value"]) > 1e-6:
-                    errors.append(f"NUMERIC_MISMATCH:{ref['path']}")
-            elif actual != ref["value"]:
-                errors.append(f"VALUE_MISMATCH:{ref['path']}")
-    if isinstance(refs, list) and all(isinstance(item, dict) for item in refs):
-        source_values = [item.get("value") for item in refs if isinstance(item.get("value"), (int, float))]
-        cited_identifiers = []
-        if isinstance(sections, list):
-            for section in sections:
-                if not isinstance(section, dict) or not isinstance(section.get("citations"), list):
-                    continue
-                for path in section["citations"]:
-                    try:
-                        value = _resolve_path(result, path)
-                    except (KeyError, IndexError, TypeError):
-                        continue
-                    if isinstance(value, str) and any(char.isdigit() for char in value):
-                        cited_identifiers.append(value)
-        cited_identifiers.extend(collect_identifier_keys(result))
-        texts = [answer.get("headline", "")]
-        if isinstance(sections, list):
-            texts.extend(item.get("text", "") for item in sections if isinstance(item, dict))
-        errors.extend(
-            find_unreferenced_numbers(
-                texts,
-                source_values=source_values,
-                cited_identifiers=cited_identifiers,
-                compared_currencies=result.get("comparedCurrencies"),
-                cited_paths={item.get("path") for item in refs},
-            )
-        )
-    if result.get("attributionMethod", "").startswith("SYNTHETIC"):
-        if "百分点" in answer.get("headline", ""):
-            errors.append("ILLUSTRATIVE_IMPACT_IN_HEADLINE")
-        if isinstance(sections, list):
-            for section in sections:
-                if isinstance(section, dict) and "illustrativeImpactPctPoint" in section.get("citations", []):
-                    if "演示" not in section.get("text", ""):
-                        errors.append("ILLUSTRATIVE_IMPACT_UNLABELED")
-    # 语义越界门禁：数字有据不代表说法成立（"监管限额""美元风险更高"）。
-    # 给了 mode 才检查——脱离模式的规则会把合法的免责说明也误杀。
-    if mode is not None:
-        narrative = "\n".join(
-            [answer.get("headline", "")]
-            + [item.get("text", "") for item in (sections or []) if isinstance(item, dict)]
-        )
-        errors.extend(check_overclaims(GuardContext(mode=mode, result=result, narrative=narrative)))
-    return errors
-
-
 class MockNarrator:
     """Deterministic stand-in for a platform Prompt node; never calls a model."""
 
+    def classify(self, question: str, context: dict) -> dict:
+        """Offline transport fixture; live semantic quality is tested separately."""
+        from .bank_scripts import context_handler
+        result = context_handler({"prepareOnly": True, "input": {
+            "orgCode": "LEGAL", "currencyCode": "CNY", "tenorCode": "1Y", "asOfDate": CURRENT_DATE,
+            "question": question, "conversationState": {"businessType": context.get("lastBusinessType")},
+            "options": {"comparedCurrencies": context.get("comparedCurrencies")}}})
+        needs = result["query"]["dataNeeds"]
+        return {"labels": {mode: int(mode in needs) for mode in sorted(MODES - {"clarification"})},
+            "primary": result["analysisMode"], "needsClarification": result["analysisMode"] == "clarification"}
+
     def generate(self, mode: str, data: dict, question: str, errors: list[str]) -> dict:
+        if data.get("analyses"):
+            sections, refs = [], []
+            for need, module in data["analyses"].items():
+                parts = module.get("byCurrency", [module])
+                for index, part in enumerate(parts):
+                    prefix = "analyses." + need + (".byCurrency." + str(index) if "byCurrency" in module else "") + "."
+                    sub = self.generate(need, part, question, errors)
+                    analysis_currency = part.get("scope", {}).get("currencyCode")
+                    label = {"CNY": "人民币", "USD": "美元", "HKD": "港币"}.get(analysis_currency, "")
+                    sections.extend({"text": (label + "：" if len(parts) > 1 else "") + s["text"],
+                        "citations": [prefix + p for p in s["citations"]]} for s in sub["sections"])
+                    refs.extend({**r, "path": prefix + r["path"]} for r in sub["numericRefs"])
+            return {"headline": "本轮问题的综合分析", "sections": sections, "numericRefs": refs}
+
         def section(text: str, *paths: str) -> dict:
             return {"text": text, "citations": list(paths)}
 
@@ -424,6 +352,9 @@ class MockNarrator:
                 "numericRefs": [],
             }
         if data.get("status") == "needs_input":
+            if data.get("message"):
+                return {"headline": "需要补充本轮请求", "sections": [section(data["message"], "message", "status")],
+                    "numericRefs": []}
             if data.get("modeOptions"):
                 options = "、".join(
                     str(item.get("label", ""))
@@ -446,14 +377,32 @@ class MockNarrator:
                 "numericRefs": [],
             }
 
+        if data.get("status") == "unavailable":
+            return {"headline": "暂无可比较的历史数据", "sections": [section(
+                "当前范围没有可用的比较基期，无法解释跨期变化；不会替换为其他日期。", "status", "reason")],
+                "numericRefs": []}
+
         if mode in {"overview", "limit"}:
             current = data["current"]["value"]
-            distance = data["limit"]["distancePctPoint"]
-            answer = {
-                "headline": "重定价缺口率处于限额内",
-                "sections": [section(f"当前值为{current:.2f}%，距离16.00%限额还有{distance:.2f}个百分点。", "current.value", "limit.value", "limit.distancePctPoint")],
-                "numericRefs": [ref("current.value"), ref("limit.value"), ref("limit.distancePctPoint")],
-            }
+            limit = data["limit"]
+            if not limit.get("applicable"):
+                answer = {"headline": "当前币种没有适用限额", "sections": [section(
+                    f"当前值为{current:.2f}%，本范围没有适用的单币种限额，不套用其他币种限额。", "current.value", "limit")],
+                    "numericRefs": [ref("current.value")]}
+            else:
+                distance = limit["distancePctPoint"]
+                answer = {
+                    "headline": "重定价缺口率超出内部限额" if limit["breached"] else "重定价缺口率处于限额内",
+                    "sections": [section(f"当前值为{current:.2f}%，内部限额为{limit['value']:.2f}%，距限额{distance:.2f}个百分点。", "current.value", "limit.value", "limit.distancePctPoint")],
+                    "numericRefs": [ref("current.value"), ref("limit.value"), ref("limit.distancePctPoint")],
+                }
+            attribution = data.get("attribution") or {}
+            if mode == "overview" and attribution.get("factors"):
+                factor = attribution["factors"][0]
+                answer["sections"].append(section(
+                    f"较基期变动{attribution['changePctPoint']:+.2f}个百分点，主要因素是{factor['label']}；这是演示归因，非正式ALM归因。",
+                    "attribution.changePctPoint", "attribution.factors.0.impactPctPoint", "attribution.scope.baseDate", "attribution.method"))
+                answer["numericRefs"] += [ref("attribution.changePctPoint"), ref("attribution.factors.0.impactPctPoint")]
         elif mode == "trend":
             points = data["trend"]
             answer = {
@@ -473,13 +422,13 @@ class MockNarrator:
             factor = data["factors"][0]
             answer = {
                 "headline": "指标变动已完成归因勾稽",
-                "sections": [section(f"较基期变化{data['changePctPoint']:+.2f}个百分点；影响最大的因素是{factor['label']}。", "changePctPoint", "factors.0.impactPctPoint", "reconciliationResidualPctPoint")],
+                "sections": [section(f"演示归因：较基期变化{data['changePctPoint']:+.2f}个百分点；影响最大的因素是{factor['label']}，非正式ALM归因。", "changePctPoint", "factors.0.impactPctPoint", "reconciliationResidualPctPoint")],
                 "numericRefs": [ref("changePctPoint"), ref("factors.0.impactPctPoint")],
             }
         elif mode == "business":
             answer = {
                 "headline": f"{data['businessType']}的业务变化",
-                "sections": [section(f"该类业务规模较基期变化{data['changeAmount']:+.2f}亿元。虚拟归因分配结果为{data['illustrativeImpactPctPoint']:+.2f}个百分点，仅用于工作流联调。明细只用于说明业务线索，不代表逐笔正式归因。", "changeAmount", "illustrativeImpactPctPoint", "records", "recordRole")],
+                "sections": [section(f"该类业务规模较基期变化{data['changeAmount']:+.2f}亿元。演示估算影响为{data['illustrativeImpactPctPoint']:+.2f}个百分点，非正式逐笔归因。明细只用于说明业务线索。", "changeAmount", "illustrativeImpactPctPoint", "records", "recordRole")],
                 "numericRefs": [ref("changeAmount"), ref("illustrativeImpactPctPoint")],
             }
         elif mode == "clarification":
@@ -521,251 +470,129 @@ class ChatNarrator:
             api_key=settings["api_key"],
             base_url=settings["base_url"],
             temperature=0,
-            max_tokens=900,
+            max_tokens=1800,
             reasoning_effort="none",
             model_kwargs={"response_format": {"type": "json_object"}},
         )
 
+    async def generate_configured(self, config: dict, params: dict) -> str:
+        def replace(match):
+            key = match.group(1)
+            if key not in params:
+                raise ValueError("MISSING_PROMPT_INPUT:" + key)
+            value = params[key]
+            return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        text = re.sub(r"\$\{([^}]+)\}", replace, config["systemPrompt"])
+        model = self.model.bind(temperature=config["temperature"], max_tokens=config["maxTokens"])
+        if getattr(self.model, "model_name", config["model"]) != config["model"]:
+            raise ValueError("MODEL_CONFIGURATION_MISMATCH")
+        response = await model.ainvoke([("system", text)])
+        return response.content if isinstance(response.content, str) else str(response.content)
+
     async def generate(self, mode: str, data: dict, question: str, errors: list[str]) -> dict:
-        system = (
-            "你是ALM风险指标解读助手。只依据resultPackage回答。"
-            "只输出JSON对象，格式为"
-            '{"headline":"简短结论","sections":[{"text":"解释","citations":["resultPackage内的字段路径"]}],'
-            '"numericRefs":[{"path":"字段路径","value":原始数值}]}。'
-            "字段路径不要带resultPackage前缀，数组下标用点号，例如trend.0.value。"
-            "每个sections至少有一条有效引用。数值必须逐字采用resultPackage原值，"
-            "出现的每个数字都放入numericRefs，不自行计算，不写没有依据的数字。"
-            "不要把业务明细说成正式归因；演示归因不得说成正式ALM归因。"
-            "如果问题超出本次数据范围，简短说明现有数据能回答的部分。"
-            "最多写2个sections，每节不超过70字；不要罗列scope编码或所有字段。"
-            "归因只写总变化和影响最大的2个因素；业务只写汇总变化与一条线索，"
-            "不要编造业务笔数。业务headline只写规模变化，不写影响百分点；"
-            "业务演示影响如在sections中使用，必须同句注明'演示估算，非正式逐笔归因'。"
-            "numericRefs只列正文实际使用的数值。"
-        )
+        system = NARRATIVE_POLICY
         payload = {"mode": mode, "question": question, "resultPackage": data, "previousErrors": errors}
         response = await self.model.ainvoke([("system", system), ("human", json.dumps(payload, ensure_ascii=False))])
         raw = response.content if isinstance(response.content, str) else str(response.content)
         return json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
 
 
-def build_graph(
-    client: httpx.AsyncClient,
-    narrator: MockNarrator | ChatNarrator | None = None,
-    *,
-    fail_fetch: bool = False,
-    allow_template_fallback: bool = True,
-):
-    """装配工作流。
+def build_graph(client, narrator=None, *, fail_fetch=False, allow_template_fallback=False):
+    """Compile the bank definition; adapters supply transport and legacy state."""
+    from almcanvas.langgraph_runtime import compile_definition
+    from .platform_blueprint import load_spec
 
-    ``allow_template_fallback`` 是 **mock/live 信任边界**：
-    mock 模式下模板兜底是纯离线回归的便利；live 模式必须传 ``False``——
-    用户看到的"模型解读"如果悄悄换成了固定文案，就是在拿假答案冒充模型输出。
-    """
+    spec = load_spec()
     narrator = narrator or MockNarrator()
 
-    def resolve(state: WorkflowState) -> dict:
-        resolved = resolve_context(state["inputs"])
-        return {
-            "regen_count": 0,
-            "regenerated": False,
-            "degrade_flags": [],
-            "resolved_context": resolved,
-        }
-
-    def route(state: WorkflowState) -> dict:
+    def initial_variables(state):
         request = state["inputs"]
-        resolved = state.get("resolved_context") or {}
-        question = request.get("question") or ""
-        if resolved.get("ambiguousCurrency"):
-            return {"mode": "clarification", "clarify_reason": "currency"}
-        if resolved.get("comparedCurrencies") and "currencyCompare" not in MODES:
-            return {"mode": "overview"}
-        mode = classify(
-            question,
-            request.get("analysisMode"),
-            request.get("lastBusinessType"),
-            resolved_context=resolved,
-        )
-        if mode is None:
-            # 没识别出问题类型 → 要求澄清，绝不默默兜底成 overview。
-            return {"mode": "clarification", "clarify_reason": "intent"}
-        return {"mode": mode}
+        flat = {**(request.get("scope") or {}), **{k: v for k, v in request.items() if k != "scope"}}
+        options = {k: flat[k] for k in ("analysisMode", "baseDate", "businessType", "nodeCode",
+            "focusCurrencyCode", "comparedCurrencies", "caliber", "metricCode", "dataNeeds") if flat.get(k) is not None}
+        if flat.get("options") is not None and not isinstance(flat["options"], dict):
+            raise ValueError("INVALID_CONTEXT_OBJECT")
+        if flat.get("conversationState") is not None and not isinstance(flat["conversationState"], dict):
+            raise ValueError("INVALID_CONTEXT_OBJECT")
+        flat["options"] = {**options, **(flat.get("options") or {})}
+        legacy_state = {"businessType": flat.get("lastBusinessType"),
+            "focusCurrencyCode": flat.get("sessionFocusCurrencyCode"), "baseDate": flat.get("lastBaseDate"),
+            "comparedCurrencies": flat.get("lastComparedCurrencies")}
+        flat["conversationState"] = flat.get("conversationState") or {k: v for k, v in legacy_state.items() if v}
+        start = next(n for n in spec["nodes"] if n["config"]["kind"] == "start")
+        history = flat.get("chatHistory", [])
+        # Compatibility for old local clients only; the bank start form has no state field.
+        if "chatHistory" not in flat and flat["conversationState"]:
+            memory = dict(flat["conversationState"])
+            memory.setdefault("scopeKey", "|".join(flat.get(k) or ("MONTH" if k == "frequency" else "")
+                for k in ("orgCode", "currencyCode", "tenorCode", "asOfDate", "frequency")))
+            history = [{"inputMessage": "{}", "outputMessage": json.dumps({"conversationState": memory}, ensure_ascii=False)}]
+        return {"systemInput": {i["name"]: flat.get(i["name"]) for i in start["inputs"]},
+                "chatHistory": history}
 
-    async def fetch(state: WorkflowState) -> dict:
+    async def api(node, params, state):
+        config = node["config"]
         if fail_fetch:
-            request = httpx.Request("POST", f"http://mock-alm.local{ANALYSIS_API_PATH}")
-            response = httpx.Response(502, request=request, json={"returnCode": "ERR", "errorCode": "UPSTREAM_UNAVAILABLE"})
-            raise httpx.HTTPStatusError("Bad gateway", request=request, response=response)
-        request = state["inputs"]
-        scope = request["scope"]
-        resolved = state.get("resolved_context") or {}
-        body = {
-            "metricCode": scope.get("metricCode"),
-            "orgCode": scope.get("orgCode"),
-            "tenorCode": scope.get("tenorCode"),
-            "asOfDate": resolved.get("currentDate", CURRENT_DATE),
-            "currencyCode": resolved.get("pageCurrencyCode", CURRENCY_CODE),
-            "focusCurrencyCode": resolved.get("focusCurrencyCode", CURRENCY_CODE),
-            "frequency": resolved.get("frequency", "MONTH"),
-            "caliber": resolved.get("caliber", analysis.DEFAULT_CALIBER),
-            "analysisMode": state["mode"],
-            "baseDate": resolved.get("baseDate") or DEFAULT_BASE_DATE,
-            "businessType": _business_type(request.get("question") or "", request.get("businessType") or request.get("lastBusinessType")),
-            "nodeCode": _node_code(request.get("question") or "", request.get("nodeCode")),
-        }
-        if resolved.get("comparedCurrencies"):
-            body["comparedCurrencies"] = resolved["comparedCurrencies"]
-        if state["mode"] == "clarification":
-            body["clarifyReason"] = state.get("clarify_reason") or "currency"
-        response = await client.post(
-            ANALYSIS_API_PATH,
-            json=body,
-            headers={"X-Demo-User": state["user"], "X-Service-Token": "demo-token"},
-        )
+            request = httpx.Request(config["method"], "http://mock-alm.local" + config["path"])
+            raise httpx.HTTPStatusError("Bad gateway", request=request, response=httpx.Response(502, request=request))
+        response = await client.request(config["method"], config["path"], json=params,
+            headers={"X-Demo-User": state["user"], "X-Service-Token": "demo-token"})
         response.raise_for_status()
-        envelope = response.json()
-        if envelope.get("returnCode") != "SUC0000":
-            raise ValueError(envelope.get("errorCode") or "ALM_TOOL_FAILED")
-        return {"result_package": envelope["body"]}
+        return response.json()
 
-    def validate_package(state: WorkflowState) -> dict:
-        result = state["result_package"]
-        expected = state["inputs"]["scope"]
-        resolved = state.get("resolved_context") or {}
-        actual = result.get("scope") or {}
-        # 结果包描述的是**实际取数用的口径**：币种取对话关注币种，日期取解析后的当期。
-        # 页面筛选币种与关注币种不同是正常的（用户从人民币追问美元），拿页面币种去比
-        # 会把正确的追问误判成范围不符。
-        for key in ("metricCode", "orgCode", "currencyCode", "tenorCode", "asOfDate"):
-            want = expected.get(key)
-            if key == "currencyCode":
-                want = resolved.get("focusCurrencyCode", want)
-            elif key == "asOfDate":
-                want = resolved.get("currentDate", want)
-            if actual.get(key) != want:
-                raise ValueError(f"SCOPE_MISMATCH_{key}")
-        # needs_input / unsupported / unavailable 是**合法应答**：模型要能用自然语言
-        # 说明"这个口径/这个指代现在答不了"，而不是整条编排直接崩掉。
-        if result.get("status") != "available":
-            if result.get("status") not in PASS_THROUGH_STATUSES:
-                raise ValueError("DATA_NOT_AVAILABLE")
-            return {"data_validated": True}
-        if not result.get("dataVersion") or not result.get("caliberVersion"):
-            raise ValueError("VERSION_MISSING")
-        if len(json.dumps(result, ensure_ascii=False)) > 16000:
-            raise ValueError("PACKAGE_TOO_LARGE")
-        return {"data_validated": True}
+    async def prompt(node, params, state):
+        if hasattr(narrator, "generate_configured"):
+            return await narrator.generate_configured(node["config"], params)
+        if node["id"] == "intent_prompt":
+            result = narrator.classify(params["question"], params["classificationContext"])
+        else:
+            result = narrator.generate(params["analysisMode"], params["resultPackage"],
+                params.get("question") or "", params.get("previousErrors") or [])
+        result = await result if hasattr(result, "__await__") else result
+        return json.dumps(result, ensure_ascii=False)
 
-    async def generate(state: WorkflowState) -> dict:
-        return await _narrate(state, retry=False)
+    def project(node, variables, state):
+        update = {}
+        if node["id"] == "context":
+            update.update(regen_count=0, regenerated=False, llm_failed=False,
+                          narrative=None, validation_errors=[], degrade_flags=[], platform_output={})
+        context = variables.get("contextOutput")
+        if context:
+            update["mode"] = context["analysisMode"]
+            update["clarify_reason"] = context["clarifyReason"]
+            query = context["query"]
+            memory = context["conversationState"]
+            page = variables["systemInput"]["currencyCode"]
+            update["resolved_context"] = {
+                "pageCurrencyCode": page, "focusCurrencyCode": memory.get("focusCurrencyCode") or page,
+                "currentDate": query["asOfDate"], "baseDate": query["baseDate"] or None,
+                "frequency": query["frequency"], "caliber": context["caliber"],
+                "comparedCurrencies": query["currencies"] if context["analysisMode"] == "currencyCompare" else None,
+                "ambiguousCurrency": context["analysisMode"] == "clarification" and context["clarifyReason"] == "currency",
+            }
+        if "apiResponse" in variables:
+            update["result_package"] = variables["apiResponse"].get("body")
+        if "packageOutput" in variables:
+            update["result_package"] = variables["packageOutput"]["resultPackage"]
+            update["data_validated"] = True
+            update["conversation_state"] = variables["packageOutput"]["conversationState"]
+            update["resolved_context"]["baseDate"] = update["conversation_state"].get("baseDate") or None
+        if node["id"] == "intent_check":
+            # The visible validator routes a failed classifier to clarification.
+            # It must not mark a later successful narrative as a model outage.
+            update["llm_failed"] = False
+        if node["id"] in ("prompt", "regenerate"):
+            update["regen_count"] = state.get("regen_count", 0) + 1
+            update["regenerated"] = node["id"] == "regenerate"
+        checked = variables.get("answerOutput")
+        if checked:
+            update["narrative"] = checked["narrative"]
+            update["validation_errors"] = checked["validationErrors"]
+            update["degrade_flags"] = list(checked["degradeFlags"])
+        if node["id"] not in ("context", "intent_prompt", "intent_check") and state.get("llm_failed"):
+            flag = DEGRADE_NARRATIVE_UNAVAILABLE if isinstance(narrator, MockNarrator) and allow_template_fallback else DEGRADE_LIVE_MODEL_UNAVAILABLE
+            update["degrade_flags"] = list(dict.fromkeys([*(update.get("degrade_flags") or []), flag]))
+        return update
 
-    async def regenerate(state: WorkflowState) -> dict:
-        return await _narrate(state, retry=True)
-
-    async def _narrate(state: WorkflowState, retry: bool) -> dict:
-        errors = state.get("validation_errors") or [] if retry else []
-        try:
-            result = narrator.generate(state["mode"], state["result_package"], state["inputs"].get("question") or "", errors)
-            answer = await result if hasattr(result, "__await__") else result
-            # 模型不遵守形状是常态而非异常：先整形再校验，别让校验去背形状噪声。
-            answer = normalize_model_answer(answer)
-        except Exception as exc:
-            LOGGER.warning("Narrative generation failed: %s status=%s", type(exc).__name__, getattr(exc, "status_code", None))
-            flags = list(state.get("degrade_flags") or [])
-            if allow_template_fallback:
-                flags.append(DEGRADE_NARRATIVE_UNAVAILABLE)
-            else:
-                # live 模式模型不可用：明确标记，绝不用模板冒充。
-                flags.append(DEGRADE_LIVE_MODEL_UNAVAILABLE)
-            return {"narrative": None, "llm_failed": True, "regen_count": state.get("regen_count", 0) + 1, "degrade_flags": flags}
-        return {"narrative": answer, "regen_count": state.get("regen_count", 0) + 1}
-
-    def validate_first(state: WorkflowState) -> dict:
-        answer = state.get("narrative")
-        if answer is None:
-            return {"validation_errors": []}
-        return {"validation_errors": validate_answer(answer, state["result_package"], mode=state.get("mode"))}
-
-    def validate_retry(state: WorkflowState) -> dict:
-        answer = state.get("narrative")
-        if answer is None:
-            return {"validation_errors": []}
-        errors = validate_answer(answer, state["result_package"], mode=state.get("mode"))
-        if not errors:
-            return {"validation_errors": []}
-        flags = list(state.get("degrade_flags") or [])
-        if allow_template_fallback:
-            # 兜底答案必须**自己再过一次校验**：用 MockNarrator 生成的模板也不
-            # 该免检，否则等于开了一条绕过门禁的后门。
-            fallback = MockNarrator().generate(
-                state["mode"], state["result_package"], state["inputs"].get("question") or "", []
-            )
-            fallback_errors = validate_answer(fallback, state["result_package"], mode=state.get("mode"))
-            if not fallback_errors:
-                flags.append(DEGRADE_TEMPLATE_FALLBACK)
-                return {"narrative": fallback, "validation_errors": [], "degrade_flags": flags}
-            errors = errors + fallback_errors
-            flags.append(DEGRADE_NARRATIVE_VALIDATION_FAILED)
-            return {"narrative": None, "validation_errors": errors, "degrade_flags": flags}
-        # live 模式：模板不是模型输出，顶替等于造假。只留空 + 明确标记。
-        flags.append(DEGRADE_LIVE_MODEL_OUTPUT_INVALID)
-        return {"narrative": None, "validation_errors": errors, "degrade_flags": flags}
-
-    node_ids = [
-        "resolve_context",
-        "classify_question",
-        "fetch_alm_data",
-        "validate_data_package",
-        "generate_narrative",
-        "validate_output",
-        "regenerate_narrative",
-        "validate_retry",
-    ]
-    edges = [
-        ("resolve_context", "classify_question"),
-        ("classify_question", "fetch_alm_data"),
-        ("fetch_alm_data", "validate_data_package"),
-        ("validate_data_package", "generate_narrative"),
-        ("generate_narrative", "validate_output"),
-        ("validate_output", "regenerate_narrative"),
-        ("validate_output", "__end__"),
-        ("regenerate_narrative", "validate_retry"),
-        ("validate_retry", "__end__"),
-    ]
-    problems = workflow_check.check_workflow(
-        "repricing_gap",
-        node_ids,
-        edges,
-        entry="resolve_context",
-    )
-    if problems:
-        raise ValueError("; ".join(problems))
-
-    graph = StateGraph(WorkflowState)
-    graph.add_node("resolve_context", resolve)
-    graph.add_node("classify_question", route)
-    graph.add_node("fetch_alm_data", fetch)
-    graph.add_node("validate_data_package", validate_package)
-    graph.add_node("generate_narrative", generate)
-    graph.add_node("validate_output", validate_first)
-    graph.add_node("regenerate_narrative", regenerate)
-    graph.add_node("validate_retry", validate_retry)
-    graph.add_edge(START, "resolve_context")
-    graph.add_edge("resolve_context", "classify_question")
-    graph.add_edge("classify_question", "fetch_alm_data")
-    graph.add_edge("fetch_alm_data", "validate_data_package")
-    graph.add_edge("validate_data_package", "generate_narrative")
-    graph.add_edge("generate_narrative", "validate_output")
-    graph.add_conditional_edges(
-        "validate_output",
-        conditions.route_when(
-            lambda state: bool(state.get("validation_errors")),
-            "regenerate_narrative",
-            "__end__",
-        ),
-        {"regenerate_narrative": "regenerate_narrative", "__end__": END},
-    )
-    graph.add_edge("regenerate_narrative", "validate_retry")
-    graph.add_edge("validate_retry", END)
-    return graph.compile()
+    return compile_definition(spec, WorkflowState, initial_variables=initial_variables,
+        api=api, prompt=prompt, project=project)

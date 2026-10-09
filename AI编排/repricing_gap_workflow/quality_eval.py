@@ -46,7 +46,18 @@ CASES: dict[str, list[dict[str, Any]]] = {
     "calculation": [{"question": "这个比率怎么算出来的？", "nodeCode": "GAP"}],
     "business": [{"question": "自营贷款为什么影响大？"}],
     "methodology": [{"question": "为什么分母不含内部交易？"}],
+    "negated_attribution": [{"question": "不要归因，只看走势。"}],
+    "negated_limit": [{"question": "不看限额，解释为何上升。"}],
+    "compound_calculation_methodology": [{"question": "先展示分子构成，再解释分母为何排除内部交易。"}],
+    "business_without_attribution": [{"question": "自营贷款余额怎么变化的？不要算指标贡献。"}],
     "currency_compare": [{"question": "美元和港币相比怎么样？"}],
+    "compound_trend_causes_limit": [{"question": "近几个月走势怎么样，为什么上升，还有多少限额空间？"}],
+    "compound_basis_followup": [
+        {"question": "美元近几个月走势怎么样，和去年末比为什么上升，还有多少限额空间？"},
+        {"question": "它近几个月走势怎么样，较上期为何上升，还有多少限额空间？"},
+    ],
+    "compound_currency_compare": [{"question": "美元和港币相比怎么样，各自近几个月走势如何？"}],
+    "compound_business_calculation": [{"question": "自营贷款有哪些新增业务，重定价缺口怎么算？"}],
     "currency_followup": [
         {"question": "现在重定价缺口率是多少？"},
         {"question": "美元为什么变化？"},
@@ -68,6 +79,24 @@ class RecordingNarrator:
     def __init__(self, delegate: MockNarrator | ChatNarrator) -> None:
         self.delegate = delegate
         self.drafts: list[dict] = []
+        self.intent_drafts: list[str] = []
+
+    async def generate_configured(self, config: dict, params: dict) -> str:
+        if hasattr(self.delegate, "generate_configured"):
+            raw = await self.delegate.generate_configured(config, params)
+        elif "classificationContext" in params:
+            raw = json.dumps(self.delegate.classify(params["question"], params["classificationContext"]), ensure_ascii=False)
+        else:
+            raw = json.dumps(self.delegate.generate(params["analysisMode"], params["resultPackage"],
+                params.get("question") or "", params.get("previousErrors") or []), ensure_ascii=False)
+        if "classificationContext" in params:
+            self.intent_drafts.append(raw)
+        else:
+            try:
+                self.drafts.append(json.loads(raw))
+            except ValueError:
+                self.drafts.append({"invalidRaw": raw})
+        return raw
 
     async def generate(self, mode: str, data: dict, question: str, errors: list[str]) -> dict:
         result = self.delegate.generate(mode, data, question, errors)
@@ -85,6 +114,12 @@ def quality_flags(mode: str, result: dict, answer: dict | None) -> list[str]:
     )
     refs = {ref["path"] for ref in answer.get("numericRefs", []) if isinstance(ref, dict) and "path" in ref}
     flags = []
+    if isinstance(result.get("analyses"), dict):
+        for need in result.get("dataNeeds", []):
+            prefix = "analyses." + need + "."
+            if not any(isinstance(p, str) and p.startswith(prefix)
+                    for s in answer.get("sections", []) for p in s.get("citations", [])):
+                flags.append("UNANSWERED_DATA_NEED:" + need)
     if re.search(r"\d+\.\d{3,}", text):
         flags.append("EXCESS_DECIMALS")
     if re.search(r"监管(?:限额|阈值|红线)", text) and result.get("limit"):
@@ -139,6 +174,7 @@ async def evaluate(case_names: list[str] | None = None, *, live: bool = True) ->
             turns = []
             for request in CASES[name]:
                 narrator.drafts = []
+                narrator.intent_drafts = []
                 started = time.monotonic()
                 payload = _turn_payload(request, session_id)
                 initial = _initial_state(payload, "demo-analyst", payload.get("sessionId"))
@@ -154,6 +190,8 @@ async def evaluate(case_names: list[str] | None = None, *, live: bool = True) ->
                     },
                     "answer": answer,
                     "drafts": list(narrator.drafts),
+                    "intentDrafts": list(narrator.intent_drafts),
+                    "dataNeeds": (state.get("result_package") or {}).get("dataNeeds", []),
                     "validationErrors": state.get("validation_errors") or [],
                     "degradeFlags": state.get("degrade_flags") or [],
                     "qualityFlags": quality_flags(state.get("mode") or "", state.get("result_package") or {}, answer),

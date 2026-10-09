@@ -240,7 +240,7 @@ def test_stream_stage_frames_carry_a_platform_node_type():
     ]
     assert missing == [], f"这些 STAGE 帧丢了 nodeType: {missing}"
 
-    allowed = {NODE_TYPE_SCRIPT, NODE_TYPE_API, NODE_TYPE_PROMPT}
+    allowed = {NODE_TYPE_SCRIPT, NODE_TYPE_API, NODE_TYPE_PROMPT, "condition"}
     bad = [
         (frame["data"]["node"], frame["data"]["nodeType"])
         for frame in by_type["STAGE"]

@@ -126,7 +126,7 @@ def test_spec_has_no_back_edges(spec):
 def test_spec_declares_our_two_schema_extensions(spec):
     """config.code 承载完整可粘贴脚本，是保住『一键复制建站』的关键。"""
     scripted = [node["id"] for node in spec["nodes"] if node["config"].get("code")]
-    assert set(scripted) == {"context", "package", "answer", "retry_check"}
+    assert set(scripted) == {"context", "direct", "intent_check", "local", "package", "answer", "retry_check"}
     for node in spec["nodes"]:
         if node["config"].get("code"):
             assert "def handler(params):" in node["config"]["code"], node["id"]

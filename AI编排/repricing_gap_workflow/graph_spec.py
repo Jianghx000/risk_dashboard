@@ -9,13 +9,15 @@ from __future__ import annotations
 import httpx
 
 from almcanvas import registry
+from almcanvas.execution_metadata import runtime_metadata
 
 from .platform_blueprint import get_blueprint, load_spec
 from .workflow import MockNarrator, build_graph
 
 def _runtime(metric: str | None = None) -> dict:
     """从 spec 的 meta.runtime 还原成便于查表的形状。"""
-    section = load_spec(metric).get("meta", {}).get("runtime") or {}
+    spec = load_spec(metric)
+    section = runtime_metadata(spec) if spec.get("meta", {}).get("executionVersion") else spec.get("meta", {}).get("runtime") or {}
     return {
         "RUNTIME_META": {n["id"]: {k: v for k, v in n.items() if k != "id"} for n in section.get("nodes", [])},
         "RUNTIME_ORDER": list(section.get("order", [])),
@@ -44,8 +46,7 @@ def _dummy_client() -> httpx.AsyncClient:
 def compiled_graph(metric: str | None = None):
     """编译后的 LangGraph 拓扑。
 
-    注意：运行期图来自**本指标自己的** ``build_graph``，不是从 spec 生成的——
-    声明式生成属于阶段 3。这里只按指标 key 选择，暂不改变来源。
+    运行期图由同一行内 spec 编译；其他指标须提供其受控传输适配器。
     """
     if metric and metric != registry.DEFAULT_METRIC:
         raise ValueError("RUNTIME_GRAPH_NOT_REGISTERED")

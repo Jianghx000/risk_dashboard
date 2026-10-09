@@ -46,7 +46,8 @@ def normalize_model_answer(answer: Any, *, path_aliases: Mapping[str, str] | Non
     if not isinstance(refs, list):
         refs = []
 
-    for section in answer.get("sections", []):
+    sections = answer.get("sections")
+    for section in sections if isinstance(sections, list) else []:
         if not isinstance(section, dict):
             continue
         if isinstance(section.get("citations"), list):

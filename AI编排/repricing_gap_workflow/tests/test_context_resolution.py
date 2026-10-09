@@ -10,6 +10,7 @@
 """
 
 import asyncio
+import json
 import re
 
 import httpx
@@ -218,10 +219,11 @@ def test_named_currency_after_comparison_resolves_without_clarification():
 # ------------------------------------------------ 跨轮会话只存受控小上下文
 
 
-def test_session_carries_four_controlled_fields():
+def test_session_history_carries_controlled_state_in_final_output():
     body = run("美元和港币相比如何").json()
-    session = SESSIONS[body["sessionId"]]
-    for field in ("lastBusinessType", "focusCurrencyCode", "lastComparedCurrencies", "baseDate"):
+    history = SESSIONS[body["sessionId"]]["chatHistory"]
+    session = json.loads(history[-1]["outputMessage"])["conversationState"]
+    for field in ("businessType", "focusCurrencyCode", "comparedCurrencies", "baseDate"):
         assert field in session, field
     # 不得回灌整轮 scope 或结果包
     assert "scope" not in session

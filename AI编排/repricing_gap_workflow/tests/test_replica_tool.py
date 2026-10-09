@@ -86,9 +86,9 @@ def test_replica_resolves_currency_base_and_preserves_page_currency():
     scope = {"metricCode": "REPRICING_GAP_RATIO", "orgCode": "LEGAL", "currencyCode": "CNY",
              "tenorCode": "1Y", "asOfDate": "2026-07-31"}
     context = handler(CONTEXT_SCRIPT)({**scope, "question": "美元和去年末相比为什么上升？"})
-    assert context["currencyCode"] == "CNY"
-    assert context["focusCurrencyCode"] == "USD"
-    assert context["baseDate"] == "2025-12-31"
+    assert scope["currencyCode"] == "CNY"
+    assert context["query"]["currencies"] == ["USD"]
+    assert context["query"]["baseDate"] == "2025-12-31"
     assert context["analysisMode"] == "attribution"
     wrapped = handler(CONTEXT_SCRIPT)({**scope, "question": "美元和港币相比", "comparedCurrencies": {"values": ["USD", "HKD"]}})
     assert wrapped["analysisMode"] == "currencyCompare"

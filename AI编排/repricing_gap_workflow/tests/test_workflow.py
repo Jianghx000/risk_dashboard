@@ -84,7 +84,7 @@ def test_stream_sends_deterministic_package_before_final():
     assert '"type":"DONE"' in text
     assert text.index('"type":"STAGE"') < text.index('"type":"DONE"')
     assert '"resultPackage"' in response.text
-    for node in ("resolve_context", "classify_question", "fetch_alm_data", "validate_data_package", "generate_narrative", "validate_output"):
+    for node in ("resolve_context", "fetch_alm_data", "validate_data_package", "generate_narrative", "validate_output", "select_retry"):
         assert f'"node":"{node}"' in text
     assert '"node":"regenerate_narrative"' not in text
 
@@ -110,7 +110,7 @@ def test_platform_blueprint_has_copyable_nodes_and_real_api_dependency():
     response = asyncio.run(invoke())
     assert response.status_code == 200
     nodes = response.json()["nodes"]
-    assert [node["type"] for node in nodes] == ["开始", "脚本", "API", "脚本", "Prompt", "脚本", "条件选择器", "Prompt", "脚本", "结束"]
+    assert [node["type"] for node in nodes] == ["开始", "脚本", "条件选择器", "脚本", "Prompt", "脚本", "条件选择器", "脚本", "API", "脚本", "Prompt", "脚本", "条件选择器", "Prompt", "脚本", "结束"]
     assert any(node["id"] == "api" and node["readiness"] == "依赖正式 API" for node in nodes)
     assert all(node.get("configure") and node.get("sourceSection") for node in nodes)
 
@@ -136,9 +136,9 @@ def test_platform_script_examples_are_executable_against_mock_contract():
     assert package["status"] == "available"
     assert package["caliberVersion"]
     bad_answer = '{"headline":"指标为999%","sections":[{"text":"错误","citations":["currentRatio"]}],"numericRefs":[]}'
-    result = handler(ANSWER_SCRIPT)({"narrativeRaw": bad_answer, "resultPackage": package})
+    result = handler(ANSWER_SCRIPT)({"narrativeRaw": bad_answer, "resultPackage": package, "analysisMode": "attribution"})
     assert result["narrative"] is None
-    assert "UNREFERENCED_NUMBER" in result["validationErrors"]
+    assert "UNREFERENCED_NUMBER:999" in result["validationErrors"]
 
 
 def _run_with(narrator, *, allow_template_fallback=True):
@@ -173,13 +173,13 @@ class _InventingNarrator(MockNarrator):
         }
 
 
-def test_mock_mode_falls_back_to_a_revalidated_template():
-    """mock 模式：重试仍不合规 → 用确定性模板兜底，并且**重新过校验**。"""
+def test_mock_mode_uses_bank_failure_path_without_template():
+    """Mock transport does not introduce a different workflow branch."""
     result = _run_with(_BadNarrator())
     assert result["regen_count"] == 2, "重试预算仍为 1 次"
-    assert result["narrative"] is not None
-    assert result["validation_errors"] == [], "模板答案也必须通过门禁"
-    assert "MODEL_OUTPUT_INVALID_USED_TEMPLATE" in result["degrade_flags"]
+    assert result["narrative"] is None
+    assert result["validation_errors"]
+    assert "LIVE_MODEL_OUTPUT_INVALID" in result["degrade_flags"]
 
 
 def test_live_mode_never_substitutes_a_template():
@@ -190,12 +190,12 @@ def test_live_mode_never_substitutes_a_template():
     assert "MODEL_OUTPUT_INVALID_USED_TEMPLATE" not in result["degrade_flags"]
 
 
-def test_template_fallback_never_leaks_the_bad_answer():
-    """兜底不能把被拒的文案带出去——999 这个数字必须消失。"""
+def test_rejected_answer_never_leaks_to_narrative():
+    """Rejected text is not returned as the narrative."""
     result = _run_with(_InventingNarrator())
-    assert result["narrative"] is not None
+    assert result["narrative"] is None
     assert "999" not in json.dumps(result["narrative"], ensure_ascii=False)
-    assert "MODEL_OUTPUT_INVALID_USED_TEMPLATE" in result["degrade_flags"]
+    assert "LIVE_MODEL_OUTPUT_INVALID" in result["degrade_flags"]
 
 
 def test_unreferenced_number_gate_fires_before_fallback():
@@ -241,13 +241,13 @@ def test_unset_alm_ai_mode_is_live(monkeypatch):
     assert _is_live() is True
 
 
-def test_server_enables_template_fallback_in_mock_mode(monkeypatch):
+def test_server_uses_bank_failure_path_in_mock_mode(monkeypatch):
     monkeypatch.setenv("ALM_AI_MODE", "mock")
     body = call("/v1/workflows/run", request("现在重定价缺口率是多少？", demoFault="invalid_answer")).json()
 
     assert body["modelMode"] == "mock"
-    assert body["narrative"] is not None
-    assert "MODEL_OUTPUT_INVALID_USED_TEMPLATE" in body["degradeFlags"]
+    assert body["narrative"] is None
+    assert "LIVE_MODEL_OUTPUT_INVALID" in body["degradeFlags"]
 
 
 def test_date_and_tenor_labels_are_not_measurements():

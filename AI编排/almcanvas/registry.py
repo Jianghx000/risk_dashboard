@@ -105,6 +105,8 @@ def _validate(spec: dict[str, Any], key: str) -> None:
         for variable in node["inputs"]:
             for reference in re.findall(r"\$\{([^}]+)\}", str(variable.get("source", ""))):
                 root = reference.split(".")[0]
+                if root == "chatHistory":
+                    continue
                 if node["inlineType"] == "开始" and root == "systemInput":
                     continue
                 if root not in producers:

@@ -213,7 +213,7 @@ def check_start_system_input_traceable(blueprint: dict[str, Any]) -> list[str]:
         for row in (node.get("outputs") or [])
         if isinstance(row, dict) and row.get("name")
     }
-    allowed = node_ids | output_names | {"systemInput"}
+    allowed = node_ids | output_names | {"systemInput", "chatHistory"}
     for node in nodes:
         for source in node.get("inputSources") or []:
             if not source:

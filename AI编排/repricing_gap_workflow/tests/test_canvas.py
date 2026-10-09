@@ -67,8 +67,9 @@ def test_canvas_spec_matches_compiled_langgraph():
     spec_edges = {(edge["source"], edge["target"], edge["conditional"], edge["route"]) for edge in spec["runtime"]["compiledEdges"]}
     compiled_edges = {(edge["source"], edge["target"], edge["conditional"], edge["route"]) for edge in compiled["edges"]}
     assert spec_edges == compiled_edges
-    assert ("validate_output", "regenerate_narrative") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
-    assert ("validate_output", "__end__") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
+    assert ("validate_output", "select_retry") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
+    assert ("select_retry", "regenerate_narrative") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
+    assert ("select_retry", "__end__") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
     assert ("regenerate_narrative", "validate_retry") in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
     assert ("validate_output", "generate_narrative") not in {(edge["source"], edge["target"]) for edge in spec["runtime"]["compiledEdges"]}
     assert all(node["inCompiledGraph"] for node in spec["runtime"]["nodes"])
@@ -80,11 +81,13 @@ def test_canvas_spec_does_not_invent_mode_api_branches():
     assert runtime_targets.count("fetch_alm_data") == 1
     assert not any(edge["target"].startswith("fetch_") and edge["target"] != "fetch_alm_data" for edge in spec["runtime"]["compiledEdges"])
     assert {node["id"] for node in spec["platform"]["nodes"]} == {
-        "start", "context", "api", "package", "prompt", "answer", "retry_gate", "regenerate", "retry_check", "end"
+        "start", "context", "intent_gate", "direct", "intent_prompt", "intent_check", "data_gate", "local", "api", "package", "prompt", "answer", "retry_gate", "regenerate", "retry_check", "end"
     }
     assert [edge["source"] + "->" + edge["target"] for edge in spec["platform"]["edges"]] == [
         "start->context",
-        "context->api",
+        "data_gate->api",
+        "data_gate->local",
+        "local->package",
         "api->package",
         "package->prompt",
         "prompt->answer",
@@ -93,6 +96,12 @@ def test_canvas_spec_does_not_invent_mode_api_branches():
         "retry_gate->regenerate",
         "regenerate->retry_check",
         "retry_check->end",
+        "context->intent_gate",
+        "intent_gate->intent_prompt",
+        "intent_gate->direct",
+        "intent_prompt->intent_check",
+        "intent_check->data_gate",
+        "direct->data_gate",
     ]
 
 
@@ -103,7 +112,7 @@ def test_mapping_covers_every_runtime_and_platform_node():
     assert mapped_runtime == {node["id"] for node in spec["runtime"]["nodes"]}
     assert mapped_platform == {node["id"] for node in spec["platform"]["nodes"]}
     context = next(row for row in spec["mapping"] if row["platformId"] == "context")
-    assert context["runtimeIds"] == ["resolve_context", "classify_question"]
+    assert context["runtimeIds"] == ["resolve_context"]
     assert any("无回边" in item for item in spec["differences"])
     assert any("无缝导入" in item for item in spec["differences"])
     assert all(note["compiled"] is False for note in spec["runtime"]["annotations"])
@@ -127,27 +136,24 @@ def test_normal_stream_path_reaches_end():
     text = response.text.replace(" ", "")
     assert '"type":"DONE"' in text
     assert '"node":"validate_output"' in text
-    assert '"label":"生成解释"' in text
+    assert '"label":"生成指标解释"' in text
     assert '"label":"修正解释"' not in text
     assert '"path"' in text
 
 
-def test_invalid_answer_retries_then_uses_marked_template():
-    """mock 模式：坏答案 → 重试一次 → 仍不合规则用**已标记的**模板兜底。
-
-    注意这里断言的不再是 NARRATIVE_VALIDATION_FAILED——那是 live 模式的标记。
-    mock 模式允许模板兜底，但必须带 MODEL_OUTPUT_INVALID_USED_TEMPLATE 说明来源。
-    """
+def test_invalid_answer_retries_then_returns_empty():
+    """Same bank-defined failure path in mock and live; no hidden template."""
     response = post(
         "/v1/workflows/stream",
         {"inputs": {"scope": SCOPE, "question": "现在重定价缺口率是多少？", "demoFault": "invalid_answer"}},
     )
     assert response.status_code == 200
     text = response.text.replace(" ", "")
-    assert '"label":"生成解释"' in text
-    assert '"label":"修正解释"' in text
+    assert '"label":"生成指标解释"' in text
+    assert '"label":"修正指标解释"' in text
     assert '"retrying":true' in text
-    assert "MODEL_OUTPUT_INVALID_USED_TEMPLATE" in text
+    assert "LIVE_MODEL_OUTPUT_INVALID" in text
+    assert '"narrative":null' in text
     assert '"type":"DONE"' in text
 
 
@@ -160,7 +166,8 @@ def test_followup_stream_reuses_same_graph_and_session_business():
     text = response.text.replace(" ", "")
     assert '"followup":true' in text
     assert '"lastBusinessType":"自营贷款"' in text
-    assert '"label":"识别问题"' in text
+    assert '"label":"校验范围与整理指代"' in text
+    assert '"label":"识别追问的分析类型"' in text
     assert '"type":"DONE"' in text
     assert "business" in response.text
 

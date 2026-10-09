@@ -68,16 +68,16 @@ test.describe("repricing gap workflow canvas", () => {
     await page.goto(`${BASE}/workflow`);
     await expect(page.getByRole("heading", { name: "行内复刻图" })).toBeVisible();
     await expect(page.getByRole("button", { name: "实际执行图" })).toHaveCount(0);
-    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(10);
+    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(16);
     await expect(page.locator("#platformBoard").getByText("追问再触发")).toBeVisible();
     await expect(page.locator('#platformBoard [data-node="start"]')).toContainText("追问入口");
     await assertNoOverlap(page);
     await page.locator('#platformBoard [data-node="start"]').click();
-    await expect(page.getByRole("heading", { name: "职责" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "这个节点做什么" })).toBeVisible();
     await expect(page.getByText("按顺序添加节点")).toHaveCount(0);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(10);
+    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(16);
     await assertNoOverlap(page);
   });
 
@@ -85,7 +85,7 @@ test.describe("repricing gap workflow canvas", () => {
     // 1680 是常见笔记本宽度；画板约 1616px，任何一栏展开都装不下。
     await page.setViewportSize({ width: 1680, height: 1050 });
     await page.goto(`${BASE}/workflow`);
-    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(10);
+    await expect(page.locator("#platformBoard .graph-node")).toHaveCount(16);
 
     // 默认两栏都折叠 → 整张图完整可见，无需滚动
     expect(await isVisible(page, ".left")).toBe(false);
@@ -95,7 +95,7 @@ test.describe("repricing gap workflow canvas", () => {
 
     // 点节点自动展开详情栏，"点一下没反应"是不合格的
     await page.locator('#platformBoard [data-node="prompt"]').click();
-    await expect(page.getByRole("heading", { name: "职责" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "这个节点做什么" })).toBeVisible();
     expect(await isVisible(page, ".right")).toBe(true);
 
     // 展开详情栏后画布变窄，允许横向滚动，但右边缘必须滚得到（不能被裁掉）
@@ -103,7 +103,7 @@ test.describe("repricing gap workflow canvas", () => {
 
     // 折叠状态跨刷新保持
     await page.reload();
-    await expect(page.getByRole("heading", { name: "职责" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "这个节点做什么" })).toBeVisible();
     expect(await isVisible(page, ".right")).toBe(true);
     expect(await isVisible(page, ".left")).toBe(false); // 左栏从未打开，仍是收起的
 

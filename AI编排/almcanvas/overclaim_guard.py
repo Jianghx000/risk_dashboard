@@ -122,6 +122,8 @@ def _overview_causality_without_attribution(ctx: GuardContext) -> bool:
     """概览模式没有归因依据，不该出现因果表述。"""
     if ctx.mode != "overview":
         return False
+    if (ctx.result.get("attribution") or {}).get("factors"):
+        return False
     return _contains_any(ctx.narrative, ("资产端", "负债端", "主要受"))
 
 
@@ -177,7 +179,10 @@ def _business_scale_mislabeled(ctx: GuardContext) -> bool:
     for claim in SCALE_MISLABELS:
         for match in re.finditer(re.escape(claim), ctx.narrative):
             window = ctx.narrative[max(0, match.start() - 4):match.start()]
-            if not any(word in window for word in SCALE_NEGATIONS):
+            prefix = ctx.narrative[max(0, match.start() - 40):match.start()]
+            enumerated_negation = re.search(
+                r"(?:不是|并非|不等于)(?:(?:贷款余额|发放额|资产占比)[或和、])+$", prefix)
+            if not any(word in window for word in SCALE_NEGATIONS) and not enumerated_negation:
                 return True
     return False
 

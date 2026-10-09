@@ -70,6 +70,7 @@ def canvas_spec(key=None):
                 "source": alias(edge["from"]), "target": alias(edge["to"]),
                 "conditional": edge["kind"] == "conditional", "route": edge.get("label"),
                 "label": edge.get("label", ""), "kind": "flow",
+                "laneOffset": edge.get("laneOffset", 0),
             } for edge in edges],
             "sessionReentry": {"source": "end", "target": "start", "label": "追问再触发",
                                "y": height - 28, "compiled": False}

@@ -188,7 +188,7 @@
     function nodeById(id) {
       return spec.platform.nodes.find(item => item.id === id);
     }
-    function edgePath(from, to) {
+    function edgePath(from, to, laneOffset = 0) {
       const fromRight = {x: from.x + from.width, y: from.y + from.height / 2};
       const fromBottom = {x: from.x + from.width / 2, y: from.y + from.height};
       const toLeft = {x: to.x, y: to.y + to.height / 2};
@@ -196,10 +196,14 @@
       const toBottom = {x: to.x + to.width / 2, y: to.y + to.height};
       const sameRow = Math.abs(from.y - to.y) < 24;
       if (sameRow && to.x >= from.x + from.width - 8) {
+        if (laneOffset) {
+          const laneY = fromRight.y + laneOffset;
+          return `M ${fromRight.x} ${fromRight.y} L ${fromRight.x + 12} ${fromRight.y} L ${fromRight.x + 12} ${laneY} L ${toLeft.x - 12} ${laneY} L ${toLeft.x - 12} ${toLeft.y} L ${toLeft.x} ${toLeft.y}`;
+        }
         return `M ${fromRight.x} ${fromRight.y} L ${toLeft.x} ${toLeft.y}`;
       }
       if (to.y > from.y + from.height / 2) {
-        const midY = (fromBottom.y + toTop.y) / 2;
+        const midY = (fromBottom.y + toTop.y) / 2 + laneOffset;
         return `M ${fromBottom.x} ${fromBottom.y} L ${fromBottom.x} ${midY} L ${toTop.x} ${midY} L ${toTop.x} ${toTop.y}`;
       }
       return `M ${fromRight.x} ${fromRight.y} L ${toBottom.x} ${fromRight.y} L ${toBottom.x} ${toBottom.y}`;
@@ -227,7 +231,7 @@
         const from = nodeById(edge.source), to = nodeById(edge.target);
         if (!from || !to) return;
         svg.append(svgEl("path", {
-          d: edgePath(from, to),
+          d: edgePath(from, to, edge.laneOffset || 0),
           fill: "none",
           stroke: edge.kind === "retry" ? "#c9892a" : "#8aa0b3",
           "stroke-width": "1.6",
@@ -245,11 +249,13 @@
       if (reentry) {
         const from = nodeById(reentry.source), to = nodeById(reentry.target);
         if (from && to) {
-          const x1 = from.x + from.width / 2, y1 = from.y + from.height;
-          const x2 = to.x + to.width / 2, y2 = to.y + to.height;
+          const exitX = from.x + from.width, y1 = from.y + from.height / 2;
+          const x1 = exitX + 16;
+          const returnX = Math.max(8, Math.min(...graph.nodes.map(node => node.x)) - 16);
+          const x2 = to.x, y2 = to.y + to.height / 2;
           const y = reentry.y;
           svg.append(svgEl("path", {
-            d: `M ${x1} ${y1} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y2}`,
+            d: `M ${exitX} ${y1} L ${x1} ${y1} L ${x1} ${y} L ${returnX} ${y} L ${returnX} ${y2} L ${x2} ${y2}`,
             fill: "none",
             stroke: "#1d7a58",
             "stroke-width": "1.8",
@@ -326,16 +332,18 @@
       names.append(textElement("h2", node.title), textElement("small", `${node.type}节点 · 本地 ${mapped.runtimeIds.join("、")}`));
       header.append(names, textElement("span", node.readiness, "ready" + (node.readiness === "可配置" ? "" : " pending")));
       inspector.append(header);
-      addSection(inspector, "职责", textElement("p", node.purpose));
-      addSection(inspector, "与本地函数的对应", textElement("p", mapped.relation));
+      addSection(inspector, "这个节点做什么", textElement("p", node.purpose));
       // 每个节点都要像开始节点一样说清输入与输出——建站时要照着逐字段填表单。
-      if (node.inputs && node.inputs.length) addSection(inspector, "输入", ioTable(node.inputs));
-      if (node.outputs && node.outputs.length) addSection(inspector, "输出", ioTable(node.outputs));
+      if (node.inputs && node.inputs.length) addSection(inspector, "输入参数", ioTable(node.inputs));
+      if (node.outputs && node.outputs.length) addSection(inspector, "输出参数", ioTable(node.outputs));
       if (node.configure) {
         const list = document.createElement("ul");
         node.configure.forEach(item => list.append(textElement("li", item)));
         addSection(inspector, "配置要点", list);
       }
+      if (node.failureRouting) addSection(inspector, "异常处理", textElement("p", node.failureRouting));
+      if (node.inlineMigration) addSection(inspector, "行内注意事项", textElement("p", node.inlineMigration));
+      addSection(inspector, "与本地运行节点的对应", textElement("p", mapped.relation));
       if (node.code || node.prompt) {
         const wrap = document.createElement("div");
         const button = textElement("button", "复制" + (node.code ? "脚本" : "Prompt"), "copy-button");
@@ -351,8 +359,6 @@
         const settings = Object.fromEntries(Object.entries(node.config).filter(([key]) => !["code", "systemPrompt"].includes(key)));
         addSection(inspector, "配置字段", textElement("pre", JSON.stringify(settings, null, 2)));
       }
-      if (node.failureRouting) addSection(inspector, "失败走向", textElement("p", node.failureRouting));
-      if (node.inlineMigration) addSection(inspector, "迁移注意事项", textElement("p", node.inlineMigration));
       const source = document.createElement("div");
       source.append(textElement("p", node.sourceSection));
       const manual = document.createElement("a");

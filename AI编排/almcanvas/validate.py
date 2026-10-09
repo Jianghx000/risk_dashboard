@@ -17,6 +17,9 @@ def main():
     problems = [f"{rule}: {problem}" for rule, check in ENFORCED_BLUEPRINT.items() for problem in check(spec)]
     if problems:
         raise SystemExit("\n".join(problems))
+    if spec.get("meta", {}).get("executionVersion") == 1:
+        from .langgraph_runtime import validate_definition
+        validate_definition(spec)
     print(f"PASS: {spec['meta']['workflow']} ({len(spec['nodes'])} nodes)")
 
 

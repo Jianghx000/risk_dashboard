@@ -238,6 +238,16 @@ def test_explicitly_negated_scale_wording_is_accepted():
     assert "BUSINESS_REPRICING_SCALE_MISLABELED" not in codes("该值不是贷款余额。")
 
 
+@pytest.mark.parametrize("text", ["这是重定价规模，不是贷款余额或发放额变化。",
+    "该取值并非贷款余额、发放额或资产占比。"])
+def test_negated_enumeration_of_scale_terms_is_accepted(text):
+    assert "BUSINESS_REPRICING_SCALE_MISLABELED" not in codes(text)
+
+
+def test_scale_negation_does_not_cross_to_a_positive_claim():
+    assert "BUSINESS_REPRICING_SCALE_MISLABELED" in codes("不是贷款余额，发放额为330亿元。")
+
+
 # ---------------------------------------------------------------- 与 v1 校验的集成
 
 

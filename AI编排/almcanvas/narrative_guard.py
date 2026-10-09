@@ -31,7 +31,7 @@ _DATE_PATTERNS = (
     r"(?<!\d)\d{1,2}月",
 )
 _ALPHANUMERIC_ID = re.compile(r"\b[A-Za-z]+-\d+\b")
-_NUMBER = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?(?![A-Za-z0-9])")
+_NUMBER = re.compile(r"(?<![A-Za-z0-9.])[-+]?\d+(?:\.\d+)?(?=$|[^A-Za-z0-9.]|(?:pp|bp)\b)")
 # 「均超过/高于/处于 N%」里的 N 是阈值，需双边 ratio 都超过并都被引用。
 _THRESHOLD_PREFIX = re.compile(r"均(?:超|超过|高于|处于)$")
 _THRESHOLD_SUFFIX = re.compile(r"%(?:以上)?")
@@ -111,8 +111,8 @@ def find_unreferenced_numbers(
             token = match.group()
             stated = float(token)
             decimals = len(token.split(".")[1]) if "." in token else 0
-            preceding = cleaned[max(0, match.start() - 25):match.start()]
-            following = cleaned[match.end():match.end() + 18]
+            preceding = re.split(r"[。；;，,\n]", cleaned[:match.start()])[-1][-25:]
+            following = re.split(r"[。；;，,\n]", cleaned[match.end():])[0][:18]
 
             if _THRESHOLD_PREFIX.search(preceding) and _THRESHOLD_SUFFIX.match(following):
                 if _is_threshold_claim_supported(stated, following, compared_currencies, paths):

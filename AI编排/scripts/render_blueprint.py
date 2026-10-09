@@ -237,10 +237,14 @@ def _polyline(points: list[tuple[int, int]]) -> str:
     return " ".join(f"{p[0]},{p[1]}" for p in points)
 
 
-def _route(a: str, b: str, pos: dict, rows: list[list[str]], kind: str) -> list[tuple[int, int]]:
+def _route(a: str, b: str, pos: dict, rows: list[list[str]], kind: str, lane_offset: int = 0) -> list[tuple[int, int]]:
     (ax, ay), (bx, by) = pos[a], pos[b]
     a_mid, b_mid = ay + NH // 2, by + NH // 2
     if by == ay and bx > ax:  # 同行向右
+        if lane_offset:
+            yc = a_mid + lane_offset
+            return [(ax + NW, a_mid), (ax + NW + 12, a_mid), (ax + NW + 12, yc),
+                    (bx - 12, yc), (bx - 12, b_mid), (bx, b_mid)]
         if bx - ax <= NW + GX + 1 and kind != "conditional":
             return [_port(a, pos, "right"), _port(b, pos, "left")]
         if bx - ax <= NW + GX + 1:
@@ -251,7 +255,7 @@ def _route(a: str, b: str, pos: dict, rows: list[list[str]], kind: str) -> list[
         return [(ax + NW, a_mid), (ax + NW + 20, a_mid), (ax + NW + 20, yb),
                 (bx - 20, yb), (bx - 20, b_mid), (bx, b_mid)]
     if by > ay:  # 下一行
-        yc = by - GY // 2
+        yc = by - GY // 2 + lane_offset
         return [_port(a, pos, "bottom"), (ax + NW // 2, yc), (bx + NW // 2, yc), _port(b, pos, "top")]
     if bx < ax:  # 向左（back-edge 或蛇形边）：走上走廊，右侧入
         yc = ay - 26
@@ -298,7 +302,7 @@ def render_svg(spec: dict) -> str:
         a, b = edge["from"], edge["to"]
         if a not in pos or b not in pos:
             continue
-        pts = _route(a, b, pos, rows, kind)
+        pts = _route(a, b, pos, rows, kind, edge.get("laneOffset", 0))
         dashed = 'stroke-dasharray="7 5"' if kind in ("back-edge", "conditional") else ""
         color = "var(--back)" if kind == "back-edge" else "var(--muted)"
         marker = "arrow-back" if kind == "back-edge" else "arrow"
